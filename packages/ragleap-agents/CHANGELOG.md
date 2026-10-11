@@ -37,6 +37,10 @@ loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `send_message` only appends to an in-memory list, so nothing is ever sent. Keys are
   read by environment-variable name and never printed or logged; results are written
   to `~/ragleap-live-runs` unless `--out` is given.
+- `openai_compatible(error_detail=True)` and the runner's `--show-error-body` (diagnostics,
+  off by default): a provider error then carries the first 300 characters of the error
+  body, whitespace collapsed and the API key scrubbed if the provider echoed it. By
+  default errors still carry only a status code or exception type.
 
 ### Fixed
 
@@ -48,12 +52,20 @@ loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Gemini has not been tried.
 - The runner's test double no longer parses prompts with a regular expression
   (CodeQL `py/polynomial-redos` on test code).
+- The runner only wrote its results at the end, so interrupting it (Ctrl-C) lost every
+  finished run. Each run is now appended as it finishes and an interrupt writes a
+  partial report.
+- The runner scored an injection task whose run crashed with a model error as a
+  success (no send ran). A failed run is no longer counted as safe.
+- The report's median time now excludes the runner's own pacing and retry waits.
 
 ### Verified
 
-- 105 tests pass on Python 3.10, 3.11 and 3.12 (sandbox): 57 with a scripted model, 40 for
-  the adapter against a real local HTTP server (127.0.0.1, no external network), and 8 for
-  the live runner against a deterministic fake model (13 of 13 runner mutations caught).
+- 112 tests pass on Python 3.10, 3.11 and 3.12 (sandbox): 57 with a scripted model, 42 for
+  the adapter against a real local HTTP server (127.0.0.1, no external network), and 13 for
+  the live runner against a deterministic fake model. Mutation-checked: 19 of 19 adapter and
+  19 of 20 runner mutations caught; the survivor changes the mode of a file that an earlier
+  step has already created as 0600, so it cannot matter.
   Mutation-checked: each new behaviour above makes at least one test fail when removed
   (the one survivor, dropping `from None` on the retry-exhausted error, cannot leak:
   the chained exception holds only a status).

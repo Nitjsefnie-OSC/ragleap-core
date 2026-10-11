@@ -309,3 +309,24 @@ def test_the_default_user_agent_is_not_urllibs_and_can_be_overridden(srv):
 def test_a_bad_user_agent_is_refused(ua):
     with pytest.raises(ValueError):
         openai_compatible("https://example.com/v1", KEY, "m", user_agent=ua)
+
+
+# ---- error detail (diagnostics, off by default) ----
+
+def test_error_detail_is_off_by_default_on_when_asked_and_scrubs_the_key(srv):
+    body = {"error": {"message": "bad   request\n  " + KEY + " " + "x" * 400}}
+    s = srv([(400, {}, body), (400, {}, body)])
+    with pytest.raises(ProviderError) as off:
+        make(s)("p")
+    assert str(off.value) == "request failed: status 400"
+    with pytest.raises(ProviderError) as on:
+        make(s, error_detail=True)("p")
+    msg = str(on.value)
+    assert msg.startswith("request failed: status 400: ") and "bad request" in msg
+    assert KEY not in msg and "[key]" in msg and len(msg) <= len("request failed: status 400: ") + 300
+
+
+def test_error_detail_also_reaches_a_retry_exhausted_error(srv):
+    s = srv([(429, {}, {"error": "rate limit reached for tokens per day"})] * 3)
+    with pytest.raises(ProviderError, match="status 429: .*tokens per day"):
+        make(s, max_retries=2, error_detail=True)("p")
