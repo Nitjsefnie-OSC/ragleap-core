@@ -4,7 +4,7 @@
 
 # RagLeap Core
 
-**Autonomous AI Agents — Not Just RAG.**
+**Open-source AI employees that ask before they act.**
 
 [![license MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE) [![Core Release](https://img.shields.io/github/v/release/antonyrag/ragleap-core?filter=v*&label=ragleap-core&color=blue)](https://github.com/antonyrag/ragleap-core/releases) [![46 AI Employees](https://img.shields.io/badge/46-AI%20Employees-brightgreen)](https://github.com/antonyrag/ragleap-core) [![Autonomous](https://img.shields.io/badge/Autonomous-brightgreen)](https://github.com/antonyrag/ragleap-core) [![Self--Hosted](https://img.shields.io/badge/Self--Hosted-brightgreen)](https://github.com/antonyrag/ragleap-core)
 [![PyPI ragleap-rag](https://img.shields.io/pypi/v/ragleap-rag?label=ragleap-rag)](https://pypi.org/project/ragleap-rag/) [![Downloads](https://img.shields.io/pepy/dt/ragleap-rag?label=downloads)](https://pypi.org/project/ragleap-rag/)
@@ -33,6 +33,19 @@ RagLeap Core is the open-source engine behind RagLeap — a self-hosted, agentic
 - Auto-trigger workflows and escalation
 - Autonomy modes: `off` (default, the AI acts only when you start it), `semi` (you approve each action) and `full` (opt-in; sensitive roles are never fully autonomous)
 - Think-act-decide loop, not just retrieval
+- Act-observe agent loop (opt-in): the model proposes one action at a time, each action goes through the approval gate, and the result comes back as untrusted text
+- Safe tools, all opt-in: Python and shell in a network-less sandbox, read-only page fetch, an MCP client with an allowlist, task tickets and scheduled check-ins
+- **AI Office dashboard** at `/office`: approvals, employees by department, tasks, agent runs, activity, Settings and a Setup checklist
+- Can run fully local with Ollama for chat and embeddings (small models on a CPU are slower and less accurate than hosted ones), or with any of 19 provider options and your own key
+- Optional token budgets, failed-login throttling and an audit log of every action
+
+**Install in one command** (needs Docker; the script asks which AI to use and never changes an existing `.env`):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/antonyrag/ragleap-core/main/install.sh | bash
+```
+
+Prefer to read it first? See [install.sh](install.sh). For a fully local setup with no API key, use `bash -s -- --ollama` at the end of that command.
 
 [Quickstart](#quickstart) · [Docs](https://docs.ragleap.com) · [Website](https://ragleap.com) · [Packages](https://packages.ragleap.com/)
 
@@ -107,7 +120,7 @@ Or run the full self-hosted app (channels, web chat UI, Docker Compose) — see 
 
 Most open-source RAG projects give you a toolkit — you still have to build the app, wire up a UI, add memory, and connect every channel yourself. RagLeap Core gives you one AI across WhatsApp, Telegram, Discord, and voice calls, instead of a different disconnected bot per channel. Memory persists across sessions and channels, so it isn't relearning who a customer is every time. Voice is a real, working inbound-call handler (Twilio Media Streams, Whisper STT, OpenAI TTS) — not just document Q&A with a phone number bolted on — and n8n workflow automation can be triggered directly from any conversation.
 
-What this repo doesn't include: a multi-tenant admin dashboard (settings, analytics, team, billing) and an executive-assistant layer (Manager AI). RagLeap Core itself is single-tenant, self-hosted, and configured via `.env`.
+What this repo doesn't include: a multi-tenant admin dashboard (settings, analytics, team, billing) and an executive-assistant layer (Manager AI). It does ship a single-tenant dashboard, the AI Office at `/office` (approvals, employees by department, tasks, agent runs, activity, Settings and a Setup checklist). RagLeap Core itself is single-tenant, self-hosted, and configured via `.env`.
 
 ## What makes RagLeap Core specifically different
 
@@ -157,7 +170,7 @@ WhatsApp, Telegram, and Discord bots are included in this repo too — single-te
 | 🔍 **RAG retrieval** | Vector search over your documents via pgvector |
 | 💬 **Chat with citations** | Answers reference the source document, not a black box |
 | 🔌 **Bring your own AI key** | OpenAI, Gemini, Anthropic, or any OpenAI-compatible endpoint |
-| 🌐 **Web chat widget** | Embed a chat widget on any website |
+| 🌐 **Web chat widget (planned)** | Not built yet: an embeddable widget for customer websites is on the [Roadmap](#roadmap) |
 | 🐳 **Docker-based setup** | One-command local deployment |
 | 🕸️ **Knowledge Graph (Neo4j)** | Entity extraction and graph-boosted retrieval alongside vector search |
 | 🌍 **Language detection** | Auto-detects document and query language, applied across every channel |
@@ -167,6 +180,13 @@ WhatsApp, Telegram, and Discord bots are included in this repo too — single-te
 | 🔁 **Provider fallback** | Automatically retries with a backup LLM provider if the primary fails |
 | 💰 **Token usage reporting** | Real per-call token counts from the provider, plus context-size budget trimming |
 | 🧑‍💼 **AI Employees** | Role-based agents (46 default roles) with persistent business-context memory, wired into `/chat` via `role=<role>` |
+| 🖥️ **AI Office dashboard** | Approvals inbox, employees by department, tasks, agent runs, activity, Settings (keys are encrypted and write-only) and a Setup checklist at `/office` |
+| 🛡️ **Approval-gated autonomy** | `off`, `semi` and `full` modes; sensitive roles always need approval; after the agent reads web or MCP content, outgoing actions need your approval even in `full` mode; every action is logged |
+| 🔁 **Act-observe agent loop** | Opt-in: propose an action, approve it, observe the result, continue (up to 4 steps by default) |
+| 🧰 **Sandboxed tools (opt-in)** | Python and shell in a network-less container, read-only page fetch with SSRF protection, MCP client with an allowlist, task tickets |
+| ⏰ **Scheduled check-ins** | Proactive triggers every N minutes or by cron with a time zone |
+| 💸 **Budgets and limits** | Optional daily and monthly token caps (global or per role) and failed-login throttling |
+| 🦙 **Local mode** | Chat and embeddings through Ollama; `ragleap launch --ollama` |
 | 🛠️ **Build your own AI Employee** | Define a fully custom role (any name, personality, channels, skill tags) via `PATCH /employees/{role}` - no fork, no code change. Verified live: create, retrieve, and list a new role end-to-end. |
 | 🔗 **n8n workflow automation** | Fire a webhook after the AI replies on WhatsApp/Telegram/Discord — no-code automations triggered directly from a conversation |
 ## Architecture
@@ -235,8 +255,14 @@ ragleap-core/
 ├── db/
 │   └── schema.sql         # documents + chunks tables, pgvector index
 ├── examples/              # Runnable example scripts
+├── sandbox/               # Locked-down code and shell runner (opt-in)
+├── scripts/               # The `ragleap` command
+├── skills/ragleap/        # Read-only skill for coding agents
+├── .codex-plugin/         # Plugin manifest for that skill
+├── packages/              # Standalone pip packages (ragleap-rag, -graph, -tools, ...)
+├── java/                  # Java port of ragleap-rag
 ├── .github/workflows/     # CI: compile check, Docker build, smoke tests
-├── docker-compose.yml     # app + db + voice services
+├── docker-compose.yml     # app + db + voice, plus optional neo4j, redis, worker, sandbox and ollama profiles
 └── Dockerfile
 ```
 
@@ -502,9 +528,7 @@ flowchart TD
 **Verified live**, read from `api/addon_realtime.py`'s `RealTimeExternalDataService`. Two things worth being direct about: `match_and_execute_action` genuinely supports write queries (`UPDATE`/`INSERT`/`DELETE`), not just read-only lookups — owner-configured, so the safety boundary is whatever SQL the owner writes into the template, not something the framework restricts on its own. And until 2026-08, this action-matching step only ran on chat channels; voice calls had no equivalent, which is the gap closed in the Voice Channel Routing diagram above.
 
 RagLeap Core connects to external databases and business tools, syncing
-per-user context to personalize RAG responses. Nine connectors are
-included: MySQL, PostgreSQL, MongoDB, generic REST APIs, Salesforce,
-HubSpot, Shopify, Google Sheets, and Stripe.
+per-user context to personalize RAG responses. Nine connectors are included: MySQL, PostgreSQL, MongoDB, generic REST APIs, Salesforce, HubSpot, Shopify, Google Sheets, and Stripe. Newer connector code for CSV upload, Airtable, BigQuery, Snowflake, WooCommerce, Notion, Slack, Gmail and Razorpay is also in the repo; treat those as experimental until you have verified them against your own account (tracked in #27).
 
 Every CRM/SaaS connector uses credentials you provide directly — a
 username/password, a private-app token, an admin API token, a
@@ -606,12 +630,20 @@ same live API.
 - [x] Core RAG engine extracted and cleaned from production codebase
 - [x] Standalone Docker Compose setup (no external Django project dependency)
 - [x] Document ingestion module (28+ formats, not just PDF/TXT/DOCX)
-- [x] Web chat widget
+- [ ] Embeddable web chat widget (planned; not built yet)
 - [x] Bring-your-own-API-key support (19 providers)
 - [x] WhatsApp, Telegram, Discord, and Voice channel adapters (single-tenant)
 - [x] Knowledge Graph (Neo4j), language detection, database/CRM integrations
 - [x] Contribution guide and good-first-issue labels — 8+ issues labeled, with a real external contributor active on #134
 - [x] Community Discord
+- [x] AI Office dashboard with settings and a setup checklist (v0.9.0)
+- [x] Approval-gated agent loop, sandboxed tools, MCP client and scheduled check-ins
+- [x] One-command installer and `ragleap` command, local Ollama mode (not yet tested on a clean machine)
+- [x] Failed-login throttling and optional token budgets
+- [ ] Prebuilt Docker images (GHCR) for a faster install
+- [ ] Triggers and autonomy controls in the dashboard
+- [ ] Slack and email inbound, SMS, and the web widget (these need a public HTTPS address)
+- [ ] Live verification of more LLM providers (see #10)
 
 See [ROADMAP.md](ROADMAP.md) for the full phase-by-phase history.
 
