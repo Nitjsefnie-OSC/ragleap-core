@@ -1,0 +1,62 @@
+# Model manifest. One [[model]] per downloadable artifact.
+# Rules (enforced by tests/test_licences.py):
+#  - default = true requires status = "verified", a pinned revision, a 64-hex sha256,
+#    and code_license / weights_license both on the allowlist.
+#  - Everything below is a LEAD from the 2026-10-10 research, NOT verified.
+#    Do not set status = "verified" until licence, languages and hash are checked at the source.
+
+[[model]]
+name = "whisper-large-v3"
+kind = "stt"
+source_url = "https://huggingface.co/openai/whisper-large-v3"
+revision = ""
+sha256 = ""
+code_license = "MIT"
+weights_license = "MIT"
+languages = []
+capabilities = ["streaming:unknown"]
+min_hardware = "unknown"
+status = "unverified"
+default = false
+
+[[model]]
+name = "kokoro-82m"
+kind = "tts"
+source_url = "https://huggingface.co/hexgrad/Kokoro-82M"
+revision = ""
+sha256 = ""
+code_license = "Apache-2.0"
+weights_license = "Apache-2.0"
+languages = []
+capabilities = []
+min_hardware = "unknown"
+status = "unverified"
+default = false
+
+[[model]]
+name = "indic-parler-tts"
+kind = "tts"
+source_url = "https://huggingface.co/ai4bharat/indic-parler-tts"
+revision = ""
+sha256 = ""
+code_license = "Apache-2.0"
+weights_license = "Apache-2.0"
+languages = []
+capabilities = ["emotion"]
+min_hardware = "unknown"
+status = "unverified"
+default = false
+
+[[model]]
+name = "chatterbox"
+kind = "tts"
+source_url = "https://huggingface.co/ResembleAI/chatterbox"
+revision = ""
+sha256 = ""
+code_license = "MIT"
+weights_license = "MIT"
+languages = []
+capabilities = ["clone", "emotion"]
+min_hardware = "unknown"
+status = "unverified"
+default = false
