@@ -138,6 +138,10 @@ services:
     profiles: ["ollama"]
     image: ollama/ollama:latest
     restart: unless-stopped
+    environment:
+      # Ollama's default context window is 4096 tokens and it silently cuts off longer prompts.
+      # RagLeap's document prompts can be longer, so the bundled service defaults to 8192.
+      OLLAMA_CONTEXT_LENGTH: ${OLLAMA_CONTEXT_LENGTH:-8192}
     volumes:
       - ragleap_core_ollama:/root/.ollama
 

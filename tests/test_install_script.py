@@ -168,3 +168,11 @@ def test_installer_installs_the_ragleap_command(tmp_path):
     body = shim.read_text()
     assert str(proj) in body and "scripts/ragleap" in body
     assert "PATH" in r.stdout
+
+
+def test_bundled_ollama_has_a_context_window_that_fits_rag_prompts():
+    text = (ROOT / "docker-compose.yml").read_text()
+    block = text.split("  ollama:\n")[1].split("\n\n")[0]
+    assert "OLLAMA_CONTEXT_LENGTH: ${OLLAMA_CONTEXT_LENGTH:-8192}" in block
+    assert "ports" not in block
+    assert "OLLAMA_CONTEXT_LENGTH" in (ROOT / ".env.example").read_text()
