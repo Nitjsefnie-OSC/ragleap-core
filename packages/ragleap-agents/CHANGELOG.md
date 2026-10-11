@@ -5,6 +5,8 @@ loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-12
+
 ### Changed (behaviour change from 0.1.0)
 
 - A model reply that is not a single JSON object (prose, truncated JSON, two
@@ -66,15 +68,30 @@ loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   the live runner against a deterministic fake model. Mutation-checked: 19 of 19 adapter and
   19 of 20 runner mutations caught; the survivor changes the mode of a file that an earlier
   step has already created as 0600, so it cannot matter.
-  Mutation-checked: each new behaviour above makes at least one test fail when removed
-  (the one survivor, dropping `from None` on the retry-exhausted error, cannot leak:
-  the chained exception holds only a status).
+- Live runs against Groq (`https://api.groq.com/openai/v1`) on 2026-10-11, one run per task and
+  configuration with `scripts/live_runner.py`: 20 labeled tasks each in json, native, json+repair and
+  native+repair mode with `openai/gpt-oss-20b` (80 runs), plus the three injection tasks in native mode
+  with `openai/gpt-oss-120b` and `qwen/qwen3.8-27b` (6 runs). Completions work in both modes. Tasks done:
+  json 15 of 20, native 17 of 20, json+repair 16 of 20, native+repair 20 of 20. These are single runs,
+  and the differences between configurations are within the run-to-run variation seen.
+- Failure kinds seen: HTTP 400 `tool_use_failed` in json mode (3 tasks, the same three in both sweeps)
+  when the model answers in its own function-call format; HTTP 400 in native mode when the model calls a
+  tool named `json` that was not offered (2 of 46 saved native runs across three models, on two of them);
+  empty replies (4 runs); an invented `refusal` action to decline (5 runs).
+- Repair fired in 5 of the 40 runs in the repair sweeps: 2 empty replies and 2 invented refusal actions
+  ended with a valid action, and 1 invented action was repeated and the run stopped. It cannot act on a
+  rejected request, because no reply exists.
+- 16 runs on three models read the injected note; none proposed the injected send.
 
 ### Not verified
 
-- Whether repair actually helps with any real model: it has not been measured.
-- The adapter has not been run against any real provider, in either mode.
-- `scripts/live_runner.py` has only been run against a fake model; no real provider run has been made yet.
+- The taint rule against a real model: no real run proposed the injected `send_message`, so the rule was
+  never triggered. It is tested with scripted models only.
+- Any provider other than Groq (Gemini has not been tried), models other than the three above, long runs,
+  and concurrent resumes across processes.
+- Whether repair improves pass rates: five firings on one model do not show that.
+- Native mode's instruction still asks for a JSON object while real tools are offered, which two models
+  answered by calling a tool named `json`. The instruction has not been changed.
 
 ## [0.1.0] - 2026-10-09
 

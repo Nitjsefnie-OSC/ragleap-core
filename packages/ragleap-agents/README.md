@@ -3,7 +3,7 @@
 A small agent loop over [`ragleap-tools`](https://pypi.org/project/ragleap-tools/)
 `Tool` objects. The model proposes **one action at a time**, sees the result,
 and proposes the next, up to a hard step cap. You bring the model as a plain
-callable; the library has no provider code and no database.
+callable, or use the included adapter for OpenAI-compatible chat APIs; there is no database.
 
 ```bash
 pip install ragleap-agents
@@ -29,6 +29,51 @@ print(result.status, result.answer)   # done, a short summary of what was found
 for step in result.steps:             # the transcript: tool, arguments, status, observation
     print(step["tool"], step["arguments"], step["status"])
 ```
+
+## Using a real model
+
+`openai_compatible` returns the `llm(prompt) -> str` callable for any provider that speaks
+the OpenAI chat-completions API. Standard library only. You pass the key in; it is never
+read from the environment and never printed.
+
+```python
+from ragleap_agents import Agent, Policy, TRUSTED, openai_compatible
+
+tools = [CALCULATOR_TOOL]
+llm = openai_compatible(
+    "https://api.groq.com/openai/v1", api_key, "openai/gpt-oss-20b",
+    mode="native", tools=tools,   # or mode="json": the model replies with the JSON action as text
+)
+agent = Agent(llm, tools, Policy(tools={"calculator": TRUSTED}))
+```
+
+- https is required (`allow_insecure_http=True` is for local testing), redirects are refused,
+  responses are size-capped, and 408/429/5xx and network errors are retried with backoff
+  (at most 5 retries, `Retry-After` honoured up to 30 s).
+- Errors are `ProviderError` and carry only a status code or an exception type, never a
+  response body, URL or key. `error_detail=True` adds the first 300 characters of the error
+  body (key scrubbed) to diagnose a provider; it is off by default.
+- The base URL is yours to set. There is no address check, so do not build it from untrusted input.
+- In `native` mode the first tool call becomes the JSON action, and a reply with no tool call
+  becomes an explicit `done`. `Agent` still validates, taints and gates every proposal.
+- `Policy(repair_attempts=1)` asks the model once more after an unusable reply, with a short
+  note that never repeats the bad reply. It is off by default, and a repaired proposal goes
+  through the same checks.
+
+**What was observed with a real model** (Groq, `openai/gpt-oss-20b`, 2026-10-11; one run of 20
+labeled tasks per configuration with `scripts/live_runner.py`; one model on one provider,
+not a benchmark):
+
+- JSON mode: the provider rejected the request with HTTP 400 `tool_use_failed` on 3 of 20 tasks
+  (the same three in both sweeps) when the model answered in its own function-call format.
+  Prefer `mode="native"` with models that have one.
+- Native mode: 2 of 46 saved native runs (three models) failed with HTTP 400 because the model
+  called a tool named `json` that was not offered.
+- Models sometimes returned an empty reply, or invented an action name (`refusal`) to decline.
+  With repair on, 4 of the 5 runs where it fired ended with a valid action. Repair cannot help
+  when the provider rejects the request, because no reply exists.
+- No run on three models ever proposed the injected `send_message`, so the taint rule has **not**
+  been triggered by a real model. It is tested with scripted models.
 
 ## Approval gates: pause and resume
 
@@ -77,13 +122,17 @@ through them. Approval prompts are only as good as the human reading them.
 
 ## Status
 
-v0.1.0, alpha. 41 tests with a scripted model on Python 3.10, 3.11 and 3.12 (see
-`tests/`); each safety property above has a test that fails if the property is broken.
+v0.2.0, alpha. 112 tests on Python 3.10, 3.11 and 3.12 (see `tests/`), most with a scripted
+model or a local fake server; each safety property above has a test that fails if the property
+is broken.
 
-**Not verified:** any real model (no provider has been run through this loop yet),
-long runs, concurrent resumes across processes (your store must make resume atomic),
-and equivalence with RagLeap Core's own agent loop, which this mirrors as of core
-commit `59fd555` (see `docs/design/agent-loop.md`).
+**Behaviour change from 0.1.0:** a model reply that is not a single JSON object now stops the run
+(`stop_reason="unparseable_reply"`) instead of reporting `done`. See the CHANGELOG.
+
+**Not verified:** the taint rule against a real model (none ever tried the injected action), any
+provider other than Groq (Gemini has not been tried), long runs, concurrent resumes across
+processes (your store must make resume atomic), and equivalence with RagLeap Core's own agent
+loop, which this mirrors as of core commit `59fd555` (see `docs/design/agent-loop.md`).
 
 ## License
 
