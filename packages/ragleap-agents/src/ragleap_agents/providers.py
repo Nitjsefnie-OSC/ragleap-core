@@ -36,9 +36,18 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 class _Retry(Exception):
-    def __init__(self, what: str, retry_after: Optional[str] = None):
+    def __init__(self, what: str, retry_after: Optional[str] = None, detail: str = ""):
         super().__init__(what)
-        self.what, self.retry_after = what, retry_after
+        self.what, self.retry_after, self.detail = what, retry_after, detail
+
+
+def _snippet(resp, key: str) -> str:
+    """Start of an error body for diagnostics: the key scrubbed, whitespace collapsed, 300 characters."""
+    try:
+        text = resp.read(2000).decode("utf-8", "replace")
+    except (OSError, http.client.HTTPException):
+        return ""
+    return " ".join(text.replace(key, "[key]").split())[:300]
 
 
 def openai_compatible(
@@ -55,6 +64,7 @@ def openai_compatible(
     max_response_bytes: int = 1_000_000,
     allow_insecure_http: bool = False,
     user_agent: Optional[str] = None,
+    error_detail: bool = False,
     sleep: Callable[[float], None] = time.sleep,
 ) -> Callable[[str], str]:
     """Return llm(prompt) -> str for Agent, over POST {base_url}/chat/completions.
@@ -94,10 +104,11 @@ def openai_compatible(
         except urllib.error.HTTPError as e:
             ra = e.headers.get("Retry-After") if e.headers else None
             code = e.code
+            detail = _snippet(e, api_key) if error_detail else ""
             e.close()
             if code in _RETRY_STATUS:
-                raise _Retry("status %d" % code, ra) from None
-            raise ProviderError("request failed: status %d" % code) from None
+                raise _Retry("status %d" % code, ra, detail) from None
+            raise ProviderError("request failed: status %d%s" % (code, ": " + detail if detail else "")) from None
         except (OSError, http.client.HTTPException) as e:
             raise _Retry(type(e).__name__) from None
         if len(raw) > max_response_bytes:
@@ -129,7 +140,7 @@ def openai_compatible(
                 break
             except _Retry as r:
                 if attempt >= retries:
-                    raise ProviderError("request failed: " + r.what) from None
+                    raise ProviderError("request failed: " + r.what + (": " + r.detail if r.detail else "")) from None
                 sleep(delay(attempt, r.retry_after))
         return _reply(data, use_tools)
 
