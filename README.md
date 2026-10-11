@@ -114,7 +114,7 @@ pip install ragleap-observability
 uv add ragleap-observability
 ```
 
-Or run the full self-hosted app (channels, web chat UI, Docker Compose) — see [Quickstart](#quickstart) below. Browse every package at [packages.ragleap.com](https://packages.ragleap.com). Try it hands-on with the runnable scripts in [examples/](examples/) — `01_ingest_and_query.py` (upload a document, ask a question via the API) and `02_test_channel_directly.py` (test channel answering logic without real bot credentials).
+Or run the full self-hosted app (channels, the AI Office dashboard, Docker Compose) — see [Quickstart](#quickstart) below. Browse every package at [packages.ragleap.com](https://packages.ragleap.com). Try it hands-on with the runnable scripts in [examples/](examples/) — `01_ingest_and_query.py` (upload a document, ask a question via the API) and `02_test_channel_directly.py` (test channel answering logic without real bot credentials).
 
 ## If a RAG chatbot answers questions, RagLeap runs your business
 
@@ -196,7 +196,7 @@ How RagLeap Core is put together:
 ```mermaid
 flowchart TD
     subgraph Core["RagLeap Core — this repo (open)"]
-        WebUI["Web Chat UI"] --> ChatAPI["Chat API"]
+        WebUI["Your app or REST client"] --> ChatAPI["Chat API"]
         ChatAPI --> WA["WhatsApp"]
         ChatAPI --> TG["Telegram"]
         ChatAPI --> DC["Discord"]
@@ -300,7 +300,7 @@ Requirements: Docker, Docker Compose, and either a Gemini API key (the default) 
 
 ## Just want the RAG engine as a Python library?
 
-If you don't need the full Docker app — WhatsApp/Telegram/Discord/Voice adapters, the web chat UI, all of it — the core retrieval engine is also published as standalone, pip-installable Python packages:
+If you don't need the full Docker app — WhatsApp/Telegram/Discord/Voice adapters, the AI Office dashboard, all of it — the core retrieval engine is also published as standalone, pip-installable Python packages:
 
 ```bash
 pip install ragleap-rag
