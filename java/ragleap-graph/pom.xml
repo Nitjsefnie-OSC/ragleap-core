@@ -11,10 +11,17 @@
 
     <name>ragleap-graph (Java port)</name>
     <description>
-        Java port of ragleap-graph: knowledge-graph-augmented retrieval for RAG.
-        Early work in progress: entity-name normalization, regex entity
-        extraction, composite-key hashing and the Neo4j write path (upsert, document
-        lookups) over the HTTP Query API so far. Work in progress.
+        Java port of ragleap-graph: knowledge-graph-augmented retrieval for RAG, talking to
+        Neo4j over its HTTP Query API (no Neo4j driver dependency; tested only against
+        Neo4j 5.26 Community, single server only). Early release: deterministic regex
+        entity extraction, document indexing (upsertDocument) with per-document weights
+        and co-occurrence edges, and six lookups (documents by entities, related
+        entities, typed relations, lineage, entities by type, document entities). The
+        typed-relation lookup reads relations written by other tools; this version does
+        not extract them. Not yet ported: LLM entity and relation extraction,
+        deduplication, graph retrieval, migrations and backfills, and the Postgres
+        audit writer. Independently versioned from the Python package
+        (see https://pypi.org/project/ragleap-graph/).
     </description>
     <url>https://github.com/antonyrag/ragleap-core</url>
 
