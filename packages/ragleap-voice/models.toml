@@ -61,10 +61,10 @@ min_hardware = "unknown"
 status = "unverified"
 default = false
 
-# Measured in benchmarks/voice/README.md (Hindi and Tamil). Gated on Hugging Face (account and
+# Measured in benchmarks/voice/README.md (Hindi, Tamil, Telugu, Malayalam, Kannada). Gated on Hugging Face (account and
 # accepted conditions) and loaded with the repo's own code (trust_remote_code): not eligible as
 # a default until the loader is reviewed and the artifact is hashed. The card lists 22 Indian
-# languages and no English; only hi and ta were measured.
+# languages and no English; hi, ta, te, ml and kn were measured.
 [[model]]
 name = "indic-conformer-600m-multilingual"
 kind = "stt"
@@ -73,7 +73,7 @@ revision = "2a77d305038dfc502fd9464e7d028b90381976cb"
 sha256 = ""
 code_license = "MIT"
 weights_license = "MIT"
-languages = ["hi", "ta"]
+languages = ["hi", "ta", "te", "ml", "kn"]
 capabilities = ["streaming:unknown"]
 min_hardware = "unknown"
 status = "unverified"
