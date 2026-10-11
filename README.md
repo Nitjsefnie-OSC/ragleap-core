@@ -130,7 +130,7 @@ This repo isn't a general-purpose RAG framework you assemble into something — 
 
 Open-source AI agent projects like OpenClaw took off for a specific reason: people wanted an assistant that runs on **their own infrastructure**, with **their own keys**, answering from **the chat apps they already use** — not a black box hosted by someone else. That same principle is what RagLeap Core is built on for business AI specifically.
 
-**Your keys, your infrastructure, your data.** RagLeap Core never asks for a system API key. You bring your own Gemini key, you run your own PostgreSQL database, your documents are stored on your own server, and text is sent only to the AI providers you configure (your chat model, and Gemini for embeddings).
+**Your keys, your infrastructure, your data.** RagLeap Core never asks for a system API key. You bring your own AI key (or use local Ollama with no key), you run your own PostgreSQL database, your documents are stored on your own server, and text is sent only to the AI providers you configure (your chat model and your embedding provider; with local Ollama for both, your document text stays on your server).
 
 **Chat is the interface, not a separate dashboard you have to learn.** The same way OpenClaw meets people on WhatsApp, Telegram, and Slack, RagLeap's full platform meets business owners on the channels they already use — WhatsApp, Telegram, Discord, and real phone calls — not a new app they have to check.
 
@@ -292,7 +292,7 @@ cp .env.example .env
 docker compose up --build -d
 ```
 
-Requirements: Docker, Docker Compose, and a Gemini API key (embeddings use Gemini by default; set `EMBEDDING_PROVIDER=ollama` or another provider to run without a Gemini key). For chat you can use Gemini or any of the 19 providers listed under [Supported LLM Providers](#supported-llm-providers-byok), including a local Ollama model and any OpenAI-compatible endpoint.
+Requirements: Docker, Docker Compose, and either a Gemini API key (the default) or a local Ollama setup with no key (use `ragleap launch --ollama`, or set `EMBEDDING_PROVIDER=ollama` for embeddings). For chat you can use Gemini or any of the 19 providers listed under [Supported LLM Providers](#supported-llm-providers-byok), including a local Ollama model and any OpenAI-compatible endpoint.
 
 **Try it in 30 seconds** — with the stack running, see [examples/](examples/) for two verified, runnable scripts:
 - `examples/01_ingest_and_query.py` — upload a document and ask a question via the API
@@ -341,7 +341,7 @@ Safety choices: it is read-only (no upload or delete), the key is read only from
 
 ## Supported LLM Providers (BYOK)
 
-RagLeap Core is bring-your-own-key only there is no system-provided key for any provider. Set `LLM_PROVIDER` in `.env` to choose which one to use for the generation (chat) step. Embeddings currently always use Gemini (`gemini-embedding-001`), regardless of `LLM_PROVIDER`.
+RagLeap Core is bring-your-own-key only there is no system-provided key for any provider. Set `LLM_PROVIDER` in `.env` to choose which one to use for the generation (chat) step. Embeddings are configured separately with `EMBEDDING_PROVIDER` (default `gemini`, using `gemini-embedding-001`; `ollama`, `openai`, `mistral`, `together`, `openrouter`, `qwen`, `zhipu` and `custom` are also supported). The vector size must match your embedding model (`EMBEDDING_DIMENSIONS`): empty tables are resized at startup, tables that already hold embeddings are never changed.
 
 | `LLM_PROVIDER` value | Required env vars | Notes |
 |---|---|---|
