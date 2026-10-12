@@ -1,0 +1,70 @@
+{{- if .Values.alloy.enabled }}
+{{- if .Values.promtail.enabled }}
+{{- fail "alloy.enabled and promtail.enabled are both true: every log line would be shipped twice. Set promtail.enabled=false when enabling Alloy." }}
+{{- end }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ragleap-observability-agents
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ragleap-alloy-config
+  namespace: ragleap-observability-agents
+data:
+  config.alloy: |
+    discovery.kubernetes "pods" {
+      role = "pod"
+      selectors {
+        role  = "pod"
+        field = "spec.nodeName=" + sys.env("NODE_NAME")
+      }
+    }
+
+    discovery.relabel "pods" {
+      targets = discovery.kubernetes.pods.targets
+
+      rule {
+        source_labels = ["__meta_kubernetes_namespace"]
+        target_label  = "namespace"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_pod_name"]
+        target_label  = "pod"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_pod_container_name"]
+        target_label  = "container"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_pod_uid", "__meta_kubernetes_pod_container_name"]
+        separator     = "/"
+        target_label  = "__path__"
+        replacement   = "/var/log/pods/*$1/*.log"
+      }
+    }
+
+    local.file_match "pods" {
+      path_targets = discovery.relabel.pods.output
+    }
+
+    loki.source.file "pods" {
+      targets       = local.file_match.pods.targets
+      tail_from_end = true
+      forward_to    = [loki.process.cri.receiver]
+    }
+
+    loki.process "cri" {
+      stage.cri {}
+      forward_to = [loki.write.default.receiver]
+    }
+
+    loki.write "default" {
+      endpoint {
+        url = "http://ragleap-loki.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.loki.port }}/loki/api/v1/push"
+      }
+    }
+{{- end }}

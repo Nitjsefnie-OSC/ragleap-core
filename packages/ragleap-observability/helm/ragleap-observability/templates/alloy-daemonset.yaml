@@ -1,0 +1,93 @@
+{{- if .Values.alloy.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ragleap-alloy
+  namespace: ragleap-observability-agents
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: ragleap-alloy-role
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: ragleap-alloy-binding
+subjects:
+  - kind: ServiceAccount
+    name: ragleap-alloy
+    namespace: ragleap-observability-agents
+roleRef:
+  kind: ClusterRole
+  name: ragleap-alloy-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: ragleap-alloy
+  namespace: ragleap-observability-agents
+  labels:
+    app: ragleap-alloy
+spec:
+  selector:
+    matchLabels:
+      app: ragleap-alloy
+  template:
+    metadata:
+      labels:
+        app: ragleap-alloy
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/alloy-configmap.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: ragleap-alloy
+      containers:
+        - name: alloy
+          image: {{ .Values.alloy.image }}
+          args:
+            - run
+            - --server.http.listen-addr=0.0.0.0:12345
+            - --disable-reporting
+            - --storage.path=/var/lib/alloy/data
+            - /etc/alloy/config.alloy
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          ports:
+            - containerPort: 12345
+              name: http
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /-/healthy
+              port: http
+            initialDelaySeconds: 20
+          volumeMounts:
+            - name: config
+              mountPath: /etc/alloy
+              readOnly: true
+            - name: pods-logs
+              mountPath: /var/log/pods
+              readOnly: true
+            - name: data
+              mountPath: /var/lib/alloy/data
+      volumes:
+        - name: config
+          configMap:
+            name: ragleap-alloy-config
+        - name: pods-logs
+          hostPath:
+            path: /var/log/pods
+        - name: data
+          emptyDir: {}
+{{- end }}
