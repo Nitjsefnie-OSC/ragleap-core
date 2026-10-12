@@ -109,6 +109,45 @@ Limits specific to this measurement:
 - Two open models only. Nothing here compares against a commercial service.
 - IndicConformer has no English. The model is gated and loads its own repo code, which has not been independently audited, so it is not eligible as a default model.
 
+## TTS round trip: Indic Parler-TTS, Kokoro-82M, Chatterbox (first measurement)
+
+Intelligibility proxy for text-to-speech: 20 sentences per language (text of FLEURS test sentences, CC-BY-4.0; sentences with digits, and Latin letters inside Indic text, were skipped) are synthesized, transcribed back by a fixed recogniser, and compared with the original text using the same normalizer as above. The recogniser is IndicConformer-600M (RNNT) for Indian languages and Whisper large-v3 (beam 5) for English. Speed is generation time divided by audio length on a Tesla T4 (below 1 means faster than real time). Built-in voices only, no cloning, no emotion prompts.
+
+| System | Language | Round-trip WER (95% interval) | CER | Speed |
+|---|---|---|---|---|
+| Kokoro-82M | Hindi | 7.9% [4.3, 11.8] | 1.5% | 0.03 |
+| Kokoro-82M | English | 1.8% [0.5, 3.4] | 0.8% | 0.03 |
+| Indic Parler-TTS | Hindi | 7.7% [4.5, 10.9] | 2.0% | 2.15 |
+| Indic Parler-TTS | Tamil | 16.1% [10.4, 22.2] | 4.7% | 2.13 |
+| Indic Parler-TTS | Telugu | 11.9% [6.5, 17.4] | 1.1% | 2.14 |
+| Indic Parler-TTS | Malayalam | 22.0% [15.3, 28.7] | 4.2% | 2.14 |
+| Indic Parler-TTS | Kannada | 16.7% [11.6, 22.0] | 3.1% | 2.14 |
+| Indic Parler-TTS | English | 5.8% [2.8, 10.1] | 3.5% | 2.14 |
+| Chatterbox Multilingual | Hindi | 18.9% [8.3, 36.6] | 11.4% | 1.21 |
+| Chatterbox Multilingual | English | 3.2% [0.8, 6.5] | 2.0% | 1.26 |
+
+Method:
+
+- Date 2026-10-12, Tesla T4 (15 GB), Google Colab. Model revisions (prefixes): `hexgrad/Kokoro-82M` f3ff357179, `ai4bharat/indic-parler-tts` 660bc53c64, `ResembleAI/chatterbox` 5bb1f6ee58. Kokoro 0.9.4 with misaki 0.9.4, voices `hf_alpha` (Hindi) and `af_heart` (English). Chatterbox: chatterbox-tts 0.1.7, torch 2.6.0+cu124. Parler: parler-tts at GitHub commit d108732cd5, transformers 4.46.1. Kokoro and Parler ran with torch 2.14.1+cu130. Each system ran in its own Python 3.11 environment.
+- Parler used one fixed voice description (female speaker, slightly expressive, moderate speed and pitch, very clear recording) for every sentence.
+- Parler's repository is gated on Hugging Face (account and accepted conditions). Its numbers come from the printed output of the run; raw per-clip files for the TTS runs are not committed.
+
+What it shows:
+
+- All three systems produced intelligible speech in the languages tested. Kokoro was far faster than real time on the T4; Parler and Chatterbox were slower than real time at default settings with no optimisation.
+- Chatterbox's Hindi point estimate is worse than Kokoro's and Parler's, but its interval is wide and overlaps Kokoro's, so 20 sentences do not establish a difference.
+- Only Parler covers all five Indian languages tested here.
+
+Limits specific to this measurement:
+
+- Round-trip error includes the recogniser's own errors. The Indian-language recogniser and Parler both come from AI4Bharat and may share training data, which could flatter Parler. Compare systems with each other, not against any absolute number.
+- The sentences are easier than real-world text (no digits, no Latin letters in Indic text).
+- 20 sentences per language, one run, one voice per system. Differences between languages are partly noise.
+- Naturalness, emotion quality and voice similarity were not measured. They need human listeners (naturalness, emotion) and consented reference recordings (voice similarity).
+- Speeds are not like-for-like: different libraries, different torch versions (Chatterbox) and no optimisation (Parler is slower than real time at defaults; its documentation describes faster inference modes that were not tested). GPU only; CPU speed and time to first audio were not measured.
+- Kokoro's Hindi path uses the GPLv3 espeak-ng package according to its model card; it was installed from the OS package manager for this measurement only.
+- `colab_tts_roundtrip.py` was assembled from three cells that were each run successfully. The combined script has not been run end to end as one piece.
+
 ## Reproduce
 
 Open Google Colab, choose a T4 GPU runtime, paste `colab_whisper_baseline.py` into one cell and run it. It stops if the dataset or model licence differs from the expected one.
@@ -116,6 +155,8 @@ Open Google Colab, choose a T4 GPU runtime, paste `colab_whisper_baseline.py` in
 For the IndicConformer comparison, first accept the model conditions on Hugging Face and store a read token in Colab Secrets as `HF_TOKEN`, then paste `colab_indic_conformer.py` into one cell. It rebuilds the test set and Whisper results itself if the runtime has none. Delete the token afterwards.
 
 For the five-language comparison, use the same Hugging Face token setup and paste `colab_multilang_comparison.py` into one cell (about 25 minutes). It is self-contained and also runs the device check and the default-decoding Whisper check.
+
+For the TTS round trip, accept the conditions on `ai4bharat/indic-parler-tts` and `ai4bharat/indic-conformer-600m-multilingual` with the same Hugging Face account, store the token as `HF_TOKEN`, keep the Colab tab in the foreground at the start, and paste `colab_tts_roundtrip.py` into one cell (about 60 minutes; not yet run as one piece).
 
 ## Attribution
 

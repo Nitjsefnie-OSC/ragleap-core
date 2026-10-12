@@ -27,7 +27,7 @@ revision = ""
 sha256 = ""
 code_license = "Apache-2.0"
 weights_license = "Apache-2.0"
-languages = []
+languages = ["hi", "en"]
 capabilities = []
 min_hardware = "unknown"
 status = "unverified"
@@ -41,7 +41,7 @@ revision = ""
 sha256 = ""
 code_license = "Apache-2.0"
 weights_license = "Apache-2.0"
-languages = []
+languages = ["hi", "ta", "te", "ml", "kn", "en"]
 capabilities = ["emotion"]
 min_hardware = "unknown"
 status = "unverified"
@@ -55,7 +55,7 @@ revision = ""
 sha256 = ""
 code_license = "MIT"
 weights_license = "MIT"
-languages = []
+languages = ["hi", "en"]
 capabilities = ["clone", "emotion"]
 min_hardware = "unknown"
 status = "unverified"
@@ -78,3 +78,12 @@ capabilities = ["streaming:unknown"]
 min_hardware = "unknown"
 status = "unverified"
 default = false
+
+# TTS notes (round-trip measured 2026-10-12, see benchmarks/voice/README.md; languages above are the ones MEASURED):
+# - kokoro-82m: Apache-2.0 per card; Hindi and other non-English paths use GPLv3 espeak-ng (would need isolation as a
+#   separately installed extra); card lists CC BY audio in the v1.0 training data; no cloning, no emotion control.
+# - indic-parler-tts: Apache-2.0 per card; gated on Hugging Face (account and accepted conditions), so it cannot be a
+#   default; no cloning; emotion officially supported in 10 languages (not Hindi or Telugu); slower than real time on a T4.
+# - chatterbox: MIT per card; cloning from a short reference; multilingual model covers Hindi but no other Indian
+#   language; outputs carry Resemble's PerTh watermark (loader initialises it unconditionally in the version measured).
+# All three stay status = unverified and default = false until revision, hash, dependency and training-data licences are checked.
