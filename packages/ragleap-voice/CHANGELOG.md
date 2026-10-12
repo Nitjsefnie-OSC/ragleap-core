@@ -5,5 +5,6 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 ### Added
+- Model manifest loader (`ragleap_voice.manifest`), a strict TOML subset reader for Python 3.10 (`ragleap_voice._toml`) and a read-only `ragleap-voice models list|show|check` command line. No download command yet.
 - Package scaffold, licence allowlist, `models.toml` manifest schema and CI licence test.
 - `ragleap_voice.bench`: WER/CER metrics with a shared normalizer, CSV test manifest with licence checks, STT runner that records raw CSV/JSON results with environment metadata.
