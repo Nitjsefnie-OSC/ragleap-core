@@ -152,7 +152,7 @@ def _project(tmp_path, lock, digest=None):
 
 
 def test_lock_problems_ok_and_failures(tmp_path):
-    lock = make_lock(tmp_path / "scratch", {"w.bin": b"abc"})
+    lock = make_lock(tmp_path / "scratch", {"w.safetensors": b"abc"})
     mf = _project(tmp_path, lock)
     entries, problems = load_manifest(mf)
     assert problems == [] and lock_problems(entries, mf) == []
@@ -195,3 +195,20 @@ def test_cli_verify(tmp_path, capsys):
     (tmp_path / "locks" / "m1.json").unlink()
     assert cli.main(args) == 1
     assert "no lock file" in capsys.readouterr().err
+
+
+def test_unsafe_format_files():
+    from ragleap_voice.locks import unsafe_format_files
+    lock = {"files": [{"path": "a.safetensors"}, {"path": "m/Weights.PT"}, {"path": "x.bin"},
+                      {"path": "n.onnx"}, {"path": "c.pkl"}]}
+    assert unsafe_format_files(lock) == ["c.pkl", "m/Weights.PT", "x.bin"]
+
+
+def test_verified_entry_rejects_pickle_capable_lock(tmp_path):
+    from dataclasses import replace
+    lock = make_lock(tmp_path / "scratch", {"w.pt": b"abc"})
+    mf = _project(tmp_path, lock)
+    entries, _ = load_manifest(mf)
+    assert any("pickle-capable" in p for p in lock_problems(entries, mf))
+    relaxed = [replace(entries[0], status="unverified", default=False)]
+    assert not any("pickle-capable" in p for p in lock_problems(relaxed, mf))

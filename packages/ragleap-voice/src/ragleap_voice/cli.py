@@ -11,7 +11,7 @@ import sys
 
 from . import __version__
 from .cache import cache_root, model_dir
-from .locks import LockError, load_lock, lock_digest, validate_lock, verify_dir
+from .locks import UNSAFE_SUFFIXES, LockError, load_lock, lock_digest, validate_lock, verify_dir
 from .fetch import DEFAULT_BASE, FetchError, Policy
 from .manifest import ManifestError, default_manifest_path, load_manifest, lock_problems
 from .pull import PullError, build_lock, format_size, plan_lock, pull_model, token_from_env
@@ -162,6 +162,11 @@ def _cmd_lock(args):
         print("  %s  %s" % (path, format_size(size) if size is not None else "?"))
     if len(plan) > 50:
         print("  ... and %d more" % (len(plan) - 50))
+    risky = [p for p, _ in plan if p.lower().endswith(UNSAFE_SUFFIXES)]
+    if risky:
+        print()
+        print("NOTE: %d file(s) are in pickle-capable formats (for example %s). Loading such files can run code, "
+              "and an entry whose lock lists them cannot be marked verified. Use --exclude to leave them out." % (len(risky), risky[0]))
     if not args.yes:
         print("\nThis downloads every file above to hash it. Do not run it on a production server "
               "(use a notebook or a laptop). Re-run with --yes to continue.")

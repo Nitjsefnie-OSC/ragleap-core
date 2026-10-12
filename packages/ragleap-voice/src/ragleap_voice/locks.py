@@ -186,3 +186,16 @@ def verify_dir(lock, directory):
             if rel not in wanted:
                 problems.append(rel + ": unexpected file")
     return problems
+
+
+# File formats that can execute code when loaded (pickle and friends). A lock for a verified or
+# default entry must not list them; see manifest.lock_problems and pull.pull_model.
+UNSAFE_SUFFIXES = (".pt", ".pth", ".bin", ".pkl", ".pickle", ".ckpt", ".joblib", ".dill")
+
+
+def unsafe_format_files(lock):
+    """Sorted paths in a lock whose names suggest a pickle-capable format."""
+    files = lock.get("files", []) if isinstance(lock, dict) else []
+    return sorted(f["path"] for f in files
+                  if isinstance(f, dict) and isinstance(f.get("path"), str)
+                  and f["path"].lower().endswith(UNSAFE_SUFFIXES))

@@ -8,7 +8,7 @@ import shutil
 from .cache import model_dir
 from .fetch import DEFAULT_BASE, FetchError, Policy, download_file, get_json, repo_id_from_url, resolve_url
 from .licences import check_licence
-from .locks import MAX_FILES, SCHEMA, lock_digest, safe_relpath, validate_lock, verify_dir
+from .locks import MAX_FILES, SCHEMA, lock_digest, safe_relpath, unsafe_format_files, validate_lock, verify_dir
 
 SPACE_MARGIN = 256 * 1024 ** 2
 _COMMIT = re.compile(r"^[0-9a-f]{40}$")
@@ -67,6 +67,13 @@ def pull_model(entry, lock, cache_root, policy=None, base_url=DEFAULT_BASE, toke
         raise PullError("the lock file digest does not match models.toml; refusing")
     if entry.status == "verified" and not entry.sha256:
         raise PullError("verified entry without a lock digest in models.toml; refusing")
+    unsafe = unsafe_format_files(lock)
+    if unsafe:
+        names = ", ".join(unsafe[:3]) + (" and %d more" % (len(unsafe) - 3) if len(unsafe) > 3 else "")
+        if entry.status == "verified":
+            raise PullError("%s is marked verified but its lock lists pickle-capable files (%s); refusing" % (entry.name, names))
+        say("WARNING: the lock lists %d file(s) in pickle-capable formats (%s). Loading such files can run "
+            "arbitrary code; do not load them unless you trust the source." % (len(unsafe), names))
 
     dest = model_dir(entry.name, entry.revision, cache_root)
     if dest.exists() or dest.is_symlink():
