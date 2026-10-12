@@ -5,13 +5,16 @@ Currently read-only: it inspects the model manifest. Nothing is downloaded.
 import argparse
 import dataclasses
 import json
+import os
 import pathlib
 import sys
 
 from . import __version__
 from .cache import cache_root, model_dir
 from .locks import LockError, load_lock, lock_digest, validate_lock, verify_dir
+from .fetch import DEFAULT_BASE, FetchError, Policy
 from .manifest import ManifestError, default_manifest_path, load_manifest, lock_problems
+from .pull import PullError, build_lock, format_size, plan_lock, pull_model, token_from_env
 
 
 def _table(entries):
@@ -111,6 +114,69 @@ def _cmd_verify(args):
     return 0
 
 
+def _network():
+    """Network settings for pull and lock. Strict and fixed; tests replace this function."""
+    return Policy(), DEFAULT_BASE
+
+
+def _offline(args):
+    if args.offline:
+        return True
+    return os.environ.get("RAGLEAP_VOICE_OFFLINE", "").strip().lower() in ("1", "true", "yes")
+
+
+def _locate(args):
+    entries, _ = load_manifest(args.manifest)
+    match = [e for e in entries if e.name == args.name]
+    if not match:
+        raise PullError("unknown model " + repr(args.name) + " (try: ragleap-voice models list)")
+    mpath = pathlib.Path(args.manifest) if args.manifest else default_manifest_path()
+    return match[0], mpath.parent / "locks" / (match[0].name + ".json")
+
+
+def _cmd_pull(args):
+    entry, lp = _locate(args)
+    if not lp.is_file():
+        raise PullError("no lock file for %s (expected %s); a maintainer creates it with 'models lock'" % (entry.name, lp))
+    lock = load_lock(lp)
+    root = pathlib.Path(args.cache_dir) if args.cache_dir else cache_root()
+    policy, base = _network()
+    dest = pull_model(entry, lock, root, policy=policy, base_url=base, token=token_from_env(os.environ),
+                      offline=_offline(args), allow_unverified=args.allow_unverified, say=print)
+    print("%s is ready at %s" % (entry.name, dest))
+    return 0
+
+
+def _cmd_lock(args):
+    entry, _ = _locate(args)
+    out = pathlib.Path(args.out)
+    if out.exists() and not args.overwrite:
+        raise PullError(str(out) + " already exists (use --overwrite)")
+    policy, base = _network()
+    token = token_from_env(os.environ)
+    plan = plan_lock(entry.source_url, args.revision, includes=tuple(args.include or ()),
+                     excludes=tuple(args.exclude or ()), policy=policy, base_url=base, token=token)
+    known = sum(s or 0 for _, s in plan)
+    print("%d file(s), about %s according to the API:" % (len(plan), format_size(known)))
+    for path, size in plan[:50]:
+        print("  %s  %s" % (path, format_size(size) if size is not None else "?"))
+    if len(plan) > 50:
+        print("  ... and %d more" % (len(plan) - 50))
+    if not args.yes:
+        print("\nThis downloads every file above to hash it. Do not run it on a production server "
+              "(use a notebook or a laptop). Re-run with --yes to continue.")
+        return 2
+    lock = build_lock(entry.name, entry.source_url, args.revision, plan, policy=policy, base_url=base,
+                      token=token, say=print)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(lock, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    print("wrote " + str(out))
+    print("lock digest (the sha256 value for models.toml): " + lock_digest(lock))
+    print("Next: a person reviews the lock, then sets revision and sha256 in models.toml. "
+          "The entry stays 'unverified' until that review.")
+    return 0
+
+
 def build_parser():
     parser = argparse.ArgumentParser(
         prog="ragleap-voice", description="Open, local speech-to-text and text-to-speech (pre-alpha).")
@@ -135,6 +201,19 @@ def build_parser():
     ver = leaf("verify", "verify a cached model against its lock file (offline, read-only)", _cmd_verify)
     ver.add_argument("name")
     ver.add_argument("--cache-dir", metavar="PATH", help="use this cache root instead of the default")
+    pl = leaf("pull", "download a model from Hugging Face and verify it against its lock file", _cmd_pull)
+    pl.add_argument("name")
+    pl.add_argument("--cache-dir", metavar="PATH", help="use this cache root instead of the default")
+    pl.add_argument("--allow-unverified", action="store_true", help="also pull entries whose status is not verified")
+    pl.add_argument("--offline", action="store_true", help="no network: only check what is already cached (also RAGLEAP_VOICE_OFFLINE=1)")
+    lk = leaf("lock", "maintainer tool: build a lock file by downloading and hashing every file (large downloads)", _cmd_lock)
+    lk.add_argument("name")
+    lk.add_argument("--revision", required=True, metavar="COMMIT", help="full 40-character commit hash to pin")
+    lk.add_argument("--out", required=True, metavar="PATH", help="where to write the lock JSON")
+    lk.add_argument("--include", action="append", metavar="PATTERN", help="only files matching this pattern (repeatable)")
+    lk.add_argument("--exclude", action="append", metavar="PATTERN", help="skip files matching this pattern (repeatable)")
+    lk.add_argument("--overwrite", action="store_true", help="replace an existing lock file")
+    lk.add_argument("--yes", action="store_true", help="confirm the large download")
     return parser
 
 
@@ -147,6 +226,6 @@ def main(argv=None):
         return 2
     try:
         return func(args)
-    except (ManifestError, LockError) as exc:
+    except (ManifestError, LockError, PullError, FetchError) as exc:
         print("error: " + str(exc), file=sys.stderr)
         return 1
