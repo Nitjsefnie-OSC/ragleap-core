@@ -18,7 +18,7 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Verified
 
 - With Alloy off, `helm template` output is byte-identical to 0.6.2.
-- End to end in Docker with the real Alloy and Loki images, against the chart's own rendered config: labels and CRI parsing are correct; a restart with the same data directory sends no repeated lines and loses none, including a line written while no shipper was running; a fresh data directory replays existing files and Loki stores each line once, including when the earlier lines came from Promtail; Loki stores the valid lines when a replay batch also contains entries that are too old.
+- End to end in Docker with the real Alloy and Loki images, against the chart's own rendered config: labels and CRI parsing are correct; a restart with the same data directory sends no repeated lines and loses none, including a line written while no shipper was running; a fresh data directory replays existing files and Loki stores each line once, including when the earlier lines came from Promtail; Loki stores the valid lines when the replayed file also contains entries that are too old.
 - Live on a single `kind` node: switched Promtail to Alloy and back with `--reset-values`. A marker pod printing a numbered line every second showed SEQ 1..216 after the switch to Alloy and 1..381 after the switch back, each with no missing and no repeated number, in a single stream (so the labels match Promtail's).
 - RBAC on the live cluster: the Alloy ClusterRole lists only `pods`, and its service account cannot read the pod log subresource or secrets.
 - Trivy (October 2026, HIGH and CRITICAL with a fix available): Alloy v1.20.1 shows 6 rows and 4 unique CVEs, Promtail 3.3.0 shows 98 rows and 84 unique CVEs.
@@ -26,10 +26,10 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Known limitations
 
 - Tested on one `kind` node, for minutes, using one marker stream. Not tested on multiple nodes, under sustained load, or against noisy streams.
-- A fresh Alloy (for example after the host directory is deleted) replays existing log files. Loki rejects entries too far behind a stream's newest one, so Alloy logs `entry too far behind` and drops those old entries; one such rejected batch occurred in each direction in the live test. Loki stored the valid lines from the same replay in the Docker test.
+- A fresh Alloy (for example after the host directory is deleted) replays existing log files. Loki rejects entries too far behind a stream's newest one, so Alloy logs `entry too far behind` and drops those old entries; Alloy logged one such rejected batch in the live test, and Promtail logged one HTTP 400 in the same window (not attributed to the switch). Loki stored the valid lines from the same replay in the Docker test.
 - No shipper runs between Promtail stopping and Alloy becoming ready. Pull the Alloy image onto the nodes before switching to keep that gap short.
 - Alloy runs as root, because the node's pod log files are root-owned and mode 0640. No `securityContext` hardening, resource limits or read-only root filesystem were tested.
-- Short-lived pods whose logs disappear before the next file scan are missed by both shippers.
+- Very short-lived pods (a few seconds) were not specifically tested.
 - The 7-day Loki retention deletion has still not been observed directly.
 
 ## [0.6.2] - 2026-10-08
