@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from ._toml import loads
 from .licences import REQUIRED_FIELDS, validate_entries
-from .locks import LockError, load_lock, lock_digest, validate_lock
+from .locks import LockError, load_lock, lock_digest, unsafe_format_files, validate_lock
 
 
 class ManifestError(Exception):
@@ -104,6 +104,11 @@ def lock_problems(entries, manifest_path=None):
             problems.append(e.name + ": lock " + why)
         if needs and lock_digest(lock) != e.sha256:
             problems.append(e.name + ": sha256 in models.toml does not match the lock file digest")
+        if needs:
+            bad = unsafe_format_files(lock)
+            if bad:
+                shown = ", ".join(bad[:3]) + (" and %d more" % (len(bad) - 3) if len(bad) > 3 else "")
+                problems.append(e.name + ": lock lists pickle-capable files (" + shown + "); a verified or default model must use safe formats such as safetensors, ONNX or GGUF: exclude them when locking, or keep the entry unverified")
     names = {e.name for e in entries}
     if ldir.is_dir():
         for f in sorted(ldir.glob("*.json")):

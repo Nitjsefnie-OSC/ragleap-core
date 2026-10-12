@@ -12,3 +12,7 @@ Format (schema 1):
 
 Paths are relative POSIX paths without `..`, backslashes or unusual characters. Entries stay
 `unverified` until a person has reviewed their lock file. There are no lock files yet.
+
+A lock for a verified or default entry must not list pickle-capable files (`.pt`, `.pth`, `.bin`,
+`.pkl`, `.pickle`, `.ckpt`, `.joblib`, `.dill`): loading them can execute code. Exclude them when
+locking, or keep the entry unverified. `ragleap-voice models check` enforces this.

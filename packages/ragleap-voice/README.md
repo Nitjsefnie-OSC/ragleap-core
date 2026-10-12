@@ -11,7 +11,8 @@ languages as a priority.
   policy, and a read-only command line: `ragleap-voice models list|show|check|verify|pull|lock`. `pull` downloads from Hugging Face only
   and verifies size and SHA-256 of every file against a lock file before anything enters the cache
   (it also has an offline mode); `lock` is a maintainer tool that builds those lock files. `pull` is
-  new and has so far been tested only against a local fake server, never against the real service.
+  new: tested against a local fake server and once end to end against the real service on an ungated
+  model; gated repositories have not been tested against the real service yet.
   No lock files exist yet, so `pull` currently refuses every model.
 - Planned, not available: everything else above (STT and TTS engines, streaming, cloning, emotion control).
 

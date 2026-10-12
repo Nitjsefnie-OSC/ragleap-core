@@ -3,8 +3,10 @@
 Security properties (each one has a test):
 - HTTPS only, hosts restricted to huggingface.co and hf.co (and subdomains), no URL credentials.
 - Redirects are followed manually: every hop is re-validated, at most 5 hops.
-- The access token (HF_TOKEN) is sent only on the first request, only to huggingface.co, and
-  never on a redirect (CDN links carry their own signed query strings).
+- The access token (HF_TOKEN) is sent only to huggingface.co itself (including redirects that stay on
+  that host, which gated repositories use) and never to any other host. Once a redirect has left
+  huggingface.co the token is not sent again, even if a later hop returns there. CDN links carry
+  their own signed query strings and need no token.
 - URLs and query strings are never printed; messages name hosts only.
 - Downloads are streamed, capped at the expected size, and checked against size and SHA-256.
 The Policy object can be relaxed only from Python (the tests use a local fake server); the
@@ -81,11 +83,15 @@ def open_url(url, policy, token=None, opener=None):
     """Open url and return the response. Follows at most policy.max_redirects redirects."""
     opener = opener or urllib.request.build_opener(_NoRedirect)
     current = url
+    token_allowed = bool(token)
     for hop in range(policy.max_redirects + 1):
         host = check_url(current, policy)
         headers = {"User-Agent": "ragleap-voice/" + __version__}
-        if hop == 0 and token and host in policy.token_hosts:
-            headers["Authorization"] = "Bearer " + token
+        if token_allowed:
+            if host in policy.token_hosts:
+                headers["Authorization"] = "Bearer " + token
+            else:
+                token_allowed = False  # left the token host: never send the token again
         try:
             return opener.open(urllib.request.Request(current, headers=headers), timeout=policy.timeout)
         except urllib.error.HTTPError as exc:

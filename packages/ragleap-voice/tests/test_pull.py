@@ -24,8 +24,8 @@ from ragleap_voice.pull import PullError, build_lock, plan_lock, pull_model, tok
 REV = "a" * 40
 TOKEN = os.urandom(8).hex()  # fake value generated at run time, so no secret-like literal is committed
 SRC_URL = "https://huggingface.co/owner/repo"
-FILES = {"weights.bin": b"w" * 5000, "config.json": b'{"a": 1}', "sub/tok.model": b"tokens"}
-POLICY = Policy(allowed_suffixes=("127.0.0.1",), token_hosts=("127.0.0.1",), require_https=False, timeout=5.0)
+FILES = {"weights.safetensors": b"w" * 5000, "config.json": b'{"a": 1}', "sub/tok.model": b"tokens"}
+POLICY = Policy(allowed_suffixes=("127.0.0.1", "localhost"), token_hosts=("127.0.0.1",), require_https=False, timeout=5.0)
 
 
 class Hub:
@@ -71,6 +71,9 @@ class Hub:
                     data = {"sha": hub.api_sha,
                             "siblings": [{"rfilename": p, "size": len(b)} for p, b in sorted(hub.files.items())]}
                     return self.reply(200, json.dumps(data).encode())
+                if self.path.startswith("/final/"):
+                    rel = urllib.parse.unquote(self.path[len("/final/"):])
+                    return self.reply(200, hub.body_for(rel)) if rel in hub.files else self.reply(404)
                 prefix = "/owner/repo/resolve/" + REV + "/"
                 if not self.path.startswith(prefix):
                     return self.reply(404)
@@ -80,9 +83,13 @@ class Hub:
                 hub.downloads += 1
                 quoted = urllib.parse.quote(rel)
                 if hub.mode == "redirect":
-                    return self.reply(302, headers={"Location": "http://127.0.0.1:%d/blob/%s?sig=SECRETSIG" % (hub.cdn_port, quoted)})
-                if hub.mode == "redirect_bad":
                     return self.reply(302, headers={"Location": "http://localhost:%d/blob/%s?sig=SECRETSIG" % (hub.cdn_port, quoted)})
+                if hub.mode == "redirect_bad":
+                    return self.reply(302, headers={"Location": "http://evil.example:%d/blob/%s?sig=SECRETSIG" % (hub.cdn_port, quoted)})
+                if hub.mode == "redirect_same":
+                    return self.reply(307, headers={"Location": "/final/" + quoted})
+                if hub.mode == "redirect_bounce":
+                    return self.reply(302, headers={"Location": "http://localhost:%d/bounce/%s?sig=SECRETSIG" % (hub.cdn_port, quoted)})
                 if hub.mode == "loop":
                     return self.reply(302, headers={"Location": self.path})
                 return self.reply(200, hub.body_for(rel), short=rel in hub.truncate)
@@ -91,6 +98,9 @@ class Hub:
             def do_GET(self):
                 hub.cdn_log.append((self.path, self.headers.get("Authorization")))
                 path = self.path.split("?")[0]
+                if path.startswith("/bounce/"):
+                    rel = path[len("/bounce/"):]
+                    return self.reply(302, headers={"Location": "http://127.0.0.1:%d/final/%s" % (hub.hub_port, rel)})
                 if not path.startswith("/blob/"):
                     return self.reply(404)
                 rel = urllib.parse.unquote(path[len("/blob/"):])
@@ -102,6 +112,7 @@ class Hub:
         self.cdn_srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), CdnHandler)
         self.base_url = "http://127.0.0.1:%d" % self.hub_srv.server_address[1]
         self.cdn_port = self.cdn_srv.server_address[1]
+        self.hub_port = self.hub_srv.server_address[1]
         for srv in (self.hub_srv, self.cdn_srv):
             threading.Thread(target=srv.serve_forever, daemon=True).start()
 
@@ -156,7 +167,7 @@ def test_pull_success(hub, tmp_path):
     assert hub.downloads == 3
 
 
-def test_token_sent_only_to_first_hop_and_never_printed(hub, tmp_path, capsys):
+def test_token_never_sent_to_another_host_and_never_printed(hub, tmp_path, capsys):
     hub.mode = "redirect"
     hub.require_token = TOKEN
     pull(hub, tmp_path, token=TOKEN, say=print)
@@ -186,14 +197,14 @@ def test_redirect_loop_refused(hub, tmp_path):
 
 
 def test_tampered_content_same_size(hub, tmp_path):
-    hub.tamper["weights.bin"] = b"x" * 5000
+    hub.tamper["weights.safetensors"] = b"x" * 5000
     with pytest.raises(PullError, match="sha256 mismatch"):
         pull(hub, tmp_path)
     assert no_staging(tmp_path) and not (tmp_path / "models" / "m1" / REV).exists()
 
 
 def test_longer_content_refused(hub, tmp_path):
-    hub.tamper["weights.bin"] = b"w" * 5001
+    hub.tamper["weights.safetensors"] = b"w" * 5001
     with pytest.raises(PullError, match="does not match the locked size"):
         pull(hub, tmp_path)
     assert no_staging(tmp_path)
@@ -310,11 +321,11 @@ def test_token_from_env():
 
 def test_plan_and_build_lock(hub):
     plan = plan_lock(SRC_URL, REV, policy=POLICY, base_url=hub.base_url)
-    assert [p for p, _ in plan] == sorted(FILES) and dict(plan)["weights.bin"] == 5000
+    assert [p for p, _ in plan] == sorted(FILES) and dict(plan)["weights.safetensors"] == 5000
     lock = build_lock("m1", SRC_URL, REV, plan, policy=POLICY, base_url=hub.base_url, say=lambda *a: None)
     assert lock == make_lock(FILES)
     assert [p for p, _ in plan_lock(SRC_URL, REV, excludes=("*.json",), policy=POLICY, base_url=hub.base_url)] == \
-        ["sub/tok.model", "weights.bin"]
+        ["sub/tok.model", "weights.safetensors"]
     assert [p for p, _ in plan_lock(SRC_URL, REV, includes=("sub/*",), policy=POLICY, base_url=hub.base_url)] == ["sub/tok.model"]
     with pytest.raises(PullError, match="no files"):
         plan_lock(SRC_URL, REV, includes=("nothing*",), policy=POLICY, base_url=hub.base_url)
@@ -409,7 +420,7 @@ def test_cli_lock_flow(hub, tmp_path, monkeypatch, capsys):
     base = ["models", "lock", "m1", "--manifest", mf, "--revision", REV, "--out", str(out)]
     assert cli.main(base) == 2
     text = capsys.readouterr().out
-    assert "--yes" in text and "weights.bin" in text and not out.exists() and hub.downloads == 0
+    assert "--yes" in text and "weights.safetensors" in text and not out.exists() and hub.downloads == 0
     assert cli.main(base + ["--yes"]) == 0
     text = capsys.readouterr().out
     lock = json.loads(out.read_text(encoding="utf-8"))
@@ -417,4 +428,105 @@ def test_cli_lock_flow(hub, tmp_path, monkeypatch, capsys):
     assert cli.main(base + ["--yes"]) == 1
     assert "exists" in capsys.readouterr().err
     assert cli.main(base + ["--yes", "--overwrite", "--exclude", "*.json"]) == 0
-    assert [f["path"] for f in json.loads(out.read_text(encoding="utf-8"))["files"]] == ["sub/tok.model", "weights.bin"]
+    assert [f["path"] for f in json.loads(out.read_text(encoding="utf-8"))["files"]] == ["sub/tok.model", "weights.safetensors"]
+
+
+# ---- token handling across redirects, and pickle-capable formats -------------------------------
+import email.message  # noqa: E402
+import io  # noqa: E402
+import urllib.error  # noqa: E402
+
+from ragleap_voice.fetch import open_url  # noqa: E402
+
+
+def test_same_host_redirect_keeps_token_for_gated_repo(hub, tmp_path):
+    hub.mode = "redirect_same"
+    hub.require_token = TOKEN
+    dest = pull(hub, tmp_path, token=TOKEN)
+    assert verify_dir(make_lock(FILES), dest) == []
+    assert any(path.startswith("/final/") and auth == "Bearer " + TOKEN for path, auth in hub.hub_log)
+    with pytest.raises(PullError, match="access denied"):
+        pull(hub, tmp_path / "second")
+
+
+def test_token_not_resent_after_leaving_the_token_host(hub, tmp_path):
+    hub.mode = "redirect_bounce"
+    hub.require_token = TOKEN
+    with pytest.raises(PullError, match="access denied"):
+        pull(hub, tmp_path, token=TOKEN)
+    finals = [auth for path, auth in hub.hub_log if path.startswith("/final/")]
+    assert finals and all(a is None for a in finals)
+    assert all(a is None for _, a in hub.cdn_log)
+
+
+class _Resp:
+    status = 200
+    headers = {}
+
+    def read(self, n=-1):
+        return b""
+
+    def close(self):
+        pass
+
+
+class ScriptedOpener:
+    def __init__(self, script):
+        self.script = script
+        self.sent = []
+
+    def open(self, req, timeout=None):
+        self.sent.append((req.full_url, req.get_header("Authorization")))
+        kind, value = self.script[req.full_url]
+        if kind == "redirect":
+            hdrs = email.message.Message()
+            hdrs["Location"] = value
+            raise urllib.error.HTTPError(req.full_url, 302, "Found", hdrs, io.BytesIO(b""))
+        return _Resp()
+
+
+START = "https://huggingface.co/o/r/resolve/" + REV + "/f"
+
+
+def _auths(script, start, token=TOKEN):
+    op = ScriptedOpener(script)
+    open_url(start, Policy(), token=token, opener=op)
+    return [auth for _, auth in op.sent]
+
+
+def test_token_follows_same_host_redirect():
+    nxt = "https://huggingface.co/o/r/resolve/x/f"
+    assert _auths({START: ("redirect", nxt), nxt: ("ok", None)}, START) == ["Bearer " + TOKEN] * 2
+
+
+def test_token_not_sent_to_cdn_and_not_resent_after_returning():
+    cdn = "https://us.gcp.cdn.hf.co/blob/abc?sig=1"
+    back = "https://huggingface.co/o/r/final"
+    script = {START: ("redirect", cdn), cdn: ("redirect", back), back: ("ok", None)}
+    assert _auths(script, START) == ["Bearer " + TOKEN, None, None]
+
+
+def test_no_token_no_header_and_hf_co_is_not_a_token_host():
+    assert _auths({START: ("ok", None)}, START, token=None) == [None]
+    other = "https://hf.co/o/r/x"
+    assert _auths({other: ("ok", None)}, other) == [None]
+
+
+def test_pickle_capable_files(hub, tmp_path):
+    hub.files["extra/model.pt"] = b"pickle-ish"
+    lock = make_lock(dict(FILES, **{"extra/model.pt": b"pickle-ish"}))
+    with pytest.raises(PullError, match="pickle-capable"):
+        pull(hub, tmp_path, lock=lock, entry=make_entry(lock))
+    assert hub.requests == 0
+    msgs = []
+    pull(hub, tmp_path, lock=lock, entry=make_entry(lock, status="unverified"), allow_unverified=True, say=msgs.append)
+    assert any("pickle-capable" in m for m in msgs)
+
+
+def test_cli_lock_warns_about_pickle_formats(hub, tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(cli, "_network", lambda: (POLICY, hub.base_url))
+    hub.files["voices/a.pt"] = b"x"
+    mf = project(tmp_path, status="unverified", with_lock=False)
+    args = ["models", "lock", "m1", "--manifest", mf, "--revision", REV, "--out", str(tmp_path / "o.json")]
+    assert cli.main(args) == 2
+    assert "pickle-capable" in capsys.readouterr().out

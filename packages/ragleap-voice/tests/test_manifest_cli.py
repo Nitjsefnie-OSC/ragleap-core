@@ -106,7 +106,7 @@ def test_show(tmp_path, capsys):
 def test_check_ok_and_failure(tmp_path, capsys):
     from ragleap_voice.locks import canonical_bytes, lock_digest
     lock = {"schema": 1, "model": "m1", "revision": "abc123", "source_url": "https://example.org/m1",
-            "files": [{"path": "w.bin", "size": 3, "sha256": "1" * 64}]}
+            "files": [{"path": "w.safetensors", "size": 3, "sha256": "1" * 64}]}
     (tmp_path / "locks").mkdir()
     (tmp_path / "locks" / "m1.json").write_bytes(canonical_bytes(lock))
     good = GOOD.replace("0" * 64, lock_digest(lock))
