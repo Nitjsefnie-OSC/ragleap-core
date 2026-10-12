@@ -8,8 +8,8 @@ languages as a priority.
 - Planned: STT and TTS engines as optional extras, model manager with pinned hashes,
   streaming, Indic-language quality work, consented voice profiles, emotion control.
 - Available now: the licence manifest (`models.toml`), the CI check that enforces the licence
-  policy, and a read-only command line: `ragleap-voice models list|show|check`. It inspects the
-  manifest and downloads nothing.
+  policy, and a read-only command line: `ragleap-voice models list|show|check|verify`. It inspects the
+  manifest and verifies already-cached files against lock files; it downloads nothing.
 - Planned, not available: `ragleap-voice models pull` (verified download with pinned hashes),
   offline mode, and everything else above.
 

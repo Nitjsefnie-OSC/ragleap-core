@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from ._toml import loads
 from .licences import REQUIRED_FIELDS, validate_entries
+from .locks import LockError, load_lock, lock_digest, validate_lock
 
 
 class ManifestError(Exception):
@@ -79,3 +80,33 @@ def load_manifest(path=None):
     notices_file = p.parent / "THIRD_PARTY_NOTICES.md"
     notices = notices_file.read_text(encoding="utf-8") if notices_file.is_file() else ""
     return entries, validate_entries(raws, notices)
+
+
+def lock_problems(entries, manifest_path=None):
+    """Check the lock files next to the manifest. Verified or default entries must have a lock whose
+    digest equals the entry's sha256 field; any lock that exists must be well formed and match its entry."""
+    p = pathlib.Path(manifest_path) if manifest_path else default_manifest_path()
+    ldir = p.parent / "locks"
+    problems = []
+    for e in entries:
+        lp = ldir / (e.name + ".json")
+        needs = e.status == "verified" or e.default
+        if not lp.is_file():
+            if needs:
+                problems.append(e.name + ": verified or default entry needs locks/" + e.name + ".json")
+            continue
+        try:
+            lock = load_lock(lp)
+        except LockError as exc:
+            problems.append(e.name + ": " + str(exc))
+            continue
+        for why in validate_lock(lock, name=e.name, revision=e.revision or None):
+            problems.append(e.name + ": lock " + why)
+        if needs and lock_digest(lock) != e.sha256:
+            problems.append(e.name + ": sha256 in models.toml does not match the lock file digest")
+    names = {e.name for e in entries}
+    if ldir.is_dir():
+        for f in sorted(ldir.glob("*.json")):
+            if f.stem not in names:
+                problems.append("orphan lock file without manifest entry: " + f.name)
+    return problems
