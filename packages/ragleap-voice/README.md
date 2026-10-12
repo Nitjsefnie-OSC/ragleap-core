@@ -8,10 +8,12 @@ languages as a priority.
 - Planned: STT and TTS engines as optional extras, model manager with pinned hashes,
   streaming, Indic-language quality work, consented voice profiles, emotion control.
 - Available now: the licence manifest (`models.toml`), the CI check that enforces the licence
-  policy, and a read-only command line: `ragleap-voice models list|show|check|verify`. It inspects the
-  manifest and verifies already-cached files against lock files; it downloads nothing.
-- Planned, not available: `ragleap-voice models pull` (verified download with pinned hashes),
-  offline mode, and everything else above.
+  policy, and a read-only command line: `ragleap-voice models list|show|check|verify|pull|lock`. `pull` downloads from Hugging Face only
+  and verifies size and SHA-256 of every file against a lock file before anything enters the cache
+  (it also has an offline mode); `lock` is a maintainer tool that builds those lock files. `pull` is
+  new and has so far been tested only against a local fake server, never against the real service.
+  No lock files exist yet, so `pull` currently refuses every model.
+- Planned, not available: everything else above (STT and TTS engines, streaming, cloning, emotion control).
 
 No performance or "better than X" claim will be made without a reproducible
 benchmark in `benchmarks/voice/`.
