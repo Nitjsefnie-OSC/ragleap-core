@@ -291,6 +291,43 @@ jobs:
         run: |
           python -m pytest tests/ -v
 
+  ragleap-voice-wheel-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.12'
+      - name: Build the wheel
+        working-directory: packages/ragleap-voice
+        run: |
+          python -m pip install --upgrade pip
+          pip install "build==1.2.2"
+          python -m build --wheel
+      - name: Check wheel contents (packaged manifest, no runtime dependencies)
+        working-directory: packages/ragleap-voice
+        run: |
+          [ "$(ls dist/*.whl | wc -l)" = "1" ]
+          WHEEL=$(ls dist/*.whl)
+          python -m zipfile -l "$WHEEL" | grep -F "ragleap_voice/data/models.toml"
+          python -m zipfile -l "$WHEEL" | grep -F "ragleap_voice/data/THIRD_PARTY_NOTICES.md"
+          if unzip -p "$WHEEL" '*.dist-info/METADATA' | grep '^Requires-Dist:' | grep -v 'extra =='; then
+            echo "wheel declares runtime dependencies"
+            exit 1
+          fi
+      - name: Install the wheel in a clean environment and run the CLI
+        run: |
+          WHEEL=$(ls packages/ragleap-voice/dist/*.whl)
+          python -m venv /tmp/smoke-venv
+          /tmp/smoke-venv/bin/pip install "$WHEEL"
+          EXTRA=$(/tmp/smoke-venv/bin/pip list --format=freeze | grep -v -E '^(pip|setuptools|wheel|ragleap-voice)==' || true)
+          [ -z "$EXTRA" ] || { echo "unexpected packages installed: $EXTRA"; exit 1; }
+          cd /tmp
+          /tmp/smoke-venv/bin/ragleap-voice --version
+          /tmp/smoke-venv/bin/ragleap-voice models check
+          /tmp/smoke-venv/bin/ragleap-voice models list
+          /tmp/smoke-venv/bin/python -m ragleap_voice models check
+
   ragleap-rag-java-tests:
     runs-on: ubuntu-latest
     services:
