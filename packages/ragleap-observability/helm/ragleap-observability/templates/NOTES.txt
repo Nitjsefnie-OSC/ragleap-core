@@ -2,3 +2,6 @@
 WARNING: Grafana is using the placeholder admin password "change-me-before-real-use".
 Set grafana.admin.password, or create your own Secret and set grafana.admin.existingSecret.
 {{- end }}
+{{- if and .Values.promtail.enabled (not .Values.alloy.enabled) }}
+NOTE: Promtail is end of life. To switch, set alloy.enabled=true and promtail.enabled=false (see the README, "Log shipping").
+{{- end }}
