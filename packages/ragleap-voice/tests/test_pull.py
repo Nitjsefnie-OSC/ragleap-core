@@ -22,7 +22,7 @@ from ragleap_voice.manifest import ModelEntry  # noqa: E402
 from ragleap_voice.pull import PullError, build_lock, plan_lock, pull_model, token_from_env  # noqa: E402
 
 REV = "a" * 40
-TOKEN = "tok-test-123"  # placeholder-style fake value
+TOKEN = os.urandom(8).hex()  # fake value generated at run time, so no secret-like literal is committed
 SRC_URL = "https://huggingface.co/owner/repo"
 FILES = {"weights.bin": b"w" * 5000, "config.json": b'{"a": 1}', "sub/tok.model": b"tokens"}
 POLICY = Policy(allowed_suffixes=("127.0.0.1",), token_hosts=("127.0.0.1",), require_https=False, timeout=5.0)
