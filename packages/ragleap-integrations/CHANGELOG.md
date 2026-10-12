@@ -3,6 +3,38 @@
 All notable changes to `ragleap-integrations` are documented here. Format
 loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Verified (after 0.1.0)
+
+- Live check of the MODERN 2026-07-28 path on 2026-10-12, using the published
+  0.1.0 wheel in a clean virtual environment (Python 3.10.12) against two
+  public Google Cloud MCP endpoints (developerknowledge.googleapis.com/mcp and
+  pubsub.googleapis.com/mcp). Read-only: tools/list only, no credentials, no
+  tools/call. The server accepted the modern request (MCP-Protocol-Version,
+  Mcp-Method and per-request _meta), the client recorded the modern era, the
+  reply was plain application/json (non-stream), and the client discovered 3
+  tools with their input schemas from one server.
+
+### Observed
+
+- A 15-tool server sent a 359,293-byte tools/list reply, above the default
+  max_response_bytes (256 KiB): discovery failed with "response too large";
+  with the limit raised to 8 MiB it succeeded on the modern path, and two tools
+  were skipped with a stated reason (inputSchema larger than max_schema_chars,
+  10,000 characters), as designed.
+- Both servers answered an unsupported protocol version with HTTP 400 and
+  JSON-RPC -32600 "Unsupported protocol version" and no supported-version list,
+  and neither implements server/discover (-32601). This client never calls
+  server/discover. A 400 whose JSON-RPC code is outside the recognized modern
+  set is still read as a legacy server (behaviour unchanged).
+
+### Not verified
+
+- Modern-path tools/call, x-mcp-header mirroring, bearer-token authentication,
+  pagination (neither server paginated), and where a -32022 error carries its
+  supported-version list (not observed; the live servers returned -32600).
+
 ## [0.1.0] - 2026-10-06
 
 Correction: the copy of this file inside the published 0.1.0 wheel and sdist says 2026-10-05. The files reached PyPI on 2026-10-06 (UTC), which is the real release date. PyPI files cannot be edited, so this entry is the correction. The live check described below really was on 2026-10-05.
