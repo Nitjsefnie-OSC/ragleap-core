@@ -35,7 +35,8 @@ real cluster:
 - Images pinned to current releases (AlertManager v0.34.1, Loki 3.6.17,
   Grafana 12.4.12, Prometheus v3.13.4); Trivy HIGH/CRITICAL findings with a
   fix available fell from 383 to 14 across these four. PostgreSQL exporter
-  and Promtail are not yet upgraded.
+  is on v0.20.1. Promtail is end of life (see "Log shipping" below), so it
+  is not upgraded.
 - Least-privilege hardening, verified on a live cluster: Prometheus,
   Grafana, Loki, AlertManager and postgres-exporter each run under their
   own zero-permission ServiceAccounts with no API token mounted, and
@@ -94,3 +95,16 @@ alerting has proven reliable, per the build order below.
   for Prometheus specifically, an explicit `Recreate` (required by its
   single-writer TSDB storage). Correctly sequenced after GitOps
   tooling (ArgoCD/Flux), which has not been started.
+
+## Log shipping: Promtail or Alloy
+
+Promtail is the default. Grafana has ended Promtail and replaced it with Grafana Alloy, which this chart can run instead (off by default):
+
+```bash
+helm upgrade ragleap-observability ./ragleap-observability --set alloy.enabled=true --set promtail.enabled=false
+```
+
+- Enabling both fails at render time, because every line would be shipped twice.
+- Alloy keeps its read positions in `alloy.dataHostPath` (default `/var/lib/ragleap-alloy`) on each node. That is the only writable host path in this chart, and removing Alloy leaves the directory behind.
+- Alloy runs as root, because the node's pod log files are root-owned. Pull its image onto the nodes first to keep the gap between shippers short.
+- Tested on one `kind` node: a marker stream stayed in order, without gaps or repeats, across a switch to Alloy and back. A fresh Alloy replays existing files, and Loki rejects the entries that are too old, which Alloy logs as `entry too far behind`.
