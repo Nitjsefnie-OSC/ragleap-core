@@ -104,9 +104,15 @@ def test_show(tmp_path, capsys):
 
 
 def test_check_ok_and_failure(tmp_path, capsys):
-    assert cli.main(["models", "check", "--manifest", _write(tmp_path)]) == 0
+    from ragleap_voice.locks import canonical_bytes, lock_digest
+    lock = {"schema": 1, "model": "m1", "revision": "abc123", "source_url": "https://example.org/m1",
+            "files": [{"path": "w.bin", "size": 3, "sha256": "1" * 64}]}
+    (tmp_path / "locks").mkdir()
+    (tmp_path / "locks" / "m1.json").write_bytes(canonical_bytes(lock))
+    good = GOOD.replace("0" * 64, lock_digest(lock))
+    assert cli.main(["models", "check", "--manifest", _write(tmp_path, good)]) == 0
     assert "manifest OK: 2 model(s), 1 verified, 1 default" in capsys.readouterr().out
-    bad = GOOD.replace('weights_license = "Apache-2.0"', 'weights_license = "CC-BY-NC-4.0"')
+    bad = good.replace('weights_license = "Apache-2.0"', 'weights_license = "CC-BY-NC-4.0"')
     assert cli.main(["models", "check", "--manifest", _write(tmp_path, bad)]) == 1
     assert "weights_license" in capsys.readouterr().err
 

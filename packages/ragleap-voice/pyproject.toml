@@ -41,3 +41,4 @@ packages = ["src/ragleap_voice"]
 [tool.hatch.build.targets.wheel.force-include]
 "models.toml" = "ragleap_voice/data/models.toml"
 "THIRD_PARTY_NOTICES.md" = "ragleap_voice/data/THIRD_PARTY_NOTICES.md"
+"locks" = "ragleap_voice/data/locks"

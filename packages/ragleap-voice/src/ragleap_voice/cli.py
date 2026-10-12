@@ -5,10 +5,13 @@ Currently read-only: it inspects the model manifest. Nothing is downloaded.
 import argparse
 import dataclasses
 import json
+import pathlib
 import sys
 
 from . import __version__
-from .manifest import ManifestError, load_manifest
+from .cache import cache_root, model_dir
+from .locks import LockError, load_lock, lock_digest, validate_lock, verify_dir
+from .manifest import ManifestError, default_manifest_path, load_manifest, lock_problems
 
 
 def _table(entries):
@@ -65,6 +68,7 @@ def _cmd_show(args):
 
 def _cmd_check(args):
     entries, problems = load_manifest(args.manifest)
+    problems = list(problems) + lock_problems(entries, args.manifest)
     if problems:
         print("manifest has %d problem(s):" % len(problems), file=sys.stderr)
         for p in problems:
@@ -72,6 +76,38 @@ def _cmd_check(args):
         return 1
     print("manifest OK: %d model(s), %d verified, %d default" % (
         len(entries), sum(e.status == "verified" for e in entries), sum(e.default for e in entries)))
+    return 0
+
+
+def _cmd_verify(args):
+    entries, _ = load_manifest(args.manifest)
+    match = [e for e in entries if e.name == args.name]
+    if not match:
+        print("error: unknown model " + repr(args.name) + " (try: ragleap-voice models list)", file=sys.stderr)
+        return 1
+    e = match[0]
+    if not e.revision:
+        print("error: " + e.name + " has no pinned revision, so there is nothing to verify against", file=sys.stderr)
+        return 1
+    mpath = pathlib.Path(args.manifest) if args.manifest else default_manifest_path()
+    lp = mpath.parent / "locks" / (e.name + ".json")
+    if not lp.is_file():
+        print("error: no lock file for " + e.name + " (expected " + str(lp) + ")", file=sys.stderr)
+        return 1
+    lock = load_lock(lp)
+    problems = validate_lock(lock, name=e.name, revision=e.revision)
+    if not problems and e.sha256 and lock_digest(lock) != e.sha256:
+        problems = ["sha256 in models.toml does not match the lock file digest"]
+    if not problems:
+        root = pathlib.Path(args.cache_dir) if args.cache_dir else cache_root()
+        directory = model_dir(e.name, e.revision, root)
+        problems = verify_dir(lock, directory)
+    if problems:
+        print("verification of " + e.name + " failed (%d problem(s)):" % len(problems), file=sys.stderr)
+        for p in problems:
+            print(" - " + p, file=sys.stderr)
+        return 1
+    print("%s: %d file(s) verified OK in %s" % (e.name, len(lock["files"]), directory))
     return 0
 
 
@@ -95,7 +131,10 @@ def build_parser():
     show = leaf("show", "show one manifest entry", _cmd_show)
     show.add_argument("name")
     show.add_argument("--json", action="store_true", help="machine-readable output")
-    leaf("check", "validate the manifest against the licence policy", _cmd_check)
+    leaf("check", "validate the manifest and its lock files against the licence policy", _cmd_check)
+    ver = leaf("verify", "verify a cached model against its lock file (offline, read-only)", _cmd_verify)
+    ver.add_argument("name")
+    ver.add_argument("--cache-dir", metavar="PATH", help="use this cache root instead of the default")
     return parser
 
 
@@ -108,6 +147,6 @@ def main(argv=None):
         return 2
     try:
         return func(args)
-    except ManifestError as exc:
+    except (ManifestError, LockError) as exc:
         print("error: " + str(exc), file=sys.stderr)
         return 1
