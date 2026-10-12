@@ -62,6 +62,8 @@ promtail:
 alloy:
   enabled: false
   image: grafana/alloy:v1.20.1
+  # Host directory where Alloy keeps its read positions (the only writable host path).
+  dataHostPath: /var/lib/ragleap-alloy
 
 alertmanager:
   enabled: true

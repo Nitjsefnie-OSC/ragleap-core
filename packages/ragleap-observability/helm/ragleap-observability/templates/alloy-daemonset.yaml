@@ -89,5 +89,9 @@ spec:
           hostPath:
             path: /var/log/pods
         - name: data
-          emptyDir: {}
+          # Saved read positions survive pod recreation, so an upgrade does not
+          # replay every log file on the node. This is the only writable host path.
+          hostPath:
+            path: {{ .Values.alloy.dataHostPath }}
+            type: DirectoryOrCreate
 {{- end }}
