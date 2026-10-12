@@ -66,7 +66,7 @@ Prefer Java? `ragleap-rag` is also on Maven Central:
 <dependency>
     <groupId>io.github.antonyrag</groupId>
     <artifactId>ragleap-rag</artifactId>
-    <version>0.5.0</version>
+    <version>0.12.0</version>
 </dependency>
 ```
 Independently versioned from the Python package above — see [`java/ragleap-rag`](java/ragleap-rag) for current scope.
@@ -76,7 +76,7 @@ Add `ragleap-graph` too if you want Neo4j-backed knowledge graph retrieval:
 pip install ragleap-rag ragleap-graph
 ```
 
-Add `ragleap-vectorstores` too if you want pluggable vector backends beyond ragleap-rag's built-in six (Chroma today):
+Add `ragleap-vectorstores` too if you want pluggable vector backends beyond ragleap-rag's built-in six (Chroma, LanceDB, Redis, Upstash Vector and OpenSearch):
 ```bash
 pip install ragleap-rag ragleap-vectorstores[chroma]
 # or, with uv
@@ -112,6 +112,30 @@ Want metrics and logs for your `ragleap-ops` deployment? `ragleap-observability`
 pip install ragleap-observability
 # or, with uv
 uv add ragleap-observability
+```
+
+Want your agents to call tools on remote MCP servers? `ragleap-integrations` is an MCP client that turns allowlisted tools on remote servers into `ragleap-tools` Tool objects (Streamable HTTP only, alpha):
+
+```bash
+pip install ragleap-integrations
+# or, with uv
+uv add ragleap-integrations
+```
+
+Need a small agent loop for your own model? `ragleap-agents` runs one proposed action at a time over `ragleap-tools` Tool objects, with approval gates, no provider code and no database (alpha):
+
+```bash
+pip install ragleap-agents
+# or, with uv
+uv add ragleap-agents
+```
+
+Prefer Terraform for a local cluster? `ragleap-terraform` is a Terraform module that creates a kind cluster and installs the RagLeap Helm charts (local kind cluster only for now):
+
+```bash
+pip install ragleap-terraform
+# or, with uv
+uv add ragleap-terraform
 ```
 
 Or run the full self-hosted app (channels, the AI Office dashboard, Docker Compose) — see [Quickstart](#quickstart) below. Browse every package at [packages.ragleap.com](https://packages.ragleap.com). Try it hands-on with the runnable scripts in [examples/](examples/) — `01_ingest_and_query.py` (upload a document, ask a question via the API) and `02_test_channel_directly.py` (test channel answering logic without real bot credentials).
