@@ -11,7 +11,8 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `playbooks/bootstrap.yml`, which targets only the group `ragleap_servers`.
 - A check that rejects an SSH public key that is not a full OpenSSH key line, because a truncated key would lock the deploy user out once sshd hardening exists.
 - Container test that runs the playbook twice in a throwaway Ubuntu 22.04 container and requires the second run to change nothing.
+- Opt-in sshd hardening (`ragleap_base_harden_ssh`): a drop-in that turns off password and keyboard-interactive logins, checked with `sshd -t` and rolled back if the check fails. It refuses to run without a deploy key.
 
 ### Not yet implemented
 
-- sshd hardening, firewall, Helm, k3s and chart installation. Nothing has been released.
+- Firewall, Helm, k3s and chart installation. Nothing has been released.

@@ -13,3 +13,12 @@ ragleap_base_packages:
   - curl
   - sudo
   - unattended-upgrades
+
+# Opt-in sshd hardening. Off by default because a mistake can lock you out.
+ragleap_base_harden_ssh: false
+
+# prohibit-password allows root only with a key. 'no' needs a working deploy user with sudo.
+ragleap_base_ssh_permit_root_login: prohibit-password
+
+# Set false only inside a container, where there is no service manager to reload sshd.
+ragleap_base_manage_services: true

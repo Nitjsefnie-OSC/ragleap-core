@@ -70,3 +70,7 @@
     owner: root
     group: root
     mode: "0644"
+
+- name: Harden sshd
+  ansible.builtin.include_tasks: ssh.yml
+  when: ragleap_base_harden_ssh | bool
