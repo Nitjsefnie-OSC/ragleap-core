@@ -15,7 +15,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ragleap}
       POSTGRES_DB: ragleap_core
     ports:
-      - "127.0.0.1:5433:5432"
+      - "127.0.0.1:${DB_PORT:-5433}:5432"
     volumes:
       - ragleap_core_data:/var/lib/postgresql/data
       - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
@@ -42,7 +42,7 @@ services:
       # by default. Requires Docker Engine >=20.10.
       - "host.docker.internal:host-gateway"
     ports:
-      - "${APP_BIND:-127.0.0.1}:8000:8000"
+      - "${APP_BIND:-127.0.0.1}:${APP_PORT:-8000}:8000"
 
   voice:
     profiles: ["voice", "full"]
@@ -56,7 +56,7 @@ services:
     environment:
       DATABASE_URL: postgresql://ragleap:${POSTGRES_PASSWORD:-ragleap}@db:5432/ragleap_core
     ports:
-      - "127.0.0.1:8766:8765"
+      - "127.0.0.1:${VOICE_PORT:-8766}:8765"
     command: ["python3", "-m", "channels.voice.server"]
 
   neo4j:
@@ -67,8 +67,8 @@ services:
       NEO4J_AUTH: neo4j/ragleapgraph
       NEO4J_PLUGINS: '[]'
     ports:
-      - "127.0.0.1:7475:7474"
-      - "127.0.0.1:7688:7687"
+      - "127.0.0.1:${NEO4J_HTTP_PORT:-7475}:7474"
+      - "127.0.0.1:${NEO4J_BOLT_PORT:-7688}:7687"
     volumes:
       - ragleap_core_neo4j_data:/data
     healthcheck:
@@ -82,7 +82,7 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
     ports:
-      - "127.0.0.1:6380:6379"
+      - "127.0.0.1:${REDIS_PORT:-6380}:6379"
     volumes:
       - ragleap_core_redis_data:/data
     healthcheck:

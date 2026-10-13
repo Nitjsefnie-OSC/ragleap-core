@@ -32,6 +32,8 @@ cd "$HOME_DIR" 2>/dev/null || die "RagLeap folder not found: $HOME_DIR"
 [ -f docker-compose.yml ] || die "This does not look like a RagLeap folder (no docker-compose.yml): $HOME_DIR"
 
 env_value() { grep "^$1=" .env 2>/dev/null | head -1 | cut -d= -f2- | tr -d '\r\n' || true; }
+AP="$(env_value APP_PORT)"
+case "$AP" in ''|*[!0-9]*) ;; *) BASE_URL="http://localhost:$AP" ;; esac
 valid_name() { printf '%s' "$1" | grep -Eq '^[A-Za-z0-9._:/-]+$'; }
 use_ollama() { [ -f .ragleap-ollama ] || { [ -f .env ] && grep -q '^OLLAMA_BASE_URL=http://ollama:' .env; }; }
 
