@@ -79,6 +79,8 @@ check_project_conflict() {
 }
 port_busy() {
   # true when something on this computer already listens on this port
+  # (RAGLEAP_PORT_CHECK=off makes every port count as free; the tests use it so results do not depend on the machine)
+  [ "${RAGLEAP_PORT_CHECK:-}" = "off" ] && return 1
   ( exec 3<>"/dev/tcp/127.0.0.1/$1" ) 2>/dev/null
 }
 pick_port() {
