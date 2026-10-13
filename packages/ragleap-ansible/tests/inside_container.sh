@@ -59,6 +59,38 @@ fi
 test ! -e /etc/ssh/sshd_config.d/10-ragleap.conf || { echo "DROP-IN WAS NOT ROLLED BACK"; exit 1; }
 rm -f /etc/ssh/sshd_config.d/99-broken.conf
 echo "bad config rolled back"
+echo "=== firewall on, run twice"
+cat > /tmp/fw-vars.json <<EOF
+{"ragleap_base_deploy_ssh_public_key": "$KEY", "ragleap_base_enable_firewall": true, "ragleap_base_firewall_allow_tcp": [80, 443], "ragleap_base_manage_services": false}
+EOF
+fw_run() {
+  ansible-playbook -i tests/container-inventory.ini playbooks/bootstrap.yml \
+    -e ansible_become=false -e @/tmp/fw-vars.json
+}
+fw_run >/tmp/fw1.out 2>&1 || { tail -15 /tmp/fw1.out; echo "FIREWALL RUN FAILED"; exit 1; }
+out="$(fw_run)"
+echo "$out" | tail -4
+grep -q 'changed=0' <<< "$out" || { echo "FIREWALL TASKS NOT IDEMPOTENT"; exit 1; }
+grep -q 'failed=0' <<< "$out" || { echo "FAILED tasks on second firewall run"; exit 1; }
+ADDED="$(ufw show added)"
+echo "$ADDED"
+for p in 22 80 443; do grep -q "ufw allow $p/tcp" <<< "$ADDED" || { echo "PORT $p MISSING"; exit 1; }; done
+grep -q '^DEFAULT_INPUT_POLICY="DROP"' /etc/default/ufw || { echo "INPUT POLICY NOT DROP"; exit 1; }
+grep -q '^DEFAULT_OUTPUT_POLICY="ACCEPT"' /etc/default/ufw || { echo "OUTPUT POLICY NOT ACCEPT"; exit 1; }
+echo "=== the real sshd port must stay open"
+echo "Port 2222" > /etc/ssh/sshd_config.d/20-port.conf
+fw_run >/tmp/fw2.out 2>&1 || { tail -15 /tmp/fw2.out; echo "FIREWALL RUN WITH PORT 2222 FAILED"; exit 1; }
+ADDED="$(ufw show added)"
+grep -q "ufw allow 2222/tcp" <<< "$ADDED" || { echo "SSH PORT 2222 WAS NOT OPENED"; exit 1; }
+rm -f /etc/ssh/sshd_config.d/20-port.conf
+echo "=== an invalid port must be refused"
+if ansible-playbook -i tests/container-inventory.ini playbooks/bootstrap.yml \
+  -e ansible_become=false -e '{"ragleap_base_enable_firewall": true, "ragleap_base_firewall_allow_tcp": [70000], "ragleap_base_manage_services": false}' >/tmp/badport.out 2>&1; then
+  echo "INVALID PORT WAS ACCEPTED"
+  exit 1
+fi
+grep -q "whole port numbers" /tmp/badport.out
+echo "invalid port refused"
 echo "=== a truncated key must be rejected"
 if ansible-playbook -i tests/container-inventory.ini playbooks/bootstrap.yml \
   -e ansible_become=false -e '{"ragleap_base_deploy_ssh_public_key": "ssh-ed25519"}' >/tmp/bad.out 2>&1; then

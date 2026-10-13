@@ -74,3 +74,7 @@
 - name: Harden sshd
   ansible.builtin.include_tasks: ssh.yml
   when: ragleap_base_harden_ssh | bool
+
+- name: Configure the firewall
+  ansible.builtin.include_tasks: firewall.yml
+  when: ragleap_base_enable_firewall | bool

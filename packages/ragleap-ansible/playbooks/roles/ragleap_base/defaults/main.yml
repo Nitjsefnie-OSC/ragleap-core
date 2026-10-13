@@ -22,3 +22,9 @@ ragleap_base_ssh_permit_root_login: prohibit-password
 
 # Set false only inside a container, where there is no service manager to reload sshd.
 ragleap_base_manage_services: true
+
+# Opt-in firewall (ufw). Off by default because a mistake can lock you out.
+ragleap_base_enable_firewall: false
+
+# Extra TCP ports to open. The ports sshd really listens on are always opened first.
+ragleap_base_firewall_allow_tcp: []
