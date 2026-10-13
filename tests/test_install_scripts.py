@@ -218,3 +218,9 @@ def test_disk_check_refuses_when_there_is_not_enough_space():
     assert r.returncode == 1
     assert "Not enough free disk space" in r.stderr
     assert "AFTER" not in r.stdout
+
+
+def test_readme_has_windows_install_without_the_wrapped_form():
+    s = _read("README.md").read_text(encoding="utf-8")
+    assert "irm https://raw.githubusercontent.com/antonyrag/ragleap-core/main/install.ps1 | iex" in s
+    assert 'powershell -c "irm' not in s
