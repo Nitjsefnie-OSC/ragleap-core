@@ -134,7 +134,7 @@ if ! command -v docker >/dev/null 2>&1; then
 fi
 if ! docker info >/dev/null 2>&1; then
   if [ "$(uname -s 2>/dev/null)" = "Linux" ]; then
-    die "Docker is installed but this user cannot reach it. Start it (for example: sudo systemctl start docker) and make sure your user is in the docker group, then run this again."
+    die "Docker is installed but not running, or this user cannot reach it. Start it (for example: sudo systemctl start docker) and make sure your user is in the docker group, then run this again."
   else
     die "Docker is installed but not running. Start Docker Desktop, wait until it says it is running, then run this again. If it never starts, check that virtualization is enabled and that WSL 2 is installed."
   fi
