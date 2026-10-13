@@ -330,3 +330,15 @@ def test_error_detail_also_reaches_a_retry_exhausted_error(srv):
     s = srv([(429, {}, {"error": "rate limit reached for tokens per day"})] * 3)
     with pytest.raises(ProviderError, match="status 429: .*tokens per day"):
         make(s, max_retries=2, error_detail=True)("p")
+
+
+# ---- prompt style follows the mode ----
+
+def test_the_adapter_advertises_its_mode_and_agent_uses_the_matching_wording(srv):
+    s = srv([(200, {}, completion('{"tool": "done"}')), (200, {}, completion("Done."))])
+    jl, nl = make(s), make(s, mode="native", tools=[calc_tool()])
+    assert (jl.prompt_style, nl.prompt_style) == ("json", "native")
+    Agent(jl, [calc_tool()], Policy(tools={"calc": TRUSTED}), summarize=False).run("q")
+    Agent(nl, [calc_tool()], Policy(tools={"calc": TRUSTED}), summarize=False).run("q")
+    j, n = (s.requests[i]["body"]["messages"][0]["content"] for i in (0, 1))
+    assert "ONLY one JSON object" in j and "JSON" not in n and "call exactly one of the provided tools" in n

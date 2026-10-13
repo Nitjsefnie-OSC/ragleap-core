@@ -144,6 +144,7 @@ def openai_compatible(
                 sleep(delay(attempt, r.retry_after))
         return _reply(data, use_tools)
 
+    llm.prompt_style = mode  # Agent picks the matching instruction wording
     return llm
 
 
