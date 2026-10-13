@@ -11,7 +11,9 @@ Format (schema 1):
      "files": [{"path": "dir/file.bin", "size": 123, "sha256": "<64 lowercase hex>"}]}
 
 Paths are relative POSIX paths without `..`, backslashes or unusual characters. Entries stay
-`unverified` until a person has reviewed their lock file. There are no lock files yet.
+`unverified` until a person has reviewed their lock file. Current lock files: `indic-parler-tts.json`
+(10 files, safetensors only; pinned but not yet reviewed, and it does not cover the separate
+`google/flan-t5-large` repository that the model's config loads at run time).
 
 A lock for a verified or default entry must not list pickle-capable files (`.pt`, `.pth`, `.bin`,
 `.pkl`, `.pickle`, `.ckpt`, `.joblib`, `.dill`): loading them can execute code. Exclude them when

@@ -1,0 +1,58 @@
+{
+  "files": [
+    {
+      "path": ".gitattributes",
+      "sha256": "11ad7efa24975ee4b0c3c3a38ed18737f0658a5f75a0a96787b576a78a023361",
+      "size": 1519
+    },
+    {
+      "path": "README.md",
+      "sha256": "48f22f1d8db473abdcecdba448e24fef0fee26810beb38ccb3d4f1bff4b47652",
+      "size": 24886
+    },
+    {
+      "path": "config.json",
+      "sha256": "14b8b2352e854758fc2c6ad8bf72fb8330a8361cdcf79d7eb52a3f665e904cd2",
+      "size": 7338
+    },
+    {
+      "path": "generation_config.json",
+      "sha256": "86d035c0fd9589d60fb763aad1feafeee2040fb9cf51515a0144816cec4d029d",
+      "size": 223
+    },
+    {
+      "path": "model.safetensors",
+      "sha256": "c68daecb60f80c8f1faf0a6d2e6ddd6de8e224fb19750f3e9a33bca43c552c90",
+      "size": 3751321772
+    },
+    {
+      "path": "preprocessor_config.json",
+      "sha256": "c7d295758ce5777d6d88fef1996e94adc8ef3e2237ddfc5ecc24d1407aaddd7d",
+      "size": 206
+    },
+    {
+      "path": "special_tokens_map.json",
+      "sha256": "4859e5dbde90e059988a0a2136d8df3f2773d4d2fc4c4543690028f0b2166e7f",
+      "size": 552
+    },
+    {
+      "path": "tokenizer.json",
+      "sha256": "8b5f3a5080f95e5333930b57181cd2a9bf387632bd7b277af5d4fea59acb58de",
+      "size": 10272460
+    },
+    {
+      "path": "tokenizer.model",
+      "sha256": "bc8fa773221597d09cfadb23a2b1bd717488a0481505469ea56d42cb044de9b5",
+      "size": 1795391
+    },
+    {
+      "path": "tokenizer_config.json",
+      "sha256": "47baa70cba964a32daa581a4af50b4f2c77edaa18bec2257660133ab204ca36f",
+      "size": 990
+    }
+  ],
+  "model": "indic-parler-tts",
+  "revision": "660bc53c64ae83150613264111708a0465211237",
+  "schema": 1,
+  "source_url": "https://huggingface.co/ai4bharat/indic-parler-tts"
+}
