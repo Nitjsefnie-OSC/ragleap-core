@@ -171,3 +171,16 @@ def test_ragleap_key_rotate_replaces_key_and_keeps_other_settings(tmp_path):
     assert old not in r.stdout and old not in r.stderr
     assert "WARNING" not in r.stderr
     assert "force-recreate" in log.read_text()
+
+
+def test_install_ps1_does_not_advertise_the_wrapped_one_liner():
+    s = _read("install.ps1").read_text()
+    assert 'powershell -c "irm' not in s
+    assert "irm https://raw.githubusercontent.com/antonyrag/ragleap-core/main/install.ps1 | iex" in s
+
+
+def test_install_sh_guidance_for_missing_requirements_and_windows_hint():
+    s = _read("install.sh").read_text()
+    assert "command -v curl" in s
+    assert "docs.docker.com/engine/install" in s
+    assert "Git Bash" in s and "bash scripts/ragleap key" in s

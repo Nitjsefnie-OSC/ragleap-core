@@ -1,6 +1,10 @@
 # RagLeap Core installer for Windows PowerShell.
 #
-#   powershell -c "irm https://raw.githubusercontent.com/antonyrag/ragleap-core/main/install.ps1 | iex"
+#   irm https://raw.githubusercontent.com/antonyrag/ragleap-core/main/install.ps1 | iex
+#
+# Type it in an open PowerShell window. Do not wrap it in powershell -c, because Windows Defender
+# can block a child PowerShell that downloads and runs a script in one command line.
+# To read the script before running it, use: $s = irm URL, then look at $s, then iex $s
 #
 # It checks Docker Desktop and Git for Windows, asks which AI to use, downloads install.sh
 # and runs it with the bash that comes with Git for Windows.
@@ -26,10 +30,10 @@ function Install-RagLeap {
   Say 'RagLeap Core installer for Windows'
 
   if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
-    Fail 'Docker is not installed. Install Docker Desktop first: https://www.docker.com/products/docker-desktop'
+    Fail 'Docker is not installed. Install Docker Desktop first: https://www.docker.com/products/docker-desktop . On Windows it needs WSL 2 and CPU virtualization turned on, and it may ask for a restart.'
   }
   if (-not (Test-Native 'docker' @('info'))) {
-    Fail 'Docker is installed but not running. Start Docker Desktop, wait until it says it is running, then run this again.'
+    Fail 'Docker is installed but not running. Start Docker Desktop, wait until it says it is running, then run this again. If it never starts, check that virtualization is enabled in the BIOS and that WSL 2 is installed: run wsl --status.'
   }
 
   $git = Get-Command git -ErrorAction SilentlyContinue

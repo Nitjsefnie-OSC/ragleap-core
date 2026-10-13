@@ -125,8 +125,20 @@ done
 
 say "RagLeap Core installer"
 
-command -v docker >/dev/null 2>&1 || die "Docker is not installed. Install Docker Desktop first: https://www.docker.com/products/docker-desktop"
-docker info >/dev/null 2>&1 || die "Docker is installed but not running. Start Docker, wait for it to load, then run this again."
+if ! command -v docker >/dev/null 2>&1; then
+  if [ "$(uname -s 2>/dev/null)" = "Linux" ]; then
+    die "Docker is not installed. Install Docker Engine first: https://docs.docker.com/engine/install/ then run this again."
+  else
+    die "Docker is not installed. Install Docker Desktop first: https://www.docker.com/products/docker-desktop . On Windows it needs WSL 2 and CPU virtualization turned on."
+  fi
+fi
+if ! docker info >/dev/null 2>&1; then
+  if [ "$(uname -s 2>/dev/null)" = "Linux" ]; then
+    die "Docker is installed but this user cannot reach it. Start it (for example: sudo systemctl start docker) and make sure your user is in the docker group, then run this again."
+  else
+    die "Docker is installed but not running. Start Docker Desktop, wait until it says it is running, then run this again. If it never starts, check that virtualization is enabled and that WSL 2 is installed."
+  fi
+fi
 if docker compose version >/dev/null 2>&1; then
   COMPOSE="docker compose"
 elif command -v docker-compose >/dev/null 2>&1; then
@@ -135,6 +147,7 @@ else
   die "Docker Compose was not found. Install Docker Desktop, or the docker compose plugin."
 fi
 
+command -v curl >/dev/null 2>&1 || die "curl is not installed (the installer uses it to wait for RagLeap to start). Install curl and run this again."
 check_disk "$MIN_FREE_GB" "to download and build RagLeap"
 
 if [ -f "$DIR/docker-compose.yml" ]; then
@@ -335,7 +348,12 @@ say "API reference: $BASE_URL/docs (it needs your key in the x-api-key header, s
 SHIM_DIR="${HOME:-.}/.local/bin"
 if mkdir -p "$SHIM_DIR" 2>/dev/null && printf '#!/bin/sh\nRAGLEAP_HOME=%s exec bash %s/scripts/ragleap "$@"\n' "$(printf '%q' "$PWD")" "$(printf '%q' "$PWD")" > "$SHIM_DIR/ragleap" && chmod 755 "$SHIM_DIR/ragleap"; then
   say "Installed the ragleap command: $SHIM_DIR/ragleap (ragleap launch | stop | status | logs | update | key)"
-  case ":$PATH:" in *":$SHIM_DIR:"*) ;; *) say "Add it to your PATH to use it from anywhere: export PATH=\"$SHIM_DIR:\$PATH\"" ;; esac
+  case "$(uname -s 2>/dev/null || echo unknown)" in
+    MINGW*|MSYS*|CYGWIN*)
+      say "On Windows, run RagLeap commands in Git Bash (Start menu), from this folder: bash scripts/ragleap key   (also: launch | stop | status | logs | update)" ;;
+    *)
+      case ":$PATH:" in *":$SHIM_DIR:"*) ;; *) say "Add it to your PATH to use it from anywhere: export PATH=\"$SHIM_DIR:\$PATH\"" ;; esac ;;
+  esac
 else
   say "Could not install the ragleap command (optional). You can run: bash $PWD/scripts/ragleap"
 fi
