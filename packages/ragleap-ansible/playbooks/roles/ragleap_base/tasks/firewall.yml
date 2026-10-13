@@ -1,0 +1,68 @@
+---
+- name: Check the extra firewall ports are valid
+  ansible.builtin.assert:
+    that:
+      - (item | string) is match('^[0-9]{1,5}$')
+      - item | int >= 1
+      - item | int <= 65535
+    fail_msg: "ragleap_base_firewall_allow_tcp entries must be whole port numbers from 1 to 65535, got {{ item }}"
+  loop: "{{ ragleap_base_firewall_allow_tcp }}"
+
+- name: Install ufw
+  ansible.builtin.apt:
+    name: ufw
+    state: present
+
+- name: Check whether sshd is installed
+  ansible.builtin.stat:
+    path: /usr/sbin/sshd
+  register: ragleap_base_sshd_bin
+
+- name: Read the effective sshd configuration
+  ansible.builtin.command: /usr/sbin/sshd -T
+  register: ragleap_base_sshd_effective
+  changed_when: false
+  when: ragleap_base_sshd_bin.stat.exists
+
+- name: Work out which ports must stay open for ssh
+  ansible.builtin.set_fact:
+    ragleap_base_ssh_ports: "{{ (ragleap_base_sshd_effective.stdout_lines | default([]) | select('match', '^port [0-9]+$') | map('regex_replace', '^port ', '') | list) or ['22'] }}"
+
+- name: Make the firewall deny incoming and allow outgoing by default
+  ansible.builtin.lineinfile:
+    path: /etc/default/ufw
+    regexp: '^{{ item.key }}='
+    line: '{{ item.key }}="{{ item.value }}"'
+  loop:
+    - { key: DEFAULT_INPUT_POLICY, value: DROP }
+    - { key: DEFAULT_OUTPUT_POLICY, value: ACCEPT }
+  notify: Reload ufw
+
+- name: Read the rules ufw already has
+  ansible.builtin.command: ufw show added
+  register: ragleap_base_ufw_added
+  changed_when: false
+
+- name: Work out which ports still need a rule
+  ansible.builtin.set_fact:
+    ragleap_base_ufw_wanted: "{{ (ragleap_base_ssh_ports + (ragleap_base_firewall_allow_tcp | map('string') | list)) | unique | list }}"
+    ragleap_base_ufw_have: "{{ ragleap_base_ufw_added.stdout_lines | select('match', '^ufw allow [0-9]+/tcp$') | map('regex_replace', '^ufw allow ', '') | map('regex_replace', '/tcp$', '') | list }}"
+
+- name: Open the ssh and extra ports before the firewall is enabled
+  ansible.builtin.command: "ufw allow {{ item }}/tcp"
+  loop: "{{ ragleap_base_ufw_wanted | reject('in', ragleap_base_ufw_have) | list }}"
+  changed_when: true
+  notify: Reload ufw
+
+- name: Read the firewall state
+  ansible.builtin.command: ufw status
+  register: ragleap_base_ufw_status
+  changed_when: false
+  when: ragleap_base_manage_services | bool
+
+- name: Enable the firewall
+  ansible.builtin.command: ufw --force enable
+  changed_when: true
+  when:
+    - ragleap_base_manage_services | bool
+    - "'Status: active' not in ragleap_base_ufw_status.stdout"

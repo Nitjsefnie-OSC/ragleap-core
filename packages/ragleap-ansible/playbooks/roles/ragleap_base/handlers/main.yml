@@ -4,3 +4,8 @@
     name: ssh
     state: reloaded
   when: ragleap_base_manage_services | bool
+
+- name: Reload ufw
+  ansible.builtin.command: ufw reload
+  changed_when: true
+  when: ragleap_base_manage_services | bool
