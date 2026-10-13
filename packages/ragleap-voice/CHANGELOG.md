@@ -5,6 +5,7 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 ### Added
+- First lock file: `locks/indic-parler-tts.json` (revision 660bc53c64ae, 10 files, 3.5 GiB, safetensors only), built and pulled end to end against the real gated Hugging Face repository. Pinned in `models.toml` but still `unverified` pending human review; the separate `google/flan-t5-large` repository its config loads at run time is not covered.
 - Lock files for verified or default entries may not list pickle-capable files (.pt, .pth, .bin, .pkl, .pickle, .ckpt, .joblib, .dill): `models check` fails them, `models pull` refuses verified entries that do and warns for unverified ones, and `models lock` warns when its plan includes such files.
 - Fix: `models pull` now sends the Hugging Face token on redirects that stay on huggingface.co (gated repositories answer with another huggingface.co URL), still never to another host and never again once a redirect has left huggingface.co.
 - `ragleap-voice models pull NAME` (Hugging Face only: HTTPS, host allowlist, manual redirect validation, token sent only to huggingface.co (never to a CDN), per-file size and SHA-256 checks in a staging directory, disk-space check, offline mode) and `models lock NAME` (maintainer tool). Tested against a local fake server only.

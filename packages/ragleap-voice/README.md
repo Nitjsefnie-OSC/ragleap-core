@@ -12,8 +12,9 @@ languages as a priority.
   and verifies size and SHA-256 of every file against a lock file before anything enters the cache
   (it also has an offline mode); `lock` is a maintainer tool that builds those lock files. `pull` is
   new: tested against a local fake server and once end to end against the real service on an ungated
-  model; gated repositories have not been tested against the real service yet.
-  No lock files exist yet, so `pull` currently refuses every model.
+  model, and once on a gated one (Indic Parler-TTS).
+  One lock file exists (indic-parler-tts, pinned but not yet reviewed), so `pull` works only for that
+  gated model and only with `--allow-unverified` and an HF_TOKEN; every other model is refused.
 - Planned, not available: everything else above (STT and TTS engines, streaming, cloning, emotion control).
 
 No performance or "better than X" claim will be made without a reproducible
