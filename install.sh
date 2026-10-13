@@ -77,6 +77,16 @@ check_project_conflict() {
     die "Another RagLeap setup already exists under the project name '$pn' (folder: $other). Starting a second one would mix up the two. Stop or remove it first, or install into a new folder with a different COMPOSE_PROJECT_NAME (skip this check with RAGLEAP_SKIP_CHECKS=1)."
   fi
 }
+port_busy() {
+  # true when something on this computer already listens on this port
+  ( exec 3<>"/dev/tcp/127.0.0.1/$1" ) 2>/dev/null
+}
+pick_port() {
+  # first free port at or above $1 (the six default ports are far apart, so picks never collide)
+  local p="$1" i=0
+  while port_busy "$p" && [ "$i" -lt 50 ]; do p=$((p + 1)); i=$((i + 1)); done
+  echo "$p"
+}
 # --- end preflight helpers ---
 
 while [ $# -gt 0 ]; do
@@ -199,8 +209,15 @@ else
   set_env RAGLEAP_API_KEY "$DASH_LOGIN"
   set_env ADDON_ENCRYPTION_KEY "$(fernet_key)"
   set_env SANDBOX_TOKEN "$(rand_hex 24)"
-  if docker volume ls -q 2>/dev/null | grep -q 'ragleap_core_data'; then
-    say "An earlier RagLeap database exists, so its database password is left as it was."
+  for pv in APP_PORT:8000 DB_PORT:5433 VOICE_PORT:8766 NEO4J_HTTP_PORT:7475 NEO4J_BOLT_PORT:7688 REDIS_PORT:6380; do
+    pn="${pv%%:*}"; pd="${pv##*:}"; pp="$(pick_port "$pd")"
+    if [ "$pp" != "$pd" ]; then
+      say "Port $pd is already in use on this computer, so RagLeap will use $pp instead ($pn)."
+      set_env "$pn" "$pp"
+    fi
+  done
+  if docker volume ls -q 2>/dev/null | grep -qx "$(project_name)_ragleap_core_data"; then
+    say "An earlier database for this setup exists, so its database password is left as it was."
   else
     set_env POSTGRES_PASSWORD "$(rand_hex 12)"
   fi
@@ -223,6 +240,9 @@ else
   umask "$OLD_UMASK"
   say "Created .env with a fresh API key and secrets."
 fi
+
+AP="$(env_value APP_PORT)"
+case "$AP" in ''|*[!0-9]*) ;; *) BASE_URL="http://localhost:$AP" ;; esac
 
 PROFILE=""
 if [ "$USE_OLLAMA" = 1 ]; then PROFILE="--profile ollama"; fi
@@ -259,7 +279,11 @@ if [ "$HOST_OLLAMA" = 1 ]; then
 fi
 
 say "Building and starting RagLeap (the first run takes a few minutes)..."
-$COMPOSE $PROFILE up --build -d
+if ! $COMPOSE $PROFILE up --build -d; then
+  say ""
+  say "RagLeap could not start. If the message above says a port is already in use, set another one in .env (for example DB_PORT=5434 or APP_PORT=8001) and run this again."
+  exit 1
+fi
 
 n=0
 until curl -sf "$BASE_URL/health" >/dev/null 2>&1; do
