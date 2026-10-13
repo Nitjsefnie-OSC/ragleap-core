@@ -172,3 +172,27 @@ def build_lock(name, source_url, revision, plan, policy=None, base_url=DEFAULT_B
     if problems:
         raise PullError("the built lock is invalid: " + "; ".join(problems[:3]))
     return lock
+
+
+def dependency_order(entry, by_name):
+    """Dependencies first, then entry (post-order, each model once). Raises PullError on unknown names or cycles."""
+    order = []
+    state = {}
+
+    def visit(e, trail):
+        st = state.get(e.name)
+        if st == 2:
+            return
+        if st == 1:
+            raise PullError("dependency cycle: " + " -> ".join(trail + [e.name]))
+        state[e.name] = 1
+        for d in e.depends_on:
+            dep = by_name.get(d)
+            if dep is None:
+                raise PullError("%s depends on unknown model %r" % (e.name, d))
+            visit(dep, trail + [e.name])
+        state[e.name] = 2
+        order.append(e)
+
+    visit(entry, [])
+    return order

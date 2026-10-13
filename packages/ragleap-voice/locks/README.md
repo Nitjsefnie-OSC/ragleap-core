@@ -18,3 +18,7 @@ Paths are relative POSIX paths without `..`, backslashes or unusual characters. 
 A lock for a verified or default entry must not list pickle-capable files (`.pt`, `.pth`, `.bin`,
 `.pkl`, `.pickle`, `.ckpt`, `.joblib`, `.dill`): loading them can execute code. Exclude them when
 locking, or keep the entry unverified. `ragleap-voice models check` enforces this.
+
+A manifest entry can list other entries in `depends_on`. Each dependency has its own lock file and its own cache
+folder. `pull` fetches dependencies first and refuses to start if any lock is missing; a verified or default
+entry may only depend on verified entries.

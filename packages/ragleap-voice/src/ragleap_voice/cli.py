@@ -14,7 +14,7 @@ from .cache import cache_root, model_dir
 from .locks import UNSAFE_SUFFIXES, LockError, load_lock, lock_digest, validate_lock, verify_dir
 from .fetch import DEFAULT_BASE, FetchError, Policy
 from .manifest import ManifestError, default_manifest_path, load_manifest, lock_problems
-from .pull import PullError, build_lock, format_size, plan_lock, pull_model, token_from_env
+from .pull import PullError, build_lock, dependency_order, format_size, plan_lock, pull_model, token_from_env
 
 
 def _table(entries):
@@ -82,13 +82,7 @@ def _cmd_check(args):
     return 0
 
 
-def _cmd_verify(args):
-    entries, _ = load_manifest(args.manifest)
-    match = [e for e in entries if e.name == args.name]
-    if not match:
-        print("error: unknown model " + repr(args.name) + " (try: ragleap-voice models list)", file=sys.stderr)
-        return 1
-    e = match[0]
+def _verify_one(args, e):
     if not e.revision:
         print("error: " + e.name + " has no pinned revision, so there is nothing to verify against", file=sys.stderr)
         return 1
@@ -135,14 +129,28 @@ def _locate(args):
 
 
 def _cmd_pull(args):
-    entry, lp = _locate(args)
-    if not lp.is_file():
-        raise PullError("no lock file for %s (expected %s); a maintainer creates it with 'models lock'" % (entry.name, lp))
-    lock = load_lock(lp)
+    entries, _ = load_manifest(args.manifest)
+    by_name = {e.name: e for e in entries}
+    entry = by_name.get(args.name)
+    if entry is None:
+        raise PullError("unknown model " + repr(args.name) + " (try: ragleap-voice models list)")
+    order = dependency_order(entry, by_name)
+    mpath = pathlib.Path(args.manifest) if args.manifest else default_manifest_path()
+    plan = []
+    for e in order:
+        lp = mpath.parent / "locks" / (e.name + ".json")
+        if not lp.is_file():
+            raise PullError("no lock file for %s (expected %s); a maintainer creates it with 'models lock'" % (e.name, lp))
+        plan.append((e, load_lock(lp)))
+    if len(plan) > 1:
+        print("pulling %d models, dependencies first: %s" % (len(plan), ", ".join(e.name for e, _ in plan)))
     root = pathlib.Path(args.cache_dir) if args.cache_dir else cache_root()
     policy, base = _network()
-    dest = pull_model(entry, lock, root, policy=policy, base_url=base, token=token_from_env(os.environ),
-                      offline=_offline(args), allow_unverified=args.allow_unverified, say=print)
+    token = token_from_env(os.environ)
+    dest = None
+    for e, lock in plan:
+        dest = pull_model(e, lock, root, policy=policy, base_url=base, token=token,
+                          offline=_offline(args), allow_unverified=args.allow_unverified, say=print)
     print("%s is ready at %s" % (entry.name, dest))
     return 0
 
@@ -182,6 +190,18 @@ def _cmd_lock(args):
     return 0
 
 
+def _cmd_verify(args):
+    entries, _ = load_manifest(args.manifest)
+    by_name = {e.name: e for e in entries}
+    if args.name not in by_name:
+        print("error: unknown model " + repr(args.name) + " (try: ragleap-voice models list)", file=sys.stderr)
+        return 1
+    rc = 0
+    for e in dependency_order(by_name[args.name], by_name):
+        rc = max(rc, _verify_one(args, e))
+    return rc
+
+
 def build_parser():
     parser = argparse.ArgumentParser(
         prog="ragleap-voice", description="Open, local speech-to-text and text-to-speech (pre-alpha).")
@@ -203,10 +223,10 @@ def build_parser():
     show.add_argument("name")
     show.add_argument("--json", action="store_true", help="machine-readable output")
     leaf("check", "validate the manifest and its lock files against the licence policy", _cmd_check)
-    ver = leaf("verify", "verify a cached model against its lock file (offline, read-only)", _cmd_verify)
+    ver = leaf("verify", "verify a cached model and its dependencies against their lock files (offline, read-only)", _cmd_verify)
     ver.add_argument("name")
     ver.add_argument("--cache-dir", metavar="PATH", help="use this cache root instead of the default")
-    pl = leaf("pull", "download a model from Hugging Face and verify it against its lock file", _cmd_pull)
+    pl = leaf("pull", "download a model (and its dependencies) from Hugging Face and verify it against its lock file", _cmd_pull)
     pl.add_argument("name")
     pl.add_argument("--cache-dir", metavar="PATH", help="use this cache root instead of the default")
     pl.add_argument("--allow-unverified", action="store_true", help="also pull entries whose status is not verified")

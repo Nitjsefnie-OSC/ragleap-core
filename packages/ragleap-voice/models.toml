@@ -87,3 +87,20 @@ default = false
 # - chatterbox: MIT per card; cloning from a short reference; multilingual model covers Hindi but no other Indian
 #   language; outputs carry Resemble's PerTh watermark (loader initialises it unconditionally in the version measured).
 # All three stay status = unverified and default = false until revision, hash, dependency and training-data licences are checked.
+
+# Support entry, not a speech model: the tokenizer files of the text encoder that Indic Parler-TTS loads at run
+# time (its config.json names google/flan-t5-large). Apache-2.0 per the model card (checked 2026-10-13). Not locked
+# yet: the next change adds a lock (tokenizer files only) and the depends_on line on indic-parler-tts.
+[[model]]
+name = "flan-t5-large-tokenizer"
+kind = "support"
+source_url = "https://huggingface.co/google/flan-t5-large"
+revision = ""
+sha256 = ""
+code_license = "Apache-2.0"
+weights_license = "Apache-2.0"
+languages = []
+capabilities = []
+min_hardware = "unknown"
+status = "unverified"
+default = false
