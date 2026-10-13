@@ -162,3 +162,15 @@ def test_cli_check_and_show_with_dependencies(tmp_path, capsys):
     mf = project(tmp_path / "bad", dep_status="unverified")
     assert cli.main(["models", "check", "--manifest", mf]) == 1
     assert "not verified" in capsys.readouterr().err
+
+
+def test_real_manifest_dependencies_are_locked_and_ordered():
+    from ragleap_voice.locks import load_lock
+    from ragleap_voice.manifest import default_manifest_path
+    entries, probs = load_manifest()
+    by = {e.name: e for e in entries}
+    assert probs == []
+    assert [e.name for e in dependency_order(by["indic-parler-tts"], by)] == ["flan-t5-large-tokenizer", "indic-parler-tts"]
+    for name in ("indic-parler-tts", "flan-t5-large-tokenizer"):
+        lock = load_lock(default_manifest_path().parent / "locks" / (name + ".json"))
+        assert lock_digest(lock) == by[name].sha256 and lock["revision"] == by[name].revision
