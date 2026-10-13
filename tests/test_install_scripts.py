@@ -224,3 +224,9 @@ def test_readme_has_windows_install_without_the_wrapped_form():
     s = _read("README.md").read_text(encoding="utf-8")
     assert "irm https://raw.githubusercontent.com/antonyrag/ragleap-core/main/install.ps1 | iex" in s
     assert 'powershell -c "irm' not in s
+
+
+def test_readme_port_troubleshooting_points_to_env_settings():
+    s = _read("README.md").read_text(encoding="utf-8")
+    assert "`DB_PORT` (5433)" in s and "`APP_PORT` (default 8000)" in s
+    assert "change the host-side port mapping in `docker-compose.yml`" not in s
