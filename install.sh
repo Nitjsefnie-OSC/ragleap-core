@@ -88,6 +88,26 @@ pick_port() {
   echo "$p"
 }
 # --- end preflight helpers ---
+# --- browser helper ---
+open_browser() {
+  # opens a URL in the default browser; returns 1 when that is not possible (servers, CI)
+  [ "${RAGLEAP_NO_BROWSER:-}" = "1" ] && return 1
+  [ -n "${CI:-}" ] && return 1
+  case "$(uname -s 2>/dev/null || echo unknown)" in
+    MINGW*|MSYS*|CYGWIN*)
+      command -v powershell.exe >/dev/null 2>&1 || return 1
+      MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' powershell.exe -NoProfile -Command "Start-Process '$1'" >/dev/null 2>&1 ;;
+    Darwin)
+      command -v open >/dev/null 2>&1 || return 1
+      open "$1" >/dev/null 2>&1 ;;
+    *)
+      [ -n "${SSH_CONNECTION:-}" ] && return 1
+      { [ -n "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ]; } || return 1
+      command -v xdg-open >/dev/null 2>&1 || return 1
+      xdg-open "$1" >/dev/null 2>&1 ;;
+  esac
+}
+# --- end browser helper ---
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -298,13 +318,18 @@ done
 say ""
 say "RagLeap is running."
 if [ -n "$DASH_LOGIN" ]; then
-  say "Open your dashboard (one click; the key stays in your browser tab):"
-  say "  $BASE_URL/office#key=$DASH_LOGIN"
-  say "Keep that link private: it contains your API key. The key is also in $PWD/.env"
+  if open_browser "$BASE_URL/office#key=$DASH_LOGIN"; then
+    say "Opened your dashboard in your browser. Your login key is saved in $PWD/.env"
+    say "To show the login link again, run: ragleap key"
+  else
+    say "Open your dashboard (one click; the key stays in your browser tab):"
+    say "  $BASE_URL/office#key=$DASH_LOGIN"
+    say "Keep that link private: it contains your API key. The key is also in $PWD/.env"
+  fi
 else
   say "Open your dashboard: $BASE_URL/office"
 fi
-say "API docs: $BASE_URL/docs"
+say "API reference: $BASE_URL/docs (it needs your key in the x-api-key header, so it shows an error page until you send one)"
 
 
 SHIM_DIR="${HOME:-.}/.local/bin"

@@ -17,6 +17,7 @@ Usage: ragleap <command>
   logs [service]     Follow the logs (default: app).
   update             Back up the database, download the latest version and restart.
   key                Print your one-click dashboard link.
+  key --rotate       Make a new API key (the old one stops working) and print the new link.
 USAGE
 }
 
@@ -26,6 +27,7 @@ case "${1:-help}" in
   *) printf 'Unknown command: %s\n\n' "$1" >&2; usage >&2; exit 2 ;;
 esac
 CMD="$1"; shift
+KEY_ARG="${1:-}"
 
 HOME_DIR="${RAGLEAP_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 cd "$HOME_DIR" 2>/dev/null || die "RagLeap folder not found: $HOME_DIR"
@@ -67,12 +69,54 @@ api() {
   fi
 }
 
-cmd_key() {
+print_key_link() {
   local k
   k="$(env_value RAGLEAP_API_KEY)"
   [ -n "$k" ] || die "No RAGLEAP_API_KEY found in $HOME_DIR/.env"
   say "$BASE_URL/office#key=$k"
   printf '%s\n' "Keep this link private: it contains your API key." >&2
+}
+
+cmd_rotate_key() {
+  need_compose
+  [ -f .env ] || die "No .env found in $HOME_DIR. Run the installer first."
+  local old new tmp prof="" code
+  old="$(env_value RAGLEAP_API_KEY)"
+  new="$(od -An -tx1 -N24 /dev/urandom | tr -d ' \n')"
+  [ "${#new}" -eq 48 ] || die "Could not generate a new key. Nothing was changed."
+  tmp=".env.tmp.$$"
+  if ! ( umask 077; K=RAGLEAP_API_KEY V="$new" awk 'BEGIN { k = ENVIRON["K"]; v = ENVIRON["V"] }
+      index($0, k "=") == 1 { print k "=" v; d = 1; next }
+      { print }
+      END { if (!d) print k "=" v }' .env > "$tmp" ) || [ ! -s "$tmp" ]; then
+    rm -f "$tmp"
+    die "Could not write the new key. Nothing was changed."
+  fi
+  mv "$tmp" .env || { rm -f "$tmp"; die "Could not replace .env. Nothing was changed."; }
+  use_ollama && prof="--profile ollama"
+  say "New key saved. Restarting RagLeap so the old key stops working..."
+  $COMPOSE $prof up -d --no-deps --force-recreate app || die "The new key is in .env but the restart failed. Run: ragleap launch"
+  $COMPOSE $prof up -d >/dev/null 2>&1 || true
+  wait_health || die "RagLeap did not become healthy. Check: ragleap logs"
+  if [ -n "$old" ]; then
+    code="$(printf 'header = "x-api-key: %s"\n' "$old" | curl -s -o /dev/null -w '%{http_code}' -K - "$BASE_URL/employees" 2>/dev/null || true)"
+    [ "$code" = "200" ] && say "WARNING: the old key still works. Run: ragleap launch" >&2
+  fi
+  code="$(printf 'header = "x-api-key: %s"\n' "$new" | curl -s -o /dev/null -w '%{http_code}' -K - "$BASE_URL/employees" 2>/dev/null || true)"
+  [ "$code" = "200" ] || say "WARNING: the new key was not accepted yet (HTTP ${code:-none}). Run: ragleap status" >&2
+  say "Your new dashboard link (the old key no longer works):"
+  print_key_link
+  say "Anything else that calls the API with the old key must be updated." >&2
+}
+
+cmd_key() {
+  if [ "$CMD" = key ] && [ -n "$KEY_ARG" ]; then
+    case "$KEY_ARG" in
+      --rotate) cmd_rotate_key; return ;;
+      *) die "Unknown option: $KEY_ARG (usage: ragleap key [--rotate])" ;;
+    esac
+  fi
+  print_key_link
 }
 
 ollama_prepare() {
