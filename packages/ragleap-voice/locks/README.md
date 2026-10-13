@@ -12,8 +12,8 @@ Format (schema 1):
 
 Paths are relative POSIX paths without `..`, backslashes or unusual characters. Entries stay
 `unverified` until a person has reviewed their lock file. Current lock files: `indic-parler-tts.json`
-(10 files, safetensors only; pinned but not yet reviewed, and it does not cover the separate
-`google/flan-t5-large` repository that the model's config loads at run time).
+(10 files, safetensors only) and `flan-t5-large-tokenizer.json` (5 tokenizer files of the text encoder it
+loads at run time; its dependency). Both are pinned but not yet reviewed.
 
 A lock for a verified or default entry must not list pickle-capable files (`.pt`, `.pth`, `.bin`,
 `.pkl`, `.pickle`, `.ckpt`, `.joblib`, `.dill`): loading them can execute code. Exclude them when

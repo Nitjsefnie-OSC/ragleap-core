@@ -32,4 +32,5 @@ third-party material used only for benchmarking.
   and the loader initialised the watermarker unconditionally in the version measured. Training-data and
   dependency licences not reviewed.
 - google/flan-t5-large (Google), Apache-2.0 per the model card (checked 2026-10-13). Planned dependency of Indic
-  Parler-TTS (its config loads this repository's tokenizer at run time); tokenizer files only, not locked yet.
+  Parler-TTS (its config loads this repository's tokenizer at run time); tokenizer files only (5 files), locked at
+  revision 0613663d0d48, not yet reviewed.

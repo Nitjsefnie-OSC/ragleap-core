@@ -46,6 +46,7 @@ capabilities = ["emotion"]
 min_hardware = "unknown"
 status = "unverified"
 default = false
+depends_on = ["flan-t5-large-tokenizer"]
 
 [[model]]
 name = "chatterbox"
@@ -89,14 +90,14 @@ default = false
 # All three stay status = unverified and default = false until revision, hash, dependency and training-data licences are checked.
 
 # Support entry, not a speech model: the tokenizer files of the text encoder that Indic Parler-TTS loads at run
-# time (its config.json names google/flan-t5-large). Apache-2.0 per the model card (checked 2026-10-13). Not locked
-# yet: the next change adds a lock (tokenizer files only) and the depends_on line on indic-parler-tts.
+# time (its config.json names google/flan-t5-large). Apache-2.0 per the model card (checked 2026-10-13).
+# Locked: 5 tokenizer files, no weights; pinned but not yet reviewed. indic-parler-tts depends on it.
 [[model]]
 name = "flan-t5-large-tokenizer"
 kind = "support"
 source_url = "https://huggingface.co/google/flan-t5-large"
-revision = ""
-sha256 = ""
+revision = "0613663d0d48ea86ba8cb3d7a44f0f65dc596a2a"
+sha256 = "159bce3ad844a2f20b722e8eed1788e4ebf12c2e266cebd0d4a4d0e98813f58e"
 code_license = "Apache-2.0"
 weights_license = "Apache-2.0"
 languages = []

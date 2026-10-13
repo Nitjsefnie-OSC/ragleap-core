@@ -5,6 +5,7 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 ### Added
+- Lock file `locks/flan-t5-large-tokenizer.json` (5 tokenizer files, no weights, revision 0613663d0d48) and `depends_on = ["flan-t5-large-tokenizer"]` on `indic-parler-tts`: `models pull indic-parler-tts` now fetches both repositories, tokenizer first. Both entries stay unverified pending human review.
 - Manifest entries may declare `depends_on` (a list of other entries). `models pull` fetches dependencies first and checks that every lock exists before downloading anything; `models verify` checks them too; `models check` rejects unknown names, self-dependencies, duplicates and cycles, and a verified or default entry may only depend on verified entries. A verified entry that is not a default is now held to the same rules as a default one (pinned revision, 64-hex lock digest, allowlisted licences).
 - Manifest entry `flan-t5-large-tokenizer` (unverified, not locked yet): the tokenizer files of the text encoder that Indic Parler-TTS loads at run time. Apache-2.0 per the model card.
 - First lock file: `locks/indic-parler-tts.json` (revision 660bc53c64ae, 10 files, 3.5 GiB, safetensors only), built and pulled end to end against the real gated Hugging Face repository. Pinned in `models.toml` but still `unverified` pending human review; the separate `google/flan-t5-large` repository its config loads at run time is not covered.
