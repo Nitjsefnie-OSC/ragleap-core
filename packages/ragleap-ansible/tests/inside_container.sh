@@ -35,10 +35,12 @@ out="$(ssh_run)"
 echo "$out" | tail -4
 echo "$out" | grep -q 'changed=0' || { echo "SSH TASKS NOT IDEMPOTENT"; exit 1; }
 echo "$out" | grep -q 'failed=0' || { echo "FAILED tasks on second ssh run"; exit 1; }
-sshd -T 2>/dev/null | grep -E '^(passwordauthentication|kbdinteractiveauthentication|permitrootlogin|pubkeyauthentication) '
-sshd -T 2>/dev/null | grep -q '^passwordauthentication no' || { echo "PASSWORD AUTH STILL ON"; exit 1; }
-sshd -T 2>/dev/null | grep -q '^kbdinteractiveauthentication no' || { echo "KBD-INTERACTIVE STILL ON"; exit 1; }
-sshd -T 2>/dev/null | grep -q -E '^permitrootlogin (without-password|prohibit-password)' || { echo "ROOT LOGIN SETTING WRONG"; exit 1; }
+# Capture first: "sshd -T | grep -q" fails under pipefail because grep -q closes the pipe early.
+EFFECTIVE="$(sshd -T 2>/dev/null)"
+grep -E '^(passwordauthentication|kbdinteractiveauthentication|permitrootlogin|pubkeyauthentication) ' <<< "$EFFECTIVE"
+grep -q '^passwordauthentication no' <<< "$EFFECTIVE" || { echo "PASSWORD AUTH STILL ON"; exit 1; }
+grep -q '^kbdinteractiveauthentication no' <<< "$EFFECTIVE" || { echo "KBD-INTERACTIVE STILL ON"; exit 1; }
+grep -q -E '^permitrootlogin (without-password|prohibit-password)' <<< "$EFFECTIVE" || { echo "ROOT LOGIN SETTING WRONG"; exit 1; }
 echo "=== hardening without a key must be refused"
 if ansible-playbook -i tests/container-inventory.ini playbooks/bootstrap.yml \
   -e ansible_become=false -e '{"ragleap_base_harden_ssh": true}' >/tmp/nokey.out 2>&1; then
