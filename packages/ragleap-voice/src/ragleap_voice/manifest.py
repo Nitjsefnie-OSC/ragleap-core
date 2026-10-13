@@ -3,7 +3,7 @@ import pathlib
 from dataclasses import dataclass
 
 from ._toml import loads
-from .licences import REQUIRED_FIELDS, validate_entries
+from .licences import OPTIONAL_FIELDS, REQUIRED_FIELDS, validate_entries
 from .locks import LockError, load_lock, lock_digest, unsafe_format_files, validate_lock
 
 
@@ -25,6 +25,7 @@ class ModelEntry:
     min_hardware: str
     status: str
     default: bool
+    depends_on: tuple = ()
 
 
 _STR_FIELDS = ("name", "kind", "source_url", "revision", "sha256", "code_license",
@@ -46,7 +47,7 @@ def _entry(raw, index):
     missing = [f for f in REQUIRED_FIELDS if f not in raw]
     if missing:
         raise ManifestError(label + ": missing field(s): " + ", ".join(missing))
-    unknown = sorted(set(raw) - set(REQUIRED_FIELDS))
+    unknown = sorted(set(raw) - set(REQUIRED_FIELDS) - set(OPTIONAL_FIELDS))
     if unknown:
         raise ManifestError(label + ": unknown field(s): " + ", ".join(unknown))
     for f in _STR_FIELDS:
@@ -58,11 +59,15 @@ def _entry(raw, index):
             raise ManifestError(label + ": field " + f + " must be a list of strings")
     if not isinstance(raw["default"], bool):
         raise ManifestError(label + ": field default must be true or false")
+    deps = raw.get("depends_on", [])
+    if not isinstance(deps, list) or not all(isinstance(x, str) for x in deps):
+        raise ManifestError(label + ": field depends_on must be a list of strings")
     return ModelEntry(
         name=raw["name"], kind=raw["kind"], source_url=raw["source_url"], revision=raw["revision"],
         sha256=raw["sha256"], code_license=raw["code_license"], weights_license=raw["weights_license"],
         languages=tuple(raw["languages"]), capabilities=tuple(raw["capabilities"]),
-        min_hardware=raw["min_hardware"], status=raw["status"], default=raw["default"])
+        min_hardware=raw["min_hardware"], status=raw["status"], default=raw["default"],
+        depends_on=tuple(raw.get("depends_on", [])))
 
 
 def load_manifest(path=None):

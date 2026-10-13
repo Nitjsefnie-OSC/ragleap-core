@@ -31,3 +31,5 @@ third-party material used only for benchmarking.
 - Chatterbox Multilingual (Resemble AI), MIT per the model card. Outputs carry Resemble's PerTh watermark,
   and the loader initialised the watermarker unconditionally in the version measured. Training-data and
   dependency licences not reviewed.
+- google/flan-t5-large (Google), Apache-2.0 per the model card (checked 2026-10-13). Planned dependency of Indic
+  Parler-TTS (its config loads this repository's tokenizer at run time); tokenizer files only, not locked yet.

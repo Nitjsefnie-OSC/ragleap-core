@@ -15,6 +15,8 @@ languages as a priority.
   model, and once on a gated one (Indic Parler-TTS).
   One lock file exists (indic-parler-tts, pinned but not yet reviewed), so `pull` works only for that
   gated model and only with `--allow-unverified` and an HF_TOKEN; every other model is refused.
+  Manifest entries can declare `depends_on`: `pull` fetches dependencies first and `verify` checks them; a
+  verified entry requires verified dependencies. No entry uses this yet.
 - Planned, not available: everything else above (STT and TTS engines, streaming, cloning, emotion control).
 
 No performance or "better than X" claim will be made without a reproducible

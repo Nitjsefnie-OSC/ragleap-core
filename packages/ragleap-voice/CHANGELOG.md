@@ -5,6 +5,8 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 ### Added
+- Manifest entries may declare `depends_on` (a list of other entries). `models pull` fetches dependencies first and checks that every lock exists before downloading anything; `models verify` checks them too; `models check` rejects unknown names, self-dependencies, duplicates and cycles, and a verified or default entry may only depend on verified entries. A verified entry that is not a default is now held to the same rules as a default one (pinned revision, 64-hex lock digest, allowlisted licences).
+- Manifest entry `flan-t5-large-tokenizer` (unverified, not locked yet): the tokenizer files of the text encoder that Indic Parler-TTS loads at run time. Apache-2.0 per the model card.
 - First lock file: `locks/indic-parler-tts.json` (revision 660bc53c64ae, 10 files, 3.5 GiB, safetensors only), built and pulled end to end against the real gated Hugging Face repository. Pinned in `models.toml` but still `unverified` pending human review; the separate `google/flan-t5-large` repository its config loads at run time is not covered.
 - Lock files for verified or default entries may not list pickle-capable files (.pt, .pth, .bin, .pkl, .pickle, .ckpt, .joblib, .dill): `models check` fails them, `models pull` refuses verified entries that do and warns for unverified ones, and `models lock` warns when its plan includes such files.
 - Fix: `models pull` now sends the Hugging Face token on redirects that stay on huggingface.co (gated repositories answer with another huggingface.co URL), still never to another host and never again once a redirect has left huggingface.co.
