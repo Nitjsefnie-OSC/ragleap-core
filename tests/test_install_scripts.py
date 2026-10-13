@@ -171,3 +171,50 @@ def test_ragleap_key_rotate_replaces_key_and_keeps_other_settings(tmp_path):
     assert old not in r.stdout and old not in r.stderr
     assert "WARNING" not in r.stderr
     assert "force-recreate" in log.read_text()
+
+
+def test_install_ps1_does_not_advertise_the_wrapped_one_liner():
+    s = _read("install.ps1").read_text()
+    assert 'powershell -c "irm' not in s
+    assert "irm https://raw.githubusercontent.com/antonyrag/ragleap-core/main/install.ps1 | iex" in s
+
+
+def test_install_sh_guidance_for_missing_requirements_and_windows_hint():
+    s = _read("install.sh").read_text()
+    assert "command -v curl" in s
+    assert "docs.docker.com/engine/install" in s
+    assert "Git Bash" in s and "bash scripts/ragleap key" in s
+
+
+def test_port_check_can_be_switched_off():
+    import os
+    import socket
+    bash = shutil.which("bash")
+    if not bash:
+        pytest.skip("bash is not available")
+    srv = socket.socket()
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(1)
+    busy = srv.getsockname()[1]
+    try:
+        script = _preflight() + "\nport_busy %d && echo BUSY || echo FREE\n" % busy
+        r = subprocess.run([bash, "-c", script], capture_output=True, text=True, timeout=30,
+                           env=dict(os.environ, RAGLEAP_PORT_CHECK="off"))
+    finally:
+        srv.close()
+    assert "FREE" in r.stdout
+
+
+def test_disk_check_refuses_when_there_is_not_enough_space():
+    import os
+    bash = shutil.which("bash")
+    if not bash:
+        pytest.skip("bash is not available")
+    script = ("say() { printf '%s\\n' \"$*\"; }\n"
+              "die() { printf '%s\\n' \"$*\" >&2; exit 1; }\n"
+              "DIR=.\n" + _preflight() + "\ncheck_disk 99999999 'for a test'\necho AFTER\n")
+    env = {k: v for k, v in os.environ.items() if k != "RAGLEAP_SKIP_CHECKS"}
+    r = subprocess.run([bash, "-c", script], capture_output=True, text=True, timeout=30, env=env)
+    assert r.returncode == 1
+    assert "Not enough free disk space" in r.stderr
+    assert "AFTER" not in r.stdout

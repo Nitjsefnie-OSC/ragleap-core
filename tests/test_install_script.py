@@ -42,7 +42,9 @@ def run(base, args=(), env=None, env_text=None):
     log = base / "docker.log"
     log.touch()
     e = {"PATH": str(bin_dir) + os.pathsep + os.environ["PATH"], "HOME": str(base), "RAGLEAP_DIR": str(proj),
-         "RAGLEAP_NONINTERACTIVE": "1", "RAGLEAP_WAIT_TRIES": "2", "FAKE_LOG": str(log)}
+         "RAGLEAP_NONINTERACTIVE": "1", "RAGLEAP_WAIT_TRIES": "2", "FAKE_LOG": str(log),
+         "RAGLEAP_PORT_CHECK": "off", "RAGLEAP_NO_BROWSER": "1",
+         "RAGLEAP_MIN_FREE_GB": "0", "RAGLEAP_MIN_FREE_GB_OLLAMA": "0"}
     e.update(env or {})
     r = subprocess.run(["bash", str(SCRIPT), *args], capture_output=True, text=True, env=e,
                        stdin=subprocess.DEVNULL, start_new_session=True, timeout=60)
