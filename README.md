@@ -712,4 +712,4 @@ docker compose up --build -d
 ```
 
 **Port 5433 or 8000 already in use:**
-Another instance of this project (or something else) is using the port. Either stop it, or change the host-side port mapping in `docker-compose.yml` (the `"5433:5432"` and `"8000:8000"` lines) to something free.
+Another instance of this project (or something else, such as a local PostgreSQL on 5433) is using the port. A fresh install with `install.sh` or `install.ps1` picks the next free port by itself and writes it to `.env`. If you started with `docker compose up` yourself, or reuse an existing `.env`, set the host port there instead: `APP_PORT` (default 8000), `DB_PORT` (5433), `VOICE_PORT` (8766), `NEO4J_HTTP_PORT` (7475), `NEO4J_BOLT_PORT` (7688) or `REDIS_PORT` (6380), for example `DB_PORT=5434`, then run `docker compose up -d` again. The dashboard address follows `APP_PORT`, for example `http://localhost:8001/office`.
