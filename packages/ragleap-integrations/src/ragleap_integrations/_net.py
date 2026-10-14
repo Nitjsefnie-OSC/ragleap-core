@@ -40,7 +40,7 @@ from urllib.parse import urlsplit
 MAX_URL_CHARS = 2048
 DEFAULT_TOTAL_TIMEOUT = 30.0
 DEFAULT_OP_TIMEOUT = 10.0
-DEFAULT_MAX_BYTES = 256 * 1024
+DEFAULT_MAX_BYTES = 1024 * 1024
 READ_CHUNK = 8192
 USER_AGENT = "ragleap-integrations/0.1"
 
@@ -57,7 +57,7 @@ _REASONS = {
     "connect": "could not connect",
     "tls": "tls failure",
     "deadline": "response too slow",
-    "too_large": "response too large",
+    "too_large": "response too large; raise max_response_bytes",
     "io": "network error",
 }
 
