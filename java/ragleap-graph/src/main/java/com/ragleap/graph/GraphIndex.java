@@ -726,4 +726,48 @@ public final class GraphIndex implements AutoCloseable {
     private static double asDouble(Object o) {
         return o instanceof Number n ? n.doubleValue() : 0.0;
     }
+
+    // ---- one-time backfills (the registered migration steps live in Migrations) ----
+
+    /** Backfills user_id = "" onto Entity/Document/PairWeight/RelationWeight nodes missing it. Idempotent. */
+    public Map<String, Long> backfillUserIdDefaults() {
+        return backfillUserIdDefaults(null);
+    }
+
+    /** Same, scoped to one namespace (null = whole graph). Returns the number of nodes updated per label. */
+    public Map<String, Long> backfillUserIdDefaults(String namespace) {
+        return GraphBackfills.userIdDefaults(runnerOrNull(), namespace);
+    }
+
+    /** Backfills composite_key onto Document/Entity/PairWeight/RelationWeight nodes missing it. Idempotent. */
+    public Map<String, Long> backfillCompositeKey() {
+        return backfillCompositeKey(null, GraphBackfills.DEFAULT_BATCH_SIZE);
+    }
+
+    public Map<String, Long> backfillCompositeKey(String namespace) {
+        return backfillCompositeKey(namespace, GraphBackfills.DEFAULT_BATCH_SIZE);
+    }
+
+    /** batchSize = nodes per UNWIND write. As in Python, 0 is rejected and a negative value writes nothing. */
+    public Map<String, Long> backfillCompositeKey(String namespace, int batchSize) {
+        return GraphBackfills.compositeKey(runnerOrNull(), namespace, batchSize);
+    }
+
+    /** Backfills composite_key onto CO_OCCURS_WITH relationships missing it. Returns the number updated. */
+    public long backfillCoOccursWithCompositeKey() {
+        return backfillCoOccursWithCompositeKey(null, GraphBackfills.DEFAULT_BATCH_SIZE);
+    }
+
+    public long backfillCoOccursWithCompositeKey(String namespace) {
+        return backfillCoOccursWithCompositeKey(namespace, GraphBackfills.DEFAULT_BATCH_SIZE);
+    }
+
+    public long backfillCoOccursWithCompositeKey(String namespace, int batchSize) {
+        return GraphBackfills.coOccursCompositeKey(runnerOrNull(), namespace, batchSize);
+    }
+
+    /** The connected runner, or null when the server could not be reached (used by MigrationRunner and tests). */
+    CypherRunner runnerOrNull() {
+        return isAvailable() ? runner : null;
+    }
 }
