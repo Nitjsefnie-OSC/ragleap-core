@@ -49,3 +49,20 @@ def delete_document(document_id: str) -> bool:
     finally:
         conn.close()
     return deleted
+
+
+def delete_document_graph(document_id: str) -> str:
+    """
+    Clean the knowledge graph after a document was deleted. Returns "cleaned", "skipped" (graph not
+    configured) or "failed". Never raises: the document is already gone from the database.
+    """
+    try:
+        uid = str(uuid.UUID(str(document_id)))
+        from core.graph import graph_service
+        result = graph_service.delete_document_graph(uid)
+    except Exception:
+        logger.warning("Graph cleanup raised for document %s", document_id, exc_info=True)
+        return "failed"
+    if result.get("skipped"):
+        return "skipped"
+    return "cleaned" if result.get("success") else "failed"

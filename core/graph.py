@@ -252,6 +252,37 @@ class GraphService:
             summary["error"] = str(e)
             return summary
 
+    def delete_document_graph(self, document_id: str) -> Dict[str, Any]:
+        """
+        Remove one document from the graph: its Document node and links, then every Entity that no
+        remaining document mentions. RELATED_TO links between entities that stay are not tracked per
+        document, so they keep their weight. Never raises.
+        """
+        summary = {"success": False, "skipped": False, "document_id": str(document_id),
+                   "entities_removed": 0, "error": None}
+        if not self.driver:
+            summary["skipped"] = True
+            return summary
+        try:
+            with self.driver.session() as session:
+                names = [r["name"] for r in session.run(
+                    "MATCH (:Document {id: $document_id})-[:CONTAINS]->(e:Entity) RETURN e.name AS name",
+                    document_id=str(document_id))]
+                session.run("MATCH (d:Document {id: $document_id}) DETACH DELETE d",
+                            document_id=str(document_id))
+                if names:
+                    rec = session.run(
+                        "UNWIND $names AS n MATCH (e:Entity {name: n}) "
+                        "WHERE NOT (e)<-[:CONTAINS]-(:Document) "
+                        "WITH e DETACH DELETE e RETURN count(*) AS removed",
+                        names=names).single()
+                    summary["entities_removed"] = int(rec["removed"]) if rec else 0
+            summary["success"] = True
+        except Exception as e:
+            logger.error(f"Document graph delete error: {e}", exc_info=True)
+            summary["error"] = str(e)
+        return summary
+
     def find_documents_by_entities(self, entity_names: List[str], limit: int = 25) -> List[Dict[str, Any]]:
         """Retrieve graph-relevant documents connected to entity names."""
         if not self.driver:
