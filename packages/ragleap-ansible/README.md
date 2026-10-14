@@ -1,6 +1,6 @@
 # ragleap-ansible
 
-Ansible roles that prepare a fresh Ubuntu 22.04 server for the RagLeap Helm charts. **Version 0.1.0 is not released yet.**
+Ansible roles that prepare a fresh Ubuntu 22.04 server for the RagLeap Helm charts. **Version 0.1.0 covers the server base only. It does not install k3s, Helm or the charts yet.**
 
 ## What works today
 
