@@ -5,6 +5,24 @@ loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-14
+
+### Changed
+
+- The default `max_response_bytes` is now 1 MiB (it was 256 KiB). A real 15-tool
+  server (Google Cloud Pub/Sub's MCP endpoint) answered `tools/list` with 359,293
+  bytes, which the old default refused, so discovery failed out of the box.
+- The "response too large" error now names the setting ("response too large;
+  raise max_response_bytes"). The text stays constant: no server text in errors.
+
+### Verified
+
+- 208 tests (the existing 201 unchanged plus 7 new: the default value, a reply
+  the size of the real Pub/Sub list, exactly 1 MiB passes and 1 MiB plus one
+  byte is refused, an explicit smaller cap still applies, and the message in
+  discovery and tool-call errors), passing on Python 3.10.12 and 3.12.3.
+  Mutation-tested: 8 deliberate breaks of this change, all caught.
+
 ### Verified (after 0.1.0)
 
 - Live check of the MODERN 2026-07-28 path on 2026-10-12, using the published

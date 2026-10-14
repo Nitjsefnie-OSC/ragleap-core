@@ -91,7 +91,7 @@ handshake with protocol version 2025-06-18 only (an explicit allowlist, not
 |---|---|
 | Whole-call deadline (`total_timeout`) | 30 s |
 | Per-operation socket timeout (`op_timeout`) | 10 s |
-| Response size (`max_response_bytes`) | 256 KiB (a large server may need more; see Known limitations) |
+| Response size (`max_response_bytes`) | 1 MiB (256 KiB in 0.1.0) |
 | Result text (`max_result_chars`) | 4000 characters |
 | Tool description (`max_description_chars`) | 500 characters |
 | Input schema (`max_schema_chars`) | 10000 characters (larger: tool skipped) |
@@ -106,13 +106,14 @@ handshake with protocol version 2025-06-18 only (an explicit allowlist, not
 - `ragleap_tools.Tool.call` in ragleap-tools 0.4.0 cannot take an argument
   literally named `self`.
 - Not safe to share one client between threads while calls are running.
-- A real server can send a tool list larger than the default 256 KiB
-  response cap (a 15-tool server sent 359 KB); discovery then fails with
-  "response too large" until `max_response_bytes` is raised.
+- A server whose tool list is larger than the response cap (1 MiB by default;
+  256 KiB in 0.1.0, which a real 15-tool server's 359 KB list exceeded) makes
+  discovery fail with "response too large; raise max_response_bytes" until
+  the limit is raised.
 
 ## Verification status
 
-- 201 tests, including a real local TLS server with a throwaway certificate
+- 208 tests, including a real local TLS server with a throwaway certificate
   for the transport (hostname verification, IP pinning, size cap, truncated
   bodies, and the deadline against slow-drip bodies, slow-drip headers and a
   stalled handshake).
