@@ -26,7 +26,11 @@
 
 - name: Work out which ports must stay open for ssh
   ansible.builtin.set_fact:
-    ragleap_base_ssh_ports: "{{ (ragleap_base_sshd_effective.stdout_lines | default([]) | select('match', '^port [0-9]+$') | map('regex_replace', '^port ', '') | list) or ['22'] }}"
+    ragleap_base_ssh_ports: >-
+      {{ (ragleap_base_sshd_effective.stdout_lines | default([])
+      | select('match', '^port [0-9]+$')
+      | map('regex_replace', '^port ', '')
+      | list) or ['22'] }}
 
 - name: Make the firewall deny incoming and allow outgoing by default
   ansible.builtin.lineinfile:
@@ -46,7 +50,12 @@
 - name: Work out which ports still need a rule
   ansible.builtin.set_fact:
     ragleap_base_ufw_wanted: "{{ (ragleap_base_ssh_ports + (ragleap_base_firewall_allow_tcp | map('string') | list)) | unique | list }}"
-    ragleap_base_ufw_have: "{{ ragleap_base_ufw_added.stdout_lines | select('match', '^ufw allow [0-9]+/tcp$') | map('regex_replace', '^ufw allow ', '') | map('regex_replace', '/tcp$', '') | list }}"
+    ragleap_base_ufw_have: >-
+      {{ ragleap_base_ufw_added.stdout_lines
+      | select('match', '^ufw allow [0-9]+/tcp$')
+      | map('regex_replace', '^ufw allow ', '')
+      | map('regex_replace', '/tcp$', '')
+      | list }}
 
 - name: Open the ssh and extra ports before the firewall is enabled
   ansible.builtin.command: "ufw allow {{ item }}/tcp"

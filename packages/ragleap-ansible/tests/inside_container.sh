@@ -77,12 +77,14 @@ echo "$ADDED"
 for p in 22 80 443; do grep -q "ufw allow $p/tcp" <<< "$ADDED" || { echo "PORT $p MISSING"; exit 1; }; done
 grep -q '^DEFAULT_INPUT_POLICY="DROP"' /etc/default/ufw || { echo "INPUT POLICY NOT DROP"; exit 1; }
 grep -q '^DEFAULT_OUTPUT_POLICY="ACCEPT"' /etc/default/ufw || { echo "OUTPUT POLICY NOT ACCEPT"; exit 1; }
+echo "ports 22, 80, 443 and both default policies are in place"
 echo "=== the real sshd port must stay open"
 echo "Port 2222" > /etc/ssh/sshd_config.d/20-port.conf
 fw_run >/tmp/fw2.out 2>&1 || { tail -15 /tmp/fw2.out; echo "FIREWALL RUN WITH PORT 2222 FAILED"; exit 1; }
 ADDED="$(ufw show added)"
 grep -q "ufw allow 2222/tcp" <<< "$ADDED" || { echo "SSH PORT 2222 WAS NOT OPENED"; exit 1; }
 rm -f /etc/ssh/sshd_config.d/20-port.conf
+echo "ssh port 2222 opened"
 echo "=== an invalid port must be refused"
 if ansible-playbook -i tests/container-inventory.ini playbooks/bootstrap.yml \
   -e ansible_become=false -e '{"ragleap_base_enable_firewall": true, "ragleap_base_firewall_allow_tcp": [70000], "ragleap_base_manage_services": false}' >/tmp/badport.out 2>&1; then

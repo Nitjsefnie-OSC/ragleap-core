@@ -12,7 +12,7 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - A check that rejects an SSH public key that is not a full OpenSSH key line, because a truncated key would lock the deploy user out once sshd hardening exists.
 - Container test that runs the playbook twice in a throwaway Ubuntu 22.04 container and requires the second run to change nothing.
 - Opt-in sshd hardening (`ragleap_base_harden_ssh`): a drop-in that turns off password and keyboard-interactive logins, checked with `sshd -t` and rolled back if the check fails. It refuses to run without a deploy key.
-- Opt-in firewall (`ragleap_base_enable_firewall`): ufw with deny-incoming and allow-outgoing defaults, the ports sshd really listens on opened first, and extra TCP ports from `ragleap_base_firewall_allow_tcp`. `ufw enable` and real enforcement were not tested, because a container has no kernel firewall.
+- Opt-in firewall (`ragleap_base_enable_firewall`): ufw with deny-incoming and allow-outgoing defaults, the ports sshd really listens on opened first, and extra TCP ports from `ragleap_base_firewall_allow_tcp`. `ufw enable` and real enforcement were not tested, because a container has no kernel firewall. The role only adds rules and never removes one.
 
 ### Not yet implemented
 
