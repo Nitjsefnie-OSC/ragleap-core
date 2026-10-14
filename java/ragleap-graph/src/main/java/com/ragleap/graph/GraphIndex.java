@@ -226,19 +226,37 @@ public final class GraphIndex implements AutoCloseable {
     private final CypherRunner runner;
     private final AuditSink audit;
     private final Sleeper sleeper;
+    private final ExtractionConfig extractionConfig;
+    private final UpsertPlanner.Extraction extraction;
 
     public GraphIndex(GraphConfig config) {
-        this(config, AuditSink.NOOP);
+        this(config, ExtractionConfig.regex(), AuditSink.NOOP);
     }
 
     public GraphIndex(GraphConfig config, AuditSink audit) {
-        this(open(config), audit, GraphIndex::sleepSeconds);
+        this(config, ExtractionConfig.regex(), audit);
+    }
+
+    /** An index that extracts entities (and optionally relations) as the given config says; default is regex. */
+    public GraphIndex(GraphConfig config, ExtractionConfig extraction) {
+        this(config, extraction, AuditSink.NOOP);
+    }
+
+    public GraphIndex(GraphConfig config, ExtractionConfig extraction, AuditSink audit) {
+        this(open(config), audit, GraphIndex::sleepSeconds, extraction);
+    }
+
+    GraphIndex(CypherRunner candidate, AuditSink audit, Sleeper sleeper) {
+        this(candidate, audit, sleeper, ExtractionConfig.regex());
     }
 
     /** For tests and custom runners; a null or unreachable runner makes the index unavailable. */
-    GraphIndex(CypherRunner candidate, AuditSink audit, Sleeper sleeper) {
+    GraphIndex(CypherRunner candidate, AuditSink audit, Sleeper sleeper, ExtractionConfig extraction) {
         this.audit = audit == null ? AuditSink.NOOP : audit;
         this.sleeper = sleeper;
+        this.extractionConfig = extraction == null ? ExtractionConfig.regex() : extraction;
+        // Built before connecting, like Python: a misconfigured LLM setup fails at construction time.
+        this.extraction = UpsertPlanner.Extraction.of(this.extractionConfig);
         this.runner = candidate == null ? null : connect(candidate);
     }
 
@@ -284,6 +302,11 @@ public final class GraphIndex implements AutoCloseable {
 
     public boolean isAvailable() {
         return runner != null;
+    }
+
+    /** The extraction settings this index was built with. */
+    public ExtractionConfig extractionConfig() {
+        return extractionConfig;
     }
 
     public boolean healthCheck() {
@@ -369,7 +392,7 @@ public final class GraphIndex implements AutoCloseable {
         if (runner == null) {
             return new UpsertSummary(false, documentId, 0, 0, 0, NOT_AVAILABLE);
         }
-        UpsertPlanner.Plan plan = UpsertPlanner.plan(chunks, maxEntities, maxPairs, domainTerms);
+        UpsertPlanner.Plan plan = UpsertPlanner.plan(chunks, maxEntities, maxPairs, domainTerms, extraction);
         int entities = 0;
         int relationships = 0;
         int relations = 0;
