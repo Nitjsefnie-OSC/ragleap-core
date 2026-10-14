@@ -55,6 +55,16 @@ promtail:
   enabled: true
   image: grafana/promtail:3.3.0
 
+# Grafana Alloy log shipper. Grafana has ended Promtail, and Alloy is its
+# replacement. Off by default. To switch, set alloy.enabled=true AND
+# promtail.enabled=false; running both would ship every log line twice,
+# so the chart refuses that combination.
+alloy:
+  enabled: false
+  image: grafana/alloy:v1.20.1
+  # Host directory where Alloy keeps its read positions (the only writable host path).
+  dataHostPath: /var/lib/ragleap-alloy
+
 alertmanager:
   enabled: true
   image: prom/alertmanager:v0.34.1

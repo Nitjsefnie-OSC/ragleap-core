@@ -20,7 +20,7 @@
   let stamp = null;
   const tabButtons = {};
   const expanded = new Set();
-  const TABS = [["setup", "Setup"], ["overview", "Overview"], ["approvals", "Approvals"], ["employees", "Employees"], ["tasks", "Tasks"], ["runs", "Agent runs"], ["log", "Activity"], ["settings", "Settings"]];
+  const TABS = [["setup", "Setup"], ["overview", "Overview"], ["approvals", "Approvals"], ["employees", "Employees"], ["tasks", "Tasks"], ["documents", "Documents"], ["runs", "Agent runs"], ["log", "Activity"], ["settings", "Settings"]];
 
   // All dynamic text goes in as text nodes; nothing here ever builds HTML from data.
   const add = (el, kid) => {
@@ -35,7 +35,7 @@
       else if (k === "on") Object.entries(v).forEach(([ev, fn]) => el.addEventListener(ev, fn));
       else if (k === "disabled") el.disabled = !!v;
       else if (k === "value") el.value = String(v);
-      else if (["type", "placeholder", "title", "autocomplete", "rows", "maxlength"].includes(k)) el.setAttribute(k, String(v));
+      else if (["type", "placeholder", "title", "autocomplete", "rows", "maxlength", "accept"].includes(k)) el.setAttribute(k, String(v));
     });
     kids.forEach((kid) => add(el, kid));
     return el;
@@ -256,6 +256,68 @@
     })));
   };
 
+  let docFormEl = null;
+  let docListEl = null;
+  let docMsgEl = null;
+  const docConfirm = new Map();
+  const DOC_CONFIRM_MS = 10000;
+  const uploadDocument = async (file) => {
+    const body = new FormData();
+    body.append("file", file);
+    const res = await fetch("/upload", { method: "POST", cache: "no-store", headers: { "x-api-key": key }, body });
+    if (res.status === 401) { lock("That key was not accepted."); throw new Error("unauthorized"); }
+    let data = {};
+    try { data = await res.json(); } catch (e) { data = {}; }
+    if (!res.ok) throw new Error(clip(data.detail || ("upload failed (" + res.status + ")"), 200));
+    return data;
+  };
+  const buildDocForm = () => {
+    const input = h("input", { type: "file", accept: ".txt,.pdf,.docx" });
+    docMsgEl = h("span", { class: "sub" }, "");
+    const btn = h("button", { type: "button", on: { click: async () => {
+      const f = input.files && input.files[0];
+      if (!f) { docMsgEl.textContent = "Choose a .txt, .pdf or .docx file first."; return; }
+      btn.disabled = true;
+      docMsgEl.textContent = "Uploading and indexing " + clip(f.name, 60) + " (this can take a while)...";
+      try {
+        const r = await uploadDocument(f);
+        docMsgEl.textContent = "Added " + clip(f.name, 60) + ": " + r.chunks_stored + " chunk(s).";
+        input.value = "";
+      } catch (e) {
+        if (String(e.message) !== "unauthorized") docMsgEl.textContent = "Could not add the file: " + clip(e.message, 160);
+      }
+      btn.disabled = false;
+      await refreshDocuments();
+    } } }, "Upload");
+    return h("section", { class: "card" }, h("h2", null, "Add a document"),
+      h("p", { class: "sub" }, "Supported: .txt, .pdf and .docx, up to 20 MB. Your AI employees answer from the documents listed here."),
+      h("div", { class: "row" }, input, btn, docMsgEl));
+  };
+  const docCard = (d) => {
+    const isArmed = (id) => docConfirm.has(id) && Date.now() - docConfirm.get(id) < DOC_CONFIRM_MS;
+    const del = h("button", { type: "button", class: "bad", on: { click: async () => {
+      if (!isArmed(d.id)) { docConfirm.set(d.id, Date.now()); await refreshDocuments(); return; }
+      docConfirm.delete(d.id);
+      del.disabled = true;
+      try {
+        const r = await api("DELETE", "/documents/" + encodeURIComponent(d.id));
+        docMsgEl.textContent = (r && r.deleted) ? "Deleted " + clip(d.filename, 60) + "." + (r.graph === "failed" ? " Warning: the knowledge graph could not be cleaned, so entity names from this document may remain." : "") : "The server did not confirm the delete.";
+      } catch (e) {
+        if (String(e.message) !== "unauthorized") docMsgEl.textContent = "Could not delete: " + clip(e.message, 160);
+      }
+      await refreshDocuments();
+    } } }, isArmed(d.id) ? "Click again to delete" : "Delete");
+    return h("article", { class: "item" },
+      h("div", { class: "row" }, h("strong", null, clip(d.filename, 120)), h("span", { class: "tag" }, d.chunks + " chunk(s)"),
+        h("span", { class: "sub" }, "added " + ago(d.uploaded_at)), del));
+  };
+  const refreshDocuments = async () => {
+    if (!docFormEl) { docFormEl = buildDocForm(); docListEl = h("div", null); }
+    if (view.firstChild !== docFormEl) view.replaceChildren(docFormEl, docListEl);
+    const docs = (await api("GET", "/documents")).documents;
+    docListEl.replaceChildren(docs.length ? h("div", { class: "list" }, docs.map(docCard)) : h("p", { class: "empty" }, "No documents yet. Add one above."));
+  };
+
   const SETTINGS_NOTE = "A value saved here wins over the .env file. Saved keys are encrypted and can never be read back.";
   const sourceTag = (it) => h("span", { class: "tag" }, it.source === "dashboard" ? "set here" : (it.source === "env" ? "from .env" : "default"));
   const llmFields = (p) => {
@@ -397,6 +459,7 @@
       else if (tab === "runs") content = renderRuns((await api("GET", "/agent-runs?limit=30")).runs);
       else if (tab === "employees") content = renderOrg(await api("GET", "/org"));
       else if (tab === "tasks") { await refreshTasks(); content = null; }
+      else if (tab === "documents") { await refreshDocuments(); content = null; }
       else if (tab === "settings") { await refreshSettings(); content = null; }
       else if (tab === "setup") content = renderSetup(await api("GET", "/setup/status"));
       else content = renderLog((await api("GET", "/autonomy/log?limit=60")).log);

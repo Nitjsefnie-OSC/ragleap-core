@@ -4,7 +4,7 @@
 
 # RagLeap Core
 
-**Autonomous AI Agents — Not Just RAG.**
+**Open-source AI employees that ask before they act.**
 
 [![license MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE) [![Core Release](https://img.shields.io/github/v/release/antonyrag/ragleap-core?filter=v*&label=ragleap-core&color=blue)](https://github.com/antonyrag/ragleap-core/releases) [![46 AI Employees](https://img.shields.io/badge/46-AI%20Employees-brightgreen)](https://github.com/antonyrag/ragleap-core) [![Autonomous](https://img.shields.io/badge/Autonomous-brightgreen)](https://github.com/antonyrag/ragleap-core) [![Self--Hosted](https://img.shields.io/badge/Self--Hosted-brightgreen)](https://github.com/antonyrag/ragleap-core)
 [![PyPI ragleap-rag](https://img.shields.io/pypi/v/ragleap-rag?label=ragleap-rag)](https://pypi.org/project/ragleap-rag/) [![Downloads](https://img.shields.io/pepy/dt/ragleap-rag?label=downloads)](https://pypi.org/project/ragleap-rag/)
@@ -12,6 +12,7 @@
 [![PyPI ragleap-vectorstores](https://img.shields.io/pypi/v/ragleap-vectorstores?label=ragleap-vectorstores)](https://pypi.org/project/ragleap-vectorstores/) [![Downloads](https://img.shields.io/pepy/dt/ragleap-vectorstores?label=downloads)](https://pypi.org/project/ragleap-vectorstores/)
 [![PyPI ragleap-tools](https://img.shields.io/pypi/v/ragleap-tools?label=ragleap-tools)](https://pypi.org/project/ragleap-tools/) [![Downloads](https://img.shields.io/pepy/dt/ragleap-tools?label=downloads)](https://pypi.org/project/ragleap-tools/)
 [![PyPI ragleap-integrations](https://img.shields.io/pypi/v/ragleap-integrations?label=ragleap-integrations)](https://pypi.org/project/ragleap-integrations/) [![Downloads](https://img.shields.io/pepy/dt/ragleap-integrations?label=downloads)](https://pypi.org/project/ragleap-integrations/)
+[![PyPI ragleap-agents](https://img.shields.io/pypi/v/ragleap-agents?label=ragleap-agents)](https://pypi.org/project/ragleap-agents/) [![Downloads](https://img.shields.io/pepy/dt/ragleap-agents?label=downloads)](https://pypi.org/project/ragleap-agents/)
 [![PyPI ragleap-ops](https://img.shields.io/pypi/v/ragleap-ops?label=ragleap-ops)](https://pypi.org/project/ragleap-ops/) [![Downloads](https://img.shields.io/pepy/dt/ragleap-ops?label=downloads)](https://pypi.org/project/ragleap-ops/)
 [![PyPI ragleap-app-chart](https://img.shields.io/pypi/v/ragleap-app-chart?label=ragleap-app-chart)](https://pypi.org/project/ragleap-app-chart/) [![Downloads](https://img.shields.io/pepy/dt/ragleap-app-chart?label=downloads)](https://pypi.org/project/ragleap-app-chart/)
 [![PyPI ragleap-observability](https://img.shields.io/pypi/v/ragleap-observability?label=ragleap-observability)](https://pypi.org/project/ragleap-observability/) [![Downloads](https://img.shields.io/pepy/dt/ragleap-observability?label=downloads)](https://pypi.org/project/ragleap-observability/)
@@ -32,6 +33,31 @@ RagLeap Core is the open-source engine behind RagLeap — a self-hosted, agentic
 - Auto-trigger workflows and escalation
 - Autonomy modes: `off` (default, the AI acts only when you start it), `semi` (you approve each action) and `full` (opt-in; sensitive roles are never fully autonomous)
 - Think-act-decide loop, not just retrieval
+- Act-observe agent loop (opt-in): the model proposes one action at a time, each action goes through the approval gate, and the result comes back as untrusted text
+- Safe tools, all opt-in: Python and shell in a network-less sandbox, read-only page fetch, an MCP client with an allowlist, task tickets and scheduled check-ins
+- **AI Office dashboard** at `/office`: approvals, employees by department, tasks, agent runs, activity, Settings and a Setup checklist
+- Can run fully local with Ollama for chat and embeddings (small models on a CPU are slower and less accurate than hosted ones), or with any of 19 provider options and your own key
+- Optional token budgets, failed-login throttling and an audit log of every action
+
+**Install in one command** (needs Docker Desktop on macOS and Windows, or Docker Engine on Linux; the script asks which AI to use and never changes an existing `.env`):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/antonyrag/ragleap-core/main/install.sh | bash
+```
+
+Prefer to read it first? See [install.sh](install.sh). For a fully local setup with no API key, use `bash -s -- --ollama` at the end of that command.
+
+**Windows:** install [Docker Desktop](https://www.docker.com/products/docker-desktop) (it needs WSL 2 and CPU virtualization turned on) and [Git for Windows](https://git-scm.com/download/win), then type this in an open PowerShell window:
+
+```powershell
+irm https://raw.githubusercontent.com/antonyrag/ragleap-core/main/install.ps1 | iex
+```
+
+It asks which AI to use, builds and starts RagLeap, and opens the dashboard in your browser without printing your login key in the terminal. Type it directly in PowerShell: wrapped inside `powershell -c "..."`, Windows Defender stopped that form on the one machine we tested. To read the script first, run `$s = irm` with the same address, look at `$s`, then run `iex $s`. After the install, run RagLeap commands in Git Bash from the install folder, for example `bash scripts/ragleap key`.
+
+If port 8000 or 5433 is already used on your computer (for example by a local PostgreSQL), a fresh install picks the next free port and writes it to `.env` (`APP_PORT`, `DB_PORT` and so on). `ragleap key --rotate` replaces your API key and restarts the app; the old key stops working at once.
+
+Honest limits: the Windows installer has been run on one Windows machine so far, and its local Ollama option has not been tested on Windows.
 
 [Quickstart](#quickstart) · [Docs](https://docs.ragleap.com) · [Website](https://ragleap.com) · [Packages](https://packages.ragleap.com/)
 
@@ -52,7 +78,7 @@ Prefer Java? `ragleap-rag` is also on Maven Central:
 <dependency>
     <groupId>io.github.antonyrag</groupId>
     <artifactId>ragleap-rag</artifactId>
-    <version>0.5.0</version>
+    <version>0.12.0</version>
 </dependency>
 ```
 Independently versioned from the Python package above — see [`java/ragleap-rag`](java/ragleap-rag) for current scope.
@@ -62,7 +88,7 @@ Add `ragleap-graph` too if you want Neo4j-backed knowledge graph retrieval:
 pip install ragleap-rag ragleap-graph
 ```
 
-Add `ragleap-vectorstores` too if you want pluggable vector backends beyond ragleap-rag's built-in six (Chroma today):
+Add `ragleap-vectorstores` too if you want pluggable vector backends beyond ragleap-rag's built-in six (Chroma, LanceDB, Redis, Upstash Vector and OpenSearch):
 ```bash
 pip install ragleap-rag ragleap-vectorstores[chroma]
 # or, with uv
@@ -100,13 +126,37 @@ pip install ragleap-observability
 uv add ragleap-observability
 ```
 
-Or run the full self-hosted app (channels, web chat UI, Docker Compose) — see [Quickstart](#quickstart) below. Browse every package at [packages.ragleap.com](https://packages.ragleap.com). Try it hands-on with the runnable scripts in [examples/](examples/) — `01_ingest_and_query.py` (upload a document, ask a question via the API) and `02_test_channel_directly.py` (test channel answering logic without real bot credentials).
+Want your agents to call tools on remote MCP servers? `ragleap-integrations` is an MCP client that turns allowlisted tools on remote servers into `ragleap-tools` Tool objects (Streamable HTTP only, alpha):
+
+```bash
+pip install ragleap-integrations
+# or, with uv
+uv add ragleap-integrations
+```
+
+Need a small agent loop for your own model? `ragleap-agents` runs one proposed action at a time over `ragleap-tools` Tool objects, with approval gates, no provider code and no database (alpha):
+
+```bash
+pip install ragleap-agents
+# or, with uv
+uv add ragleap-agents
+```
+
+Prefer Terraform for a local cluster? `ragleap-terraform` is a Terraform module that creates a kind cluster and installs the RagLeap Helm charts (local kind cluster only for now):
+
+```bash
+pip install ragleap-terraform
+# or, with uv
+uv add ragleap-terraform
+```
+
+Or run the full self-hosted app (channels, the AI Office dashboard, Docker Compose) — see [Quickstart](#quickstart) below. Browse every package at [packages.ragleap.com](https://packages.ragleap.com). Try it hands-on with the runnable scripts in [examples/](examples/) — `01_ingest_and_query.py` (upload a document, ask a question via the API) and `02_test_channel_directly.py` (test channel answering logic without real bot credentials).
 
 ## If a RAG chatbot answers questions, RagLeap runs your business
 
 Most open-source RAG projects give you a toolkit — you still have to build the app, wire up a UI, add memory, and connect every channel yourself. RagLeap Core gives you one AI across WhatsApp, Telegram, Discord, and voice calls, instead of a different disconnected bot per channel. Memory persists across sessions and channels, so it isn't relearning who a customer is every time. Voice is a real, working inbound-call handler (Twilio Media Streams, Whisper STT, OpenAI TTS) — not just document Q&A with a phone number bolted on — and n8n workflow automation can be triggered directly from any conversation.
 
-What this repo doesn't include: a multi-tenant admin dashboard (settings, analytics, team, billing) and an executive-assistant layer (Manager AI). RagLeap Core itself is single-tenant, self-hosted, and configured via `.env`.
+What this repo doesn't include: a multi-tenant admin dashboard (settings, analytics, team, billing) and an executive-assistant layer (Manager AI). It does ship a single-tenant dashboard, the AI Office at `/office` (approvals, employees by department, tasks, agent runs, activity, Settings and a Setup checklist). RagLeap Core itself is single-tenant, self-hosted, and configured via `.env`.
 
 ## What makes RagLeap Core specifically different
 
@@ -116,7 +166,7 @@ This repo isn't a general-purpose RAG framework you assemble into something — 
 
 Open-source AI agent projects like OpenClaw took off for a specific reason: people wanted an assistant that runs on **their own infrastructure**, with **their own keys**, answering from **the chat apps they already use** — not a black box hosted by someone else. That same principle is what RagLeap Core is built on for business AI specifically.
 
-**Your keys, your infrastructure, your data.** RagLeap Core never asks for a system API key. You bring your own Gemini key, you run your own PostgreSQL database, your documents are stored on your own server, and text is sent only to the AI providers you configure (your chat model, and Gemini for embeddings).
+**Your keys, your infrastructure, your data.** RagLeap Core never asks for a system API key. You bring your own AI key (or use local Ollama with no key), you run your own PostgreSQL database, your documents are stored on your own server, and text is sent only to the AI providers you configure (your chat model and your embedding provider; with local Ollama for both, your document text stays on your server).
 
 **Chat is the interface, not a separate dashboard you have to learn.** The same way OpenClaw meets people on WhatsApp, Telegram, and Slack, RagLeap's full platform meets business owners on the channels they already use — WhatsApp, Telegram, Discord, and real phone calls — not a new app they have to check.
 
@@ -156,7 +206,7 @@ WhatsApp, Telegram, and Discord bots are included in this repo too — single-te
 | 🔍 **RAG retrieval** | Vector search over your documents via pgvector |
 | 💬 **Chat with citations** | Answers reference the source document, not a black box |
 | 🔌 **Bring your own AI key** | OpenAI, Gemini, Anthropic, or any OpenAI-compatible endpoint |
-| 🌐 **Web chat widget** | Embed a chat widget on any website |
+| 🌐 **Web chat widget (planned)** | Not built yet: an embeddable widget for customer websites is on the [Roadmap](#roadmap) |
 | 🐳 **Docker-based setup** | One-command local deployment |
 | 🕸️ **Knowledge Graph (Neo4j)** | Entity extraction and graph-boosted retrieval alongside vector search |
 | 🌍 **Language detection** | Auto-detects document and query language, applied across every channel |
@@ -166,6 +216,13 @@ WhatsApp, Telegram, and Discord bots are included in this repo too — single-te
 | 🔁 **Provider fallback** | Automatically retries with a backup LLM provider if the primary fails |
 | 💰 **Token usage reporting** | Real per-call token counts from the provider, plus context-size budget trimming |
 | 🧑‍💼 **AI Employees** | Role-based agents (46 default roles) with persistent business-context memory, wired into `/chat` via `role=<role>` |
+| 🖥️ **AI Office dashboard** | Approvals inbox, employees by department, tasks, agent runs, activity, Settings (keys are encrypted and write-only) and a Setup checklist at `/office` |
+| 🛡️ **Approval-gated autonomy** | `off`, `semi` and `full` modes; sensitive roles always need approval; after the agent reads web or MCP content, outgoing actions need your approval even in `full` mode; every action is logged |
+| 🔁 **Act-observe agent loop** | Opt-in: propose an action, approve it, observe the result, continue (up to 4 steps by default) |
+| 🧰 **Sandboxed tools (opt-in)** | Python and shell in a network-less container, read-only page fetch with SSRF protection, MCP client with an allowlist, task tickets |
+| ⏰ **Scheduled check-ins** | Proactive triggers every N minutes or by cron with a time zone |
+| 💸 **Budgets and limits** | Optional daily and monthly token caps (global or per role) and failed-login throttling |
+| 🦙 **Local mode** | Chat and embeddings through Ollama; `ragleap launch --ollama` |
 | 🛠️ **Build your own AI Employee** | Define a fully custom role (any name, personality, channels, skill tags) via `PATCH /employees/{role}` - no fork, no code change. Verified live: create, retrieve, and list a new role end-to-end. |
 | 🔗 **n8n workflow automation** | Fire a webhook after the AI replies on WhatsApp/Telegram/Discord — no-code automations triggered directly from a conversation |
 ## Architecture
@@ -175,7 +232,7 @@ How RagLeap Core is put together:
 ```mermaid
 flowchart TD
     subgraph Core["RagLeap Core — this repo (open)"]
-        WebUI["Web Chat UI"] --> ChatAPI["Chat API"]
+        WebUI["Your app or REST client"] --> ChatAPI["Chat API"]
         ChatAPI --> WA["WhatsApp"]
         ChatAPI --> TG["Telegram"]
         ChatAPI --> DC["Discord"]
@@ -234,8 +291,14 @@ ragleap-core/
 ├── db/
 │   └── schema.sql         # documents + chunks tables, pgvector index
 ├── examples/              # Runnable example scripts
+├── sandbox/               # Locked-down code and shell runner (opt-in)
+├── scripts/               # The `ragleap` command
+├── skills/ragleap/        # Read-only skill for coding agents
+├── .codex-plugin/         # Plugin manifest for that skill
+├── packages/              # Standalone pip packages (ragleap-rag, -graph, -tools, ...)
+├── java/                  # Java port of ragleap-rag
 ├── .github/workflows/     # CI: compile check, Docker build, smoke tests
-├── docker-compose.yml     # app + db + voice services
+├── docker-compose.yml     # app + db + voice, plus optional neo4j, redis, worker, sandbox and ollama profiles
 └── Dockerfile
 ```
 
@@ -265,7 +328,7 @@ cp .env.example .env
 docker compose up --build -d
 ```
 
-Requirements: Docker, Docker Compose, and a Gemini API key (embeddings use Gemini by default; set `EMBEDDING_PROVIDER=ollama` or another provider to run without a Gemini key). For chat you can use Gemini or any of the 19 providers listed under [Supported LLM Providers](#supported-llm-providers-byok), including a local Ollama model and any OpenAI-compatible endpoint.
+Requirements: Docker, Docker Compose, and either a Gemini API key (the default) or a local Ollama setup with no key (use `ragleap launch --ollama`, or set `EMBEDDING_PROVIDER=ollama` for embeddings). For chat you can use Gemini or any of the 19 providers listed under [Supported LLM Providers](#supported-llm-providers-byok), including a local Ollama model and any OpenAI-compatible endpoint.
 
 **Try it in 30 seconds** — with the stack running, see [examples/](examples/) for two verified, runnable scripts:
 - `examples/01_ingest_and_query.py` — upload a document and ask a question via the API
@@ -273,7 +336,7 @@ Requirements: Docker, Docker Compose, and a Gemini API key (embeddings use Gemin
 
 ## Just want the RAG engine as a Python library?
 
-If you don't need the full Docker app — WhatsApp/Telegram/Discord/Voice adapters, the web chat UI, all of it — the core retrieval engine is also published as standalone, pip-installable Python packages:
+If you don't need the full Docker app — WhatsApp/Telegram/Discord/Voice adapters, the AI Office dashboard, all of it — the core retrieval engine is also published as standalone, pip-installable Python packages:
 
 ```bash
 pip install ragleap-rag
@@ -282,8 +345,8 @@ pip install ragleap-rag
 - **`ragleap-rag`** — the chunking → embedding → retrieval → generation pipeline as a library. Pluggable embeddings (8 providers: Gemini, OpenAI, Mistral, Together, Ollama, Cohere, Voyage and a custom endpoint), 6 vector backends (FAISS, PgVector, Pinecone, Weaviate, Qdrant, Milvus), cross-encoder reranking, and more.
 - **`ragleap-graph`** — Neo4j-backed knowledge graph retrieval, usable standalone or alongside `ragleap-rag`.
 - **`ragleap-vectorstores`** — pluggable vector backends beyond `ragleap-rag` core's 6. Backends: Chroma and LanceDB (embedded/local), Redis (RediSearch/Redis Stack), Upstash Vector (managed serverless) and OpenSearch (k-NN). Install with `pip install ragleap-vectorstores[chroma]` or `uv add ragleap-vectorstores[chroma]`.
-- **`ragleap-tools`** — standalone, dependency-light tools for LLM tool-calling. 12 stateless tools (calculator, date/time, unit conversion, JSON/CSV parsing, text utilities), sandboxed file ops (symlink-escape protected), `search_documents` (hybrid vector+keyword search), `search_web` (pluggable BYOK providers such as Tavily and Serper), `search_github_repositories`, `describe_image` (BYOK vision providers for Gemini and Anthropic; only Gemini has been live-checked), and optional `ragleap-rag`-backed document ingestion. Does not own a tool-calling execution loop — provides `Tool` objects for your own loop or `ragleap-agents` once it ships. Install with `pip install ragleap-tools` or `uv add ragleap-tools`.
-- **`ragleap-integrations`** — MCP (Model Context Protocol) client over Streamable HTTP that returns `ragleap-tools` `Tool` objects. The owner configures the servers and an exact `server.tool` allowlist; the model only supplies arguments. HTTPS-only transport with DNS pinning and a hard wall-clock deadline. Live-checked against one public server (legacy protocol path); the newest protocol revision (2026-07-28) is not yet live-verified. No curated business connectors and no agent loop yet. Install with `pip install ragleap-integrations` or `uv add ragleap-integrations`.
+- **`ragleap-tools`** — standalone, dependency-light tools for LLM tool-calling. 12 stateless tools (calculator, date/time, unit conversion, JSON/CSV parsing, text utilities), sandboxed file ops (symlink-escape protected), `search_documents` (hybrid vector+keyword search), `search_web` (pluggable BYOK providers such as Tavily and Serper), `search_github_repositories`, `describe_image` (BYOK vision providers for Gemini and Anthropic; only Gemini has been live-checked), and optional `ragleap-rag`-backed document ingestion. Every HTTP provider has a response-size cap and a hard total deadline. Does not own a tool-calling execution loop — provides `Tool` objects for your own loop or for `ragleap-agents`. Install with `pip install ragleap-tools` or `uv add ragleap-tools`.
+- **`ragleap-integrations`** — MCP (Model Context Protocol) client over Streamable HTTP that returns `ragleap-tools` `Tool` objects. The owner configures the servers and an exact `server.tool` allowlist; the model only supplies arguments. HTTPS-only transport with DNS pinning and a hard wall-clock deadline. Live-checked against public servers: DeepWiki on the legacy protocol path, and Google Cloud's MCP endpoints on the newest revision (2026-07-28; discovery only, `tools/call` on that path is not yet live-verified). Real servers can send tool lists above the default 256 KiB response cap; raise `max_response_bytes` if discovery fails. No curated business connectors and no agent loop yet. Install with `pip install ragleap-integrations` or `uv add ragleap-integrations`.
 - **`ragleap-ops`** — Kubernetes deployment manifests for RagLeap Core, live-tested end-to-end on a real cluster. Install with `pip install ragleap-ops` or `uv add ragleap-ops`.
 - **`ragleap-app-chart`** — generic, reusable Helm chart for deploying arbitrary services to Kubernetes, not RagLeap-specific. Point it at your own app via a `services:` list. Install with `pip install ragleap-app-chart` or `uv add ragleap-app-chart`.
 - **`ragleap-observability`** — Prometheus, Grafana, Loki + Promtail for `ragleap-ops`, live-verified end-to-end against a real cluster (real connection confirmed, real non-zero metrics returned; 21+ real log streams with correct namespace/pod/container labels). AlertManager is wired to Prometheus with a first real alert rule, plus optional Slack/email receivers (off by default; delivery verified against a stand-in, real send not yet confirmed). Install with `pip install ragleap-observability` or `uv add ragleap-observability`.
@@ -291,9 +354,30 @@ pip install ragleap-rag
 
 All nine are MIT licensed. Browse the full package index at [packages.ragleap.com](https://packages.ragleap.com).
 
+## Use RagLeap from a coding agent (read-only plugin)
+
+If you already run a RagLeap server, a small read-only skill lets a coding agent check it and ask it questions. The skill lives in `skills/ragleap` and the manifest is `.codex-plugin/plugin.json`. It is a client for a server you run yourself, not a way to install RagLeap, and it uses only the Python standard library.
+
+Set the server URL and your API key in the environment:
+
+```bash
+export RAGLEAP_URL=http://127.0.0.1:8000
+export RAGLEAP_API_KEY=your-key-here
+```
+
+Commands:
+
+```bash
+python3 skills/ragleap/scripts/ragleap_client.py health
+python3 skills/ragleap/scripts/ragleap_client.py employees --active-only
+python3 skills/ragleap/scripts/ragleap_client.py ask "What is our refund policy?" --role support --top-k 5
+```
+
+Safety choices: it is read-only (no upload or delete), the key is read only from the environment and sent as a header, it refuses to send the key over plain `http` to a non-local host, it does not follow redirects, and responses are capped at 2 MB. Treat answers as untrusted text. See `skills/ragleap/SKILL.md` for details.
+
 ## Supported LLM Providers (BYOK)
 
-RagLeap Core is bring-your-own-key only there is no system-provided key for any provider. Set `LLM_PROVIDER` in `.env` to choose which one to use for the generation (chat) step. Embeddings currently always use Gemini (`gemini-embedding-001`), regardless of `LLM_PROVIDER`.
+RagLeap Core is bring-your-own-key only there is no system-provided key for any provider. Set `LLM_PROVIDER` in `.env` to choose which one to use for the generation (chat) step. Embeddings are configured separately with `EMBEDDING_PROVIDER` (default `gemini`, using `gemini-embedding-001`; `ollama`, `openai`, `mistral`, `together`, `openrouter`, `qwen`, `zhipu` and `custom` are also supported). The vector size must match your embedding model (`EMBEDDING_DIMENSIONS`): empty tables are resized at startup, tables that already hold embeddings are never changed.
 
 | `LLM_PROVIDER` value | Required env vars | Notes |
 |---|---|---|
@@ -480,9 +564,7 @@ flowchart TD
 **Verified live**, read from `api/addon_realtime.py`'s `RealTimeExternalDataService`. Two things worth being direct about: `match_and_execute_action` genuinely supports write queries (`UPDATE`/`INSERT`/`DELETE`), not just read-only lookups — owner-configured, so the safety boundary is whatever SQL the owner writes into the template, not something the framework restricts on its own. And until 2026-08, this action-matching step only ran on chat channels; voice calls had no equivalent, which is the gap closed in the Voice Channel Routing diagram above.
 
 RagLeap Core connects to external databases and business tools, syncing
-per-user context to personalize RAG responses. Nine connectors are
-included: MySQL, PostgreSQL, MongoDB, generic REST APIs, Salesforce,
-HubSpot, Shopify, Google Sheets, and Stripe.
+per-user context to personalize RAG responses. Nine connectors are included: MySQL, PostgreSQL, MongoDB, generic REST APIs, Salesforce, HubSpot, Shopify, Google Sheets, and Stripe. Newer connector code for CSV upload, Airtable, BigQuery, Snowflake, WooCommerce, Notion, Slack, Gmail and Razorpay is also in the repo; treat those as experimental until you have verified them against your own account (tracked in #27).
 
 Every CRM/SaaS connector uses credentials you provide directly — a
 username/password, a private-app token, an admin API token, a
@@ -584,12 +666,20 @@ same live API.
 - [x] Core RAG engine extracted and cleaned from production codebase
 - [x] Standalone Docker Compose setup (no external Django project dependency)
 - [x] Document ingestion module (28+ formats, not just PDF/TXT/DOCX)
-- [x] Web chat widget
+- [ ] Embeddable web chat widget (planned; not built yet)
 - [x] Bring-your-own-API-key support (19 providers)
 - [x] WhatsApp, Telegram, Discord, and Voice channel adapters (single-tenant)
 - [x] Knowledge Graph (Neo4j), language detection, database/CRM integrations
 - [x] Contribution guide and good-first-issue labels — 8+ issues labeled, with a real external contributor active on #134
 - [x] Community Discord
+- [x] AI Office dashboard with settings and a setup checklist (v0.9.0)
+- [x] Approval-gated agent loop, sandboxed tools, MCP client and scheduled check-ins
+- [x] One-command installer and `ragleap` command, local Ollama mode (not yet tested on a clean machine)
+- [x] Failed-login throttling and optional token budgets
+- [ ] Prebuilt Docker images (GHCR) for a faster install
+- [ ] Triggers and autonomy controls in the dashboard
+- [ ] Slack and email inbound, SMS, and the web widget (these need a public HTTPS address)
+- [ ] Live verification of more LLM providers (see #10)
 
 See [ROADMAP.md](ROADMAP.md) for the full phase-by-phase history.
 
@@ -622,9 +712,4 @@ docker compose up --build -d
 ```
 
 **Port 5433 or 8000 already in use:**
-Another instance of this project (or something else) is using the port. Either stop it, or change the host-side port mapping in `docker-compose.yml` (the `"5433:5432"` and `"8000:8000"` lines) to something free.
-
-
-## Add AI Employees example scripts to examples/
-
-Documentation reference and guidelines for #135.
+Another instance of this project (or something else, such as a local PostgreSQL on 5433) is using the port. A fresh install with `install.sh` or `install.ps1` picks the next free port by itself and writes it to `.env`. If you started with `docker compose up` yourself, or reuse an existing `.env`, set the host port there instead: `APP_PORT` (default 8000), `DB_PORT` (5433), `VOICE_PORT` (8766), `NEO4J_HTTP_PORT` (7475), `NEO4J_BOLT_PORT` (7688) or `REDIS_PORT` (6380), for example `DB_PORT=5434`, then run `docker compose up -d` again. The dashboard address follows `APP_PORT`, for example `http://localhost:8001/office`.

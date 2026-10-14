@@ -183,6 +183,28 @@ carries its supported-version list, bearer-token authentication, plain JSON
 responses and pagination. The existing app client had only ever run against a
 fake in-process server.
 
+Live check 2 (2026-10-12): the published 0.1.0 wheel, installed in a clean
+virtual environment on Python 3.10.12, was run against two public Google
+Cloud MCP endpoints (developerknowledge.googleapis.com/mcp and
+pubsub.googleapis.com/mcp), read-only: tools/list only, no credentials, no
+tools/call. Verified live: the modern request (MCP-Protocol-Version,
+Mcp-Method and per-request _meta) is accepted by a real server; the client
+records the modern era; replies arrive as plain application/json; tools/list
+results and inputSchema are parsed (3 tools from one server). Findings:
+(a) a 15-tool server replied with 359,293 bytes, above the default 256 KiB
+response cap, so discovery failed ("response too large") until
+max_response_bytes was raised; (b) two of its tools were skipped because their
+input schemas exceed max_schema_chars (10,000), as designed; (c) both servers
+answered an unsupported protocol version with HTTP 400 and -32600
+"Unsupported protocol version" and no supported-version list, so the reading
+above of -32600 as a legacy server's own rejection is not exclusive:
+modern-capable servers use it too, and the client still falls back to the
+legacy handshake in that case; (d) neither server implements server/discover
+(-32601), which this client never calls. Still not verified live: modern
+tools/call, x-mcp-header mirroring, bearer-token authentication, pagination
+(neither server paginated), and where a -32022 error carries its
+supported-version list (not observed).
+
 ## Open decisions (resolved when v0.1.0 was built)
 
 Resolved: (1) both paths, with legacy limited to 2025-06-18; (2) DeepWiki's

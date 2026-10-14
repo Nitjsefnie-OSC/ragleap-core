@@ -1,0 +1,107 @@
+# Model manifest. One [[model]] per downloadable artifact.
+# Rules (enforced by tests/test_licences.py):
+#  - default = true requires status = "verified", a pinned revision, a 64-hex sha256,
+#    and code_license / weights_license both on the allowlist.
+#  - Everything below is a LEAD from the 2026-10-10 research, NOT verified.
+#    Do not set status = "verified" until licence, languages and hash are checked at the source.
+
+[[model]]
+name = "whisper-large-v3"
+kind = "stt"
+source_url = "https://huggingface.co/openai/whisper-large-v3"
+revision = ""
+sha256 = ""
+code_license = "MIT"
+weights_license = "MIT"
+languages = []
+capabilities = ["streaming:unknown"]
+min_hardware = "unknown"
+status = "unverified"
+default = false
+
+[[model]]
+name = "kokoro-82m"
+kind = "tts"
+source_url = "https://huggingface.co/hexgrad/Kokoro-82M"
+revision = ""
+sha256 = ""
+code_license = "Apache-2.0"
+weights_license = "Apache-2.0"
+languages = ["hi", "en"]
+capabilities = []
+min_hardware = "unknown"
+status = "unverified"
+default = false
+
+[[model]]
+name = "indic-parler-tts"
+kind = "tts"
+source_url = "https://huggingface.co/ai4bharat/indic-parler-tts"
+revision = "660bc53c64ae83150613264111708a0465211237"
+sha256 = "5e8d3b2bd08d7558d74687b9d3fd8f0ac98b469a4dfd50dc3718c920f667e020"
+code_license = "Apache-2.0"
+weights_license = "Apache-2.0"
+languages = ["hi", "ta", "te", "ml", "kn", "en"]
+capabilities = ["emotion"]
+min_hardware = "unknown"
+status = "unverified"
+default = false
+depends_on = ["flan-t5-large-tokenizer"]
+
+[[model]]
+name = "chatterbox"
+kind = "tts"
+source_url = "https://huggingface.co/ResembleAI/chatterbox"
+revision = ""
+sha256 = ""
+code_license = "MIT"
+weights_license = "MIT"
+languages = ["hi", "en"]
+capabilities = ["clone", "emotion"]
+min_hardware = "unknown"
+status = "unverified"
+default = false
+
+# Measured in benchmarks/voice/README.md (Hindi, Tamil, Telugu, Malayalam, Kannada). Gated on Hugging Face (account and
+# accepted conditions) and loaded with the repo's own code (trust_remote_code): not eligible as
+# a default until the loader is reviewed and the artifact is hashed. The card lists 22 Indian
+# languages and no English; hi, ta, te, ml and kn were measured.
+[[model]]
+name = "indic-conformer-600m-multilingual"
+kind = "stt"
+source_url = "https://huggingface.co/ai4bharat/indic-conformer-600m-multilingual"
+revision = "2a77d305038dfc502fd9464e7d028b90381976cb"
+sha256 = ""
+code_license = "MIT"
+weights_license = "MIT"
+languages = ["hi", "ta", "te", "ml", "kn"]
+capabilities = ["streaming:unknown"]
+min_hardware = "unknown"
+status = "unverified"
+default = false
+
+# TTS notes (round-trip measured 2026-10-12, see benchmarks/voice/README.md; languages above are the ones MEASURED):
+# - kokoro-82m: Apache-2.0 per card; Hindi and other non-English paths use GPLv3 espeak-ng (would need isolation as a
+#   separately installed extra); card lists CC BY audio in the v1.0 training data; no cloning, no emotion control.
+# - indic-parler-tts: Apache-2.0 per card; gated on Hugging Face (account and accepted conditions), so it cannot be a
+#   default; no cloning; emotion officially supported in 10 languages (not Hindi or Telugu); slower than real time on a T4.
+# - chatterbox: MIT per card; cloning from a short reference; multilingual model covers Hindi but no other Indian
+#   language; outputs carry Resemble's PerTh watermark (loader initialises it unconditionally in the version measured).
+# All three stay status = unverified and default = false until revision, hash, dependency and training-data licences are checked.
+
+# Support entry, not a speech model: the tokenizer files of the text encoder that Indic Parler-TTS loads at run
+# time (its config.json names google/flan-t5-large). Apache-2.0 per the model card (checked 2026-10-13).
+# Locked: 5 tokenizer files, no weights; pinned but not yet reviewed. indic-parler-tts depends on it.
+[[model]]
+name = "flan-t5-large-tokenizer"
+kind = "support"
+source_url = "https://huggingface.co/google/flan-t5-large"
+revision = "0613663d0d48ea86ba8cb3d7a44f0f65dc596a2a"
+sha256 = "159bce3ad844a2f20b722e8eed1788e4ebf12c2e266cebd0d4a4d0e98813f58e"
+code_license = "Apache-2.0"
+weights_license = "Apache-2.0"
+languages = []
+capabilities = []
+min_hardware = "unknown"
+status = "unverified"
+default = false

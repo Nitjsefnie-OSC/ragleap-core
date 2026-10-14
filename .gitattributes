@@ -1,0 +1,11 @@
+# Shell scripts and container files must keep Unix line endings, even when checked out on Windows.
+# Otherwise bash fails with errors such as: $'\r': command not found
+*.sh text eol=lf
+install.sh text eol=lf
+scripts/ragleap text eol=lf
+Dockerfile* text eol=lf
+*.py text eol=lf
+*.sql text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.ps1 text eol=lf

@@ -1,0 +1,44 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ragleap-voice"
+version = "0.0.1.dev0"
+description = "Open, local, multilingual speech-to-text and text-to-speech. Pre-alpha: nothing here is released yet."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [{ name = "Antony", email = "antony@ragleap.com" }]
+keywords = ["speech-to-text", "text-to-speech", "stt", "tts", "multilingual", "indic", "open-source"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+# Core stays pure standard library. Engines arrive later as optional extras.
+dependencies = []
+
+[project.optional-dependencies]
+test = ["pytest>=8.0.0", "tomli>=2.0.0; python_version < '3.11'"]
+
+[project.scripts]
+ragleap-voice = "ragleap_voice.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/antonyrag/ragleap-core"
+Repository = "https://github.com/antonyrag/ragleap-core"
+Issues = "https://github.com/antonyrag/ragleap-core/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ragleap_voice"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"models.toml" = "ragleap_voice/data/models.toml"
+"THIRD_PARTY_NOTICES.md" = "ragleap_voice/data/THIRD_PARTY_NOTICES.md"
+"locks" = "ragleap_voice/data/locks"

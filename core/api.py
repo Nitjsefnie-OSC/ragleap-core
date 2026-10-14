@@ -33,6 +33,7 @@ from core import autonomy
 from core import agent_loop
 from core import auth_throttle
 from core import office
+from core import document_store as core_documents
 from core import settings as core_settings
 from core import vector_dims as core_vector_dims
 from core import setup_status
@@ -104,7 +105,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="RagLeap Core API",
     description="Minimal self-hosted RAG pipeline — BYOK, no platform fallback keys.",
-    version="0.9.0",
+    version="0.10.1",
     lifespan=lifespan,
 )
 
@@ -1073,6 +1074,29 @@ def get_setup_status():
 def office_usage_summary():
     """Token usage per role and globally, next to any configured budget caps."""
     return office.usage_summary()
+
+
+@app.get("/documents")
+def list_uploaded_documents(limit: int = 100):
+    """Uploaded documents, newest first, with the number of stored chunks."""
+    try:
+        return {"documents": core_documents.list_documents(limit=limit)}
+    except Exception as exc:
+        logger.exception("Failed to list documents")
+        raise HTTPException(status_code=500, detail="Failed to list documents. See server logs for details.") from exc
+
+
+@app.delete("/documents/{document_id}")
+def delete_uploaded_document(document_id: str):
+    """Delete a document and its chunks (the chunks go with it through ON DELETE CASCADE)."""
+    try:
+        deleted = core_documents.delete_document(document_id)
+    except Exception as exc:
+        logger.exception("Failed to delete document")
+        raise HTTPException(status_code=500, detail="Failed to delete the document. See server logs for details.") from exc
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Document not found.")
+    return {"deleted": document_id, "graph": core_documents.delete_document_graph(document_id)}
 
 
 @app.get("/agent-runs")

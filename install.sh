@@ -7,6 +7,7 @@
 #
 # Unattended: RAGLEAP_PROVIDER=gemini|ollama|skip  GEMINI_API_KEY=...  RAGLEAP_DIR=...  RAGLEAP_NONINTERACTIVE=1
 # An existing .env is never modified.
+# Safety checks (free disk, another setup under the same project name) can be skipped with RAGLEAP_SKIP_CHECKS=1.
 set -euo pipefail
 
 REPO_URL="${RAGLEAP_REPO:-https://github.com/antonyrag/ragleap-core.git}"
@@ -16,9 +17,99 @@ CHAT_MODEL="${RAGLEAP_OLLAMA_MODEL:-qwen2.5:3b}"
 EMBED_MODEL="nomic-embed-text"
 WAIT_TRIES="${RAGLEAP_WAIT_TRIES:-90}"
 BASE_URL="http://localhost:8000"
+MIN_FREE_GB="${RAGLEAP_MIN_FREE_GB:-4}"
+MIN_FREE_GB_OLLAMA="${RAGLEAP_MIN_FREE_GB_OLLAMA:-14}"
+case "$(uname -s 2>/dev/null || echo unknown)" in Darwin|MINGW*|MSYS*|CYGWIN*) DESKTOP_OS=1 ;; *) DESKTOP_OS=0 ;; esac
 
 say() { printf '%s\n' "$*"; }
 die() { printf '%s\n' "$*" >&2; exit 1; }
+
+# --- preflight helpers ---
+free_gb() {
+  # whole GB free on the disk that holds $1 (or its nearest existing parent folder)
+  local p="$1" kb
+  while [ ! -d "$p" ] && [ "$p" != "/" ] && [ "$p" != "." ]; do p="$(dirname "$p")"; done
+  kb="$(df -Pk "$p" 2>/dev/null | awk 'NR==2 {print $4}')"
+  case "$kb" in ''|*[!0-9]*) echo ""; return 0 ;; esac
+  echo $((kb / 1024 / 1024))
+}
+docker_free_gb() {
+  # on Linux the images live under the Docker root folder, which can be on another disk
+  local root="" r=""
+  if [ "$(uname -s)" = "Linux" ]; then root="$(docker info --format '{{.DockerRootDir}}' 2>/dev/null || true)"; fi
+  if [ -n "$root" ] && [ -d "$root" ]; then r="$(free_gb "$root")"; fi
+  if [ -z "$r" ]; then r="$(free_gb "$1")"; fi
+  echo "$r"
+}
+check_disk() {
+  # $1 = GB needed, $2 = what for
+  [ "${RAGLEAP_SKIP_CHECKS:-}" = "1" ] && return 0
+  local have
+  have="$(docker_free_gb "$DIR")"
+  if [ -z "$have" ]; then say "Could not measure free disk space, continuing."; return 0; fi
+  if [ "$have" -lt "$1" ]; then
+    die "Not enough free disk space: $have GB free, about $1 GB needed $2. Free some space and run this again (skip this check with RAGLEAP_SKIP_CHECKS=1)."
+  fi
+  say "Disk space OK: $have GB free."
+}
+host_ollama_up() { curl -sf --max-time 3 "http://localhost:11434/api/tags" >/dev/null 2>&1; }
+project_name() {
+  local n="${COMPOSE_PROJECT_NAME:-}"
+  if [ -z "$n" ] && [ -f .env ]; then n="$(grep '^COMPOSE_PROJECT_NAME=' .env | head -1 | cut -d= -f2- | tr -d '\r\n"' || true)"; fi
+  if [ -z "$n" ] && [ -f docker-compose.yml ]; then n="$(sed -n 's/^name:[[:space:]]*//p' docker-compose.yml | head -1 | tr -d '\r\n"' || true)"; fi
+  if [ -z "$n" ]; then n="$(basename "$PWD" | tr 'A-Z' 'a-z' | tr -cd 'a-z0-9_-')"; fi
+  echo "$n"
+}
+norm_path() { printf '%s' "$1" | tr '\\' '/' | tr 'A-Z' 'a-z'; }
+check_project_conflict() {
+  [ "${RAGLEAP_SKIP_CHECKS:-}" = "1" ] && return 0
+  local pn mine list d other=""
+  pn="$(project_name)"
+  [ -n "$pn" ] || return 0
+  mine="$PWD"
+  if pwd -W >/dev/null 2>&1; then mine="$(pwd -W)"; fi
+  list="$(docker ps -a --filter "label=com.docker.compose.project=$pn" --format '{{.Label "com.docker.compose.project.working_dir"}}' 2>/dev/null | sort -u || true)"
+  while IFS= read -r d; do
+    [ -n "$d" ] || continue
+    if [ "$(norm_path "$d")" != "$(norm_path "$mine")" ]; then other="$d"; fi
+  done <<< "$list"
+  if [ -n "$other" ]; then
+    die "Another RagLeap setup already exists under the project name '$pn' (folder: $other). Starting a second one would mix up the two. Stop or remove it first, or install into a new folder with a different COMPOSE_PROJECT_NAME (skip this check with RAGLEAP_SKIP_CHECKS=1)."
+  fi
+}
+port_busy() {
+  # true when something on this computer already listens on this port
+  # (RAGLEAP_PORT_CHECK=off makes every port count as free; the tests use it so results do not depend on the machine)
+  [ "${RAGLEAP_PORT_CHECK:-}" = "off" ] && return 1
+  ( exec 3<>"/dev/tcp/127.0.0.1/$1" ) 2>/dev/null
+}
+pick_port() {
+  # first free port at or above $1 (the six default ports are far apart, so picks never collide)
+  local p="$1" i=0
+  while port_busy "$p" && [ "$i" -lt 50 ]; do p=$((p + 1)); i=$((i + 1)); done
+  echo "$p"
+}
+# --- end preflight helpers ---
+# --- browser helper ---
+open_browser() {
+  # opens a URL in the default browser; returns 1 when that is not possible (servers, CI)
+  [ "${RAGLEAP_NO_BROWSER:-}" = "1" ] && return 1
+  [ -n "${CI:-}" ] && return 1
+  case "$(uname -s 2>/dev/null || echo unknown)" in
+    MINGW*|MSYS*|CYGWIN*)
+      command -v powershell.exe >/dev/null 2>&1 || return 1
+      MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' powershell.exe -NoProfile -Command "Start-Process '$1'" >/dev/null 2>&1 ;;
+    Darwin)
+      command -v open >/dev/null 2>&1 || return 1
+      open "$1" >/dev/null 2>&1 ;;
+    *)
+      [ -n "${SSH_CONNECTION:-}" ] && return 1
+      { [ -n "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ]; } || return 1
+      command -v xdg-open >/dev/null 2>&1 || return 1
+      xdg-open "$1" >/dev/null 2>&1 ;;
+  esac
+}
+# --- end browser helper ---
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -34,10 +125,22 @@ while [ $# -gt 0 ]; do
   shift
 done
 
-say "RagLeap Core installer (Windows: run this in Git Bash)"
+say "RagLeap Core installer"
 
-command -v docker >/dev/null 2>&1 || die "Docker is not installed. Install Docker Desktop first: https://www.docker.com/products/docker-desktop"
-docker info >/dev/null 2>&1 || die "Docker is installed but not running. Start Docker, wait for it to load, then run this again."
+if ! command -v docker >/dev/null 2>&1; then
+  if [ "$(uname -s 2>/dev/null)" = "Linux" ]; then
+    die "Docker is not installed. Install Docker Engine first: https://docs.docker.com/engine/install/ then run this again."
+  else
+    die "Docker is not installed. Install Docker Desktop first: https://www.docker.com/products/docker-desktop . On Windows it needs WSL 2 and CPU virtualization turned on."
+  fi
+fi
+if ! docker info >/dev/null 2>&1; then
+  if [ "$(uname -s 2>/dev/null)" = "Linux" ]; then
+    die "Docker is installed but not running, or this user cannot reach it. Start it (for example: sudo systemctl start docker) and make sure your user is in the docker group, then run this again."
+  else
+    die "Docker is installed but not running. Start Docker Desktop, wait until it says it is running, then run this again. If it never starts, check that virtualization is enabled and that WSL 2 is installed."
+  fi
+fi
 if docker compose version >/dev/null 2>&1; then
   COMPOSE="docker compose"
 elif command -v docker-compose >/dev/null 2>&1; then
@@ -46,6 +149,9 @@ else
   die "Docker Compose was not found. Install Docker Desktop, or the docker compose plugin."
 fi
 
+command -v curl >/dev/null 2>&1 || die "curl is not installed (the installer uses it to wait for RagLeap to start). Install curl and run this again."
+check_disk "$MIN_FREE_GB" "to download and build RagLeap"
+
 if [ -f "$DIR/docker-compose.yml" ]; then
   say "Using the existing folder: $DIR"
 else
@@ -53,6 +159,7 @@ else
   git clone "$REPO_URL" "$DIR"
 fi
 cd "$DIR"
+check_project_conflict
 
 interactive() {
   [ "${RAGLEAP_NONINTERACTIVE:-}" != "1" ] && [ -r /dev/tty ] && [ -w /dev/tty ] && ( : </dev/tty ) 2>/dev/null
@@ -81,6 +188,7 @@ set_env() {
 env_value() { grep "^$1=" .env | head -1 | cut -d= -f2- | tr -d '\r\n' || true; }
 
 USE_OLLAMA=0
+HOST_OLLAMA=0
 DASH_LOGIN=""
 if [ -f .env ]; then
   say "Keeping your existing .env (it is not changed). Change the AI provider any time in the dashboard: Settings tab."
@@ -110,6 +218,15 @@ else
     fi
   fi
   case "$PROVIDER" in gemini|ollama|skip) ;; *) die "RAGLEAP_PROVIDER must be gemini, ollama or skip." ;; esac
+  if [ "$PROVIDER" = ollama ]; then
+    if [ "$DESKTOP_OS" = 1 ] && host_ollama_up; then
+      HOST_OLLAMA=1
+      say "Found the Ollama app on this computer: RagLeap will use it (no 9 GB Ollama container needed)."
+    else
+      say "Local AI will run in a bundled Ollama container. It needs about 12 GB of disk."
+      check_disk "$MIN_FREE_GB_OLLAMA" "for the bundled local AI (about 12 GB)"
+    fi
+  fi
 
   GEMINI_KEY="${GEMINI_API_KEY:-}"
   if [ "$PROVIDER" = gemini ] && [ -z "$GEMINI_KEY" ] && interactive; then
@@ -127,8 +244,15 @@ else
   set_env RAGLEAP_API_KEY "$DASH_LOGIN"
   set_env ADDON_ENCRYPTION_KEY "$(fernet_key)"
   set_env SANDBOX_TOKEN "$(rand_hex 24)"
-  if docker volume ls -q 2>/dev/null | grep -q 'ragleap_core_data'; then
-    say "An earlier RagLeap database exists, so its database password is left as it was."
+  for pv in APP_PORT:8000 DB_PORT:5433 VOICE_PORT:8766 NEO4J_HTTP_PORT:7475 NEO4J_BOLT_PORT:7688 REDIS_PORT:6380; do
+    pn="${pv%%:*}"; pd="${pv##*:}"; pp="$(pick_port "$pd")"
+    if [ "$pp" != "$pd" ]; then
+      say "Port $pd is already in use on this computer, so RagLeap will use $pp instead ($pn)."
+      set_env "$pn" "$pp"
+    fi
+  done
+  if docker volume ls -q 2>/dev/null | grep -qx "$(project_name)_ragleap_core_data"; then
+    say "An earlier database for this setup exists, so its database password is left as it was."
   else
     set_env POSTGRES_PASSWORD "$(rand_hex 12)"
   fi
@@ -136,11 +260,11 @@ else
     gemini)
       set_env GEMINI_API_KEY "$GEMINI_KEY" ;;
     ollama)
-      USE_OLLAMA=1
+      if [ "$HOST_OLLAMA" = 1 ]; then OLLAMA_URL_ENV="http://host.docker.internal:11434/v1"; else USE_OLLAMA=1; OLLAMA_URL_ENV="http://ollama:11434/v1"; fi
       set_env GEMINI_API_KEY ""
       set_env LLM_PROVIDER ollama
       set_env OLLAMA_MODEL "$CHAT_MODEL"
-      set_env OLLAMA_BASE_URL "http://ollama:11434/v1"
+      set_env OLLAMA_BASE_URL "$OLLAMA_URL_ENV"
       set_env EMBEDDING_PROVIDER ollama
       set_env OLLAMA_EMBEDDING_MODEL "$EMBED_MODEL"
       set_env EMBEDDING_DIMENSIONS 768 ;;
@@ -151,6 +275,9 @@ else
   umask "$OLD_UMASK"
   say "Created .env with a fresh API key and secrets."
 fi
+
+AP="$(env_value APP_PORT)"
+case "$AP" in ''|*[!0-9]*) ;; *) BASE_URL="http://localhost:$AP" ;; esac
 
 PROFILE=""
 if [ "$USE_OLLAMA" = 1 ]; then PROFILE="--profile ollama"; fi
@@ -172,8 +299,26 @@ if [ "$USE_OLLAMA" = 1 ]; then
   $COMPOSE $PROFILE exec -T ollama ollama pull "$e" || say "Could not download $e. Retry: $COMPOSE $PROFILE exec ollama ollama pull $e"
 fi
 
+if [ "$HOST_OLLAMA" = 1 ]; then
+  m="$(env_value OLLAMA_MODEL)"; m="${m:-$CHAT_MODEL}"
+  e="$(env_value OLLAMA_EMBEDDING_MODEL)"; e="${e:-$EMBED_MODEL}"
+  say "Downloading local models into your Ollama app (a few GB, once)..."
+  for mm in "$m" "$e"; do
+    if command -v ollama >/dev/null 2>&1; then
+      ollama pull "$mm" || say "Could not download $mm. Retry in a terminal: ollama pull $mm"
+    else
+      curl -sf -X POST "http://localhost:11434/api/pull" -d "{\"model\":\"$mm\",\"stream\":false}" >/dev/null || say "Could not download $mm. Retry in a terminal: ollama pull $mm"
+    fi
+  done
+  say "Tip: in the Ollama app settings, set the context length to 8192 so long document prompts are not cut off."
+fi
+
 say "Building and starting RagLeap (the first run takes a few minutes)..."
-$COMPOSE $PROFILE up --build -d
+if ! $COMPOSE $PROFILE up --build -d; then
+  say ""
+  say "RagLeap could not start. If the message above says a port is already in use, set another one in .env (for example DB_PORT=5434 or APP_PORT=8001) and run this again."
+  exit 1
+fi
 
 n=0
 until curl -sf "$BASE_URL/health" >/dev/null 2>&1; do
@@ -188,19 +333,29 @@ done
 say ""
 say "RagLeap is running."
 if [ -n "$DASH_LOGIN" ]; then
-  say "Open your dashboard (one click; the key stays in your browser tab):"
-  say "  $BASE_URL/office#key=$DASH_LOGIN"
-  say "Keep that link private: it contains your API key. The key is also in $PWD/.env"
+  if open_browser "$BASE_URL/office#key=$DASH_LOGIN"; then
+    say "Opened your dashboard in your browser. Your login key is saved in $PWD/.env"
+    say "To show the login link again, run: ragleap key"
+  else
+    say "Open your dashboard (one click; the key stays in your browser tab):"
+    say "  $BASE_URL/office#key=$DASH_LOGIN"
+    say "Keep that link private: it contains your API key. The key is also in $PWD/.env"
+  fi
 else
   say "Open your dashboard: $BASE_URL/office"
 fi
-say "API docs: $BASE_URL/docs"
+say "API reference: $BASE_URL/docs (it needs your key in the x-api-key header, so it shows an error page until you send one)"
 
 
 SHIM_DIR="${HOME:-.}/.local/bin"
 if mkdir -p "$SHIM_DIR" 2>/dev/null && printf '#!/bin/sh\nRAGLEAP_HOME=%s exec bash %s/scripts/ragleap "$@"\n' "$(printf '%q' "$PWD")" "$(printf '%q' "$PWD")" > "$SHIM_DIR/ragleap" && chmod 755 "$SHIM_DIR/ragleap"; then
   say "Installed the ragleap command: $SHIM_DIR/ragleap (ragleap launch | stop | status | logs | update | key)"
-  case ":$PATH:" in *":$SHIM_DIR:"*) ;; *) say "Add it to your PATH to use it from anywhere: export PATH=\"$SHIM_DIR:\$PATH\"" ;; esac
+  case "$(uname -s 2>/dev/null || echo unknown)" in
+    MINGW*|MSYS*|CYGWIN*)
+      say "On Windows, run RagLeap commands in Git Bash (Start menu), from this folder: bash scripts/ragleap key   (also: launch | stop | status | logs | update)" ;;
+    *)
+      case ":$PATH:" in *":$SHIM_DIR:"*) ;; *) say "Add it to your PATH to use it from anywhere: export PATH=\"$SHIM_DIR:\$PATH\"" ;; esac ;;
+  esac
 else
   say "Could not install the ragleap command (optional). You can run: bash $PWD/scripts/ragleap"
 fi
