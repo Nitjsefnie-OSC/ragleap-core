@@ -39,6 +39,7 @@ The playbook targets only the group `ragleap_servers`, never `localhost` by defa
 - The ports sshd really listens on are always opened first, read from `sshd -T`, so the firewall cannot block your own login. Without sshd the role opens 22.
 - Keep one session open while you run it, and test a new login before closing the first.
 - k3s needs extra rules for its pod and service networks, which this version does not add.
+- The role only adds rules. It never removes one, so a port opened earlier (for example an old ssh port) stays open until you remove it with ufw.
 
 ## Tests
 
