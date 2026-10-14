@@ -5,6 +5,8 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-14
+
 ### Added
 
 - `ragleap_base` role: apt cache, base packages, a deploy user with key-only login, passwordless sudo validated with `visudo`, and unattended-upgrades.

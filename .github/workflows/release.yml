@@ -13,6 +13,7 @@ on:
       - 'ragleap-terraform-v*'
       - 'ragleap-integrations-v*'
       - 'ragleap-agents-v*'
+      - 'ragleap-ansible-v*'
   workflow_dispatch:
     inputs:
       package:
@@ -30,6 +31,7 @@ on:
           - ragleap-terraform
           - ragleap-integrations
           - ragleap-agents
+          - ragleap-ansible
       target:
         description: 'Publish target'
         required: true
@@ -397,4 +399,40 @@ jobs:
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
         with:
           packages-dir: packages/ragleap-terraform/dist/
+          skip-existing: true
+
+  publish-ragleap-ansible:
+    if: |
+      startsWith(github.ref, 'refs/tags/ragleap-ansible-v') ||
+      (github.event_name == 'workflow_dispatch' && inputs.package == 'ragleap-ansible')
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.event_name == 'workflow_dispatch' && inputs.target || 'pypi' }}
+    permissions:
+      id-token: write
+    defaults:
+      run:
+        working-directory: packages/ragleap-ansible
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.11'
+      - name: Install build tooling
+        run: pip install build
+      - name: Build
+        run: |
+          rm -rf dist/
+          python -m build
+      - name: Publish to TestPyPI
+        if: github.event_name == 'workflow_dispatch' && inputs.target == 'testpypi'
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
+        with:
+          packages-dir: packages/ragleap-ansible/dist/
+          repository-url: https://test.pypi.org/legacy/
+      - name: Publish to PyPI
+        if: github.event_name != 'workflow_dispatch' || inputs.target == 'pypi'
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
+        with:
+          packages-dir: packages/ragleap-ansible/dist/
           skip-existing: true
