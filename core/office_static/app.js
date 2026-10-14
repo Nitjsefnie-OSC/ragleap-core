@@ -259,6 +259,10 @@
   let docFormEl = null;
   let docListEl = null;
   let docMsgEl = null;
+  let docInputEl = null;
+  let docHelpEl = null;
+  let docUrlRow = null;
+  let docUrlParts = [];
   const docConfirm = new Map();
   const DOC_CONFIRM_MS = 10000;
   const uploadDocument = async (file) => {
@@ -276,7 +280,7 @@
     docMsgEl = h("span", { class: "sub" }, "");
     const btn = h("button", { type: "button", on: { click: async () => {
       const f = input.files && input.files[0];
-      if (!f) { docMsgEl.textContent = "Choose a .txt, .pdf or .docx file first."; return; }
+      if (!f) { docMsgEl.textContent = "Choose a file first."; return; }
       btn.disabled = true;
       docMsgEl.textContent = "Uploading and indexing " + clip(f.name, 60) + " (this can take a while)...";
       try {
@@ -289,9 +293,29 @@
       btn.disabled = false;
       await refreshDocuments();
     } } }, "Upload");
-    return h("section", { class: "card" }, h("h2", null, "Add a document"),
-      h("p", { class: "sub" }, "Supported: .txt, .pdf and .docx, up to 20 MB. Your AI employees answer from the documents listed here."),
-      h("div", { class: "row" }, input, btn, docMsgEl));
+    docInputEl = input;
+    docHelpEl = h("p", { class: "sub" }, "Your AI employees answer from the documents listed here.");
+    const urlInput = h("input", { type: "text", placeholder: "example.com/page", maxlength: 2048 });
+    const urlBtn = h("button", { type: "button", on: { click: async () => {
+      const raw = urlInput.value.trim();
+      if (!raw) { docMsgEl.textContent = "Type a web address first."; return; }
+      const full = /^https?:\/\//i.test(raw) ? raw : "https:" + "//" + raw;
+      urlBtn.disabled = true;
+      docMsgEl.textContent = "Fetching and indexing " + clip(full, 60) + " ...";
+      try {
+        const r = await api("POST", "/ingest/url", { url: full });
+        docMsgEl.textContent = "Added " + clip(full, 60) + ": " + r.chunks_stored + " chunk(s).";
+        urlInput.value = "";
+      } catch (e) {
+        if (String(e.message) !== "unauthorized") docMsgEl.textContent = "Could not add the page: " + clip(e.message, 160);
+      }
+      urlBtn.disabled = false;
+      await refreshDocuments();
+    } } }, "Add web page");
+    docUrlParts = [urlInput, urlBtn];
+    docUrlRow = h("div", { class: "row" });
+    return h("section", { class: "card" }, h("h2", null, "Add a document"), docHelpEl,
+      h("div", { class: "row" }, input, btn), docUrlRow, h("div", { class: "row" }, docMsgEl));
   };
   const docCard = (d) => {
     const isArmed = (id) => docConfirm.has(id) && Date.now() - docConfirm.get(id) < DOC_CONFIRM_MS;
@@ -314,7 +338,13 @@
   const refreshDocuments = async () => {
     if (!docFormEl) { docFormEl = buildDocForm(); docListEl = h("div", null); }
     if (view.firstChild !== docFormEl) view.replaceChildren(docFormEl, docListEl);
-    const docs = (await api("GET", "/documents")).documents;
+    const info = await api("GET", "/documents");
+    const docs = info.documents;
+    if (info.formats && docInputEl) {
+      docInputEl.setAttribute("accept", info.formats.join(","));
+      docHelpEl.textContent = "Supported: " + info.formats.join(" ") + " (up to " + (info.max_mb || 20) + " MB each). Your AI employees answer from the documents listed here.";
+    }
+    if (docUrlRow) docUrlRow.replaceChildren(...(info.url_ingest ? docUrlParts : []));
     docListEl.replaceChildren(docs.length ? h("div", { class: "list" }, docs.map(docCard)) : h("p", { class: "empty" }, "No documents yet. Add one above."));
   };
 
