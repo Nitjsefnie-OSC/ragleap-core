@@ -65,6 +65,14 @@
             <artifactId>jackson-databind</artifactId>
             <version>${jackson.version}</version>
         </dependency>
+        <!-- Optional: only needed for com.ragleap.graph.rag.RagLeapGenerationClient (LLM extraction through
+             ragleap-rag). Users of regex extraction, or of their own LlmClient, do not get it transitively. -->
+        <dependency>
+            <groupId>io.github.antonyrag</groupId>
+            <artifactId>ragleap-rag</artifactId>
+            <version>0.13.0</version>
+            <optional>true</optional>
+        </dependency>
     </dependencies>
 
     <build>
