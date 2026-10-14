@@ -16,7 +16,8 @@ from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel
 
 from core.ingest import ingest_document
-from core.parsers import extract_text
+from core.parsers import extract_text, SUPPORTED_EXTENSIONS as PARSER_EXTENSIONS
+from core import parsers as core_parsers
 from core.chat import ask, ask_stream
 from core.integrations import service as integrations_service
 from core.integrations.factory import get_connector
@@ -167,7 +168,7 @@ async def require_api_key(request: Request, call_next):
     return await call_next(request)
 
 
-ALLOWED_EXTENSIONS = {".txt", ".pdf", ".docx"}
+ALLOWED_EXTENSIONS = set(PARSER_EXTENSIONS)
 MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024  # 20 MB
 MAX_QUESTION_LENGTH = 2000
 
@@ -349,6 +350,35 @@ async def upload_document(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail="Ingestion failed. See server logs for details.") from exc
     finally:
         await file.close()
+
+
+MAX_URL_LENGTH = 2048
+
+
+class IngestUrlRequest(BaseModel):
+    url: str
+
+
+@app.post("/ingest/url")
+async def ingest_web_page(req: IngestUrlRequest):
+    """
+    Fetch a public web page and add its readable text as a document. Private and internal
+    addresses are refused unless the operator sets INGEST_ALLOW_PRIVATE_URLS=true in .env.
+    """
+    url = (req.url or "").strip()
+    if not url or len(url) > MAX_URL_LENGTH or not url.lower().startswith(("http://", "https://")):
+        raise HTTPException(status_code=400, detail="Give a full web address that starts with http:// or https://")
+    if not core_parsers.url_ingest_available():
+        raise HTTPException(status_code=501, detail="Adding web pages needs the ragleap-rag package with its web support installed.")
+    try:
+        text = await asyncio.to_thread(core_parsers.fetch_url_text, url)
+        result = await asyncio.to_thread(ingest_document, url[:500], text)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)[:200]) from exc
+    except Exception as exc:
+        logger.exception("URL ingestion failed")
+        raise HTTPException(status_code=500, detail="Could not add that web page. See server logs for details.") from exc
+    return {"document_id": result["document_id"], "chunks_stored": result["chunks_stored"]}
 
 
 def _validate_question(question: str):
@@ -1080,7 +1110,10 @@ def office_usage_summary():
 def list_uploaded_documents(limit: int = 100):
     """Uploaded documents, newest first, with the number of stored chunks."""
     try:
-        return {"documents": core_documents.list_documents(limit=limit)}
+        return {"documents": core_documents.list_documents(limit=limit),
+                "formats": sorted(ALLOWED_EXTENSIONS),
+                "url_ingest": core_parsers.url_ingest_available(),
+                "max_mb": MAX_FILE_SIZE_BYTES // (1024 * 1024)}
     except Exception as exc:
         logger.exception("Failed to list documents")
         raise HTTPException(status_code=500, detail="Failed to list documents. See server logs for details.") from exc

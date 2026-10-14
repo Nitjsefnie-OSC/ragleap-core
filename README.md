@@ -213,7 +213,7 @@ WhatsApp, Telegram, and Discord bots are included in this repo too — single-te
 
 | | |
 |---|---|
-| 📄 **Document ingestion** | Upload PDFs, text, and common document formats |
+| 📄 **Document ingestion** | Upload 28 file types (PDF, Word, Excel, PowerPoint, CSV, HTML, EPUB and more) or add a public web page by address |
 | 🔍 **RAG retrieval** | Vector search over your documents via pgvector |
 | 💬 **Chat with citations** | Answers reference the source document, not a black box |
 | 🔌 **Bring your own AI key** | OpenAI, Gemini, Anthropic, or any OpenAI-compatible endpoint |
@@ -676,7 +676,8 @@ same live API.
 - [x] Public repository created
 - [x] Core RAG engine extracted and cleaned from production codebase
 - [x] Standalone Docker Compose setup (no external Django project dependency)
-- [x] Document ingestion module (28+ formats, not just PDF/TXT/DOCX)
+- [x] Document ingestion in the app: 28 file types and web pages by address
+- [ ] Audio, video and image ingestion in the app (they exist in the `ragleap-rag` package; audio and video need a hosted transcription provider, because local speech-to-text is not supported yet)
 - [ ] Embeddable web chat widget (planned; not built yet)
 - [x] Bring-your-own-API-key support (19 providers)
 - [x] WhatsApp, Telegram, Discord, and Voice channel adapters (single-tenant)
