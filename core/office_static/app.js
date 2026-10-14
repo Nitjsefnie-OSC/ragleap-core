@@ -301,7 +301,7 @@
       del.disabled = true;
       try {
         const r = await api("DELETE", "/documents/" + encodeURIComponent(d.id));
-        docMsgEl.textContent = (r && r.deleted) ? "Deleted " + clip(d.filename, 60) + "." : "The server did not confirm the delete.";
+        docMsgEl.textContent = (r && r.deleted) ? "Deleted " + clip(d.filename, 60) + "." + (r.graph === "failed" ? " Warning: the knowledge graph could not be cleaned, so entity names from this document may remain." : "") : "The server did not confirm the delete.";
       } catch (e) {
         if (String(e.message) !== "unauthorized") docMsgEl.textContent = "Could not delete: " + clip(e.message, 160);
       }

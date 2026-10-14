@@ -1096,7 +1096,7 @@ def delete_uploaded_document(document_id: str):
         raise HTTPException(status_code=500, detail="Failed to delete the document. See server logs for details.") from exc
     if not deleted:
         raise HTTPException(status_code=404, detail="Document not found.")
-    return {"deleted": document_id}
+    return {"deleted": document_id, "graph": core_documents.delete_document_graph(document_id)}
 
 
 @app.get("/agent-runs")
