@@ -28,6 +28,18 @@ CONTENT_LANG_MIN_TERM_LEN = int(os.environ.get("RAG_CONTENT_LANG_MIN_TERM_LEN", 
 CONTENT_LANG_MIN_CONFIDENCE = float(os.environ.get("RAG_CONTENT_LANG_MIN_CONFIDENCE", "0.85"))
 ENABLE_CONTENT_LANG_DETECTION = os.environ.get("RAG_ENABLE_CONTENT_LANG_DETECTION", "true").lower() == "true"
 
+
+def _model_setting(raw):
+    value = (raw or "auto").strip().lower()
+    return value if value in ("auto", "lite", "full") else "auto"
+
+
+# auto (default): the library tries its large model and downloads it from the internet on first use.
+# lite: only the small model that ships inside the package, so nothing is ever downloaded (offline installs).
+# full: the large model only.
+LANGUAGE_MODEL = _model_setting(os.environ.get("LANGUAGE_DETECTION_MODEL"))
+_warned_download = False
+
 NGRAM_MIN = 2
 NGRAM_MAX = 5
 NGRAM_ALPHA = 0.1
@@ -348,7 +360,7 @@ class LanguageDetector:
 
     def _fasttext_detect(self, text: str) -> tuple[str, float]:
         try:
-            result = detect(text)
+            result = detect(text) if LANGUAGE_MODEL == "auto" else detect(text, model=LANGUAGE_MODEL)
 
             if isinstance(result, list):
                 result = result[0]
@@ -363,7 +375,12 @@ class LanguageDetector:
             language = self._normalize_language_code(language)
 
             return (language, float(confidence))
-        except Exception:
+        except Exception as exc:
+            global _warned_download
+            if not _warned_download:
+                _warned_download = True
+                logger.warning("Language detection model unavailable (%s); using the simpler fallback. "
+                               "On installs without internet set LANGUAGE_DETECTION_MODEL=lite.", str(exc)[:120])
             return (DEFAULT_LANGUAGE, 0.0)
 
     def detect_language(self, text: str, fallback: str = None) -> tuple[str, float]:
