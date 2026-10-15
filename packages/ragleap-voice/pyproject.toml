@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ragleap-voice"
-version = "0.0.1.dev0"
-description = "Open, local, multilingual speech-to-text and text-to-speech. Pre-alpha: nothing here is released yet."
+version = "0.0.1"
+description = "Pre-alpha model manager for open, local speech-to-text and text-to-speech: licence-checked manifest, hash-verified downloads. No speech engines yet."
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"

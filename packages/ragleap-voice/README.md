@@ -1,28 +1,36 @@
 # ragleap-voice
 
-Open-source (MIT), local-first speech-to-text and text-to-speech, with Indian
-languages as a priority.
+Open-source (MIT), local-first speech tooling, with Indian languages as a priority.
 
-**Status: pre-alpha, nothing is released.** The items below are planned, not available.
+**Status: pre-alpha. Version 0.0.1 is the model-management layer only. There are no speech engines in this release: you cannot transcribe or synthesize audio with this package yet.**
 
-- Planned: STT and TTS engines as optional extras, model manager with pinned hashes,
-  streaming, Indic-language quality work, consented voice profiles, emotion control.
-- Available now: the licence manifest (`models.toml`), the CI check that enforces the licence
-  policy, and a read-only command line: `ragleap-voice models list|show|check|verify|pull|lock`. `pull` downloads from Hugging Face only
-  and verifies size and SHA-256 of every file against a lock file before anything enters the cache
-  (it also has an offline mode); `lock` is a maintainer tool that builds those lock files. `pull` is
-  new: tested against a local fake server and once end to end against the real service on an ungated
-  model, and once on a gated one (Indic Parler-TTS).
-  Two lock files exist (indic-parler-tts and its dependency flan-t5-large-tokenizer, pinned but not yet
-  reviewed), so `pull` works only for that
-  gated model (it also fetches its public tokenizer dependency) and only with `--allow-unverified` and an
-  HF_TOKEN; every other model is refused.
-  Manifest entries can declare `depends_on`: `pull` fetches dependencies first and `verify` checks them; a
-  verified entry requires verified dependencies. Indic Parler-TTS uses it for its tokenizer.
-- Planned, not available: everything else above (STT and TTS engines, streaming, cloning, emotion control).
+## What works today
 
-No performance or "better than X" claim will be made without a reproducible
-benchmark in `benchmarks/voice/`.
+A command line and a small standard-library-only Python core (no runtime dependencies, Python 3.10 or newer) for finding, locking, downloading and verifying speech models safely:
 
-Policy: the core package uses the Python standard library only. No paid API is
-required or the default. Models are downloaded, never vendored. See `THIRD_PARTY_NOTICES.md`.
+    pip install ragleap-voice
+    ragleap-voice models list
+    ragleap-voice models show indic-parler-tts
+    ragleap-voice models check
+
+- `models list`, `show` and `check` read a manifest of candidate models with their licences, pinned revisions and status. Every entry is currently `unverified`: a research lead, not an endorsement. None is a default.
+- Lock files record the size and SHA-256 of every file at a pinned revision. `models verify` checks a cache folder against them (offline, read-only). `models check` rejects verified or default entries that lack a matching lock, use licences outside the allowlist, or list pickle-capable files (formats that can run code when loaded).
+- `models pull NAME` downloads from Hugging Face only: HTTPS, a host allowlist, and the access token (`HF_TOKEN`) is sent only to huggingface.co. Every file is checked against its lock before anything enters the cache, and `--offline` makes no network calls. Entries can declare dependencies, which are pulled first.
+- `models lock NAME` is a maintainer tool that builds a lock by downloading and hashing every file.
+- Two entries are locked so far: `indic-parler-tts` (a gated Hugging Face model: accept its conditions on the website and set `HF_TOKEN`) and its tokenizer dependency `flan-t5-large-tokenizer`. Both are pinned but have not had a human review, so pulling them needs `--allow-unverified`.
+
+Nothing in the package uses the network unless you run `models pull` or `models lock`.
+
+## Measurements
+
+Reproducible benchmarks with their limits are published at https://github.com/antonyrag/ragleap-core/tree/main/benchmarks/voice. They use small samples of read speech on one GPU. In those tests an open Indian-language recogniser (IndicConformer) had clearly lower word error than Whisper large-v3 on Hindi, Tamil, Telugu, Malayalam and Kannada. Naturalness, emotion quality and comparisons with commercial services have not been measured, and this project makes no claim about them.
+
+## Planned, not available
+
+A speech-to-text and text-to-speech API with engines, streaming, voice profiles with a consent record, emotion and style control, a registry of community-trained models, and more languages.
+
+## Licence
+
+MIT. Models are separate downloads with their own licences, listed in the manifest and in https://github.com/antonyrag/ragleap-core/blob/main/packages/ragleap-voice/THIRD_PARTY_NOTICES.md
+
+Source and issues: https://github.com/antonyrag/ragleap-core/tree/main/packages/ragleap-voice
