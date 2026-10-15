@@ -17,6 +17,7 @@
 [![PyPI ragleap-app-chart](https://img.shields.io/pypi/v/ragleap-app-chart?label=ragleap-app-chart)](https://pypi.org/project/ragleap-app-chart/) [![Downloads](https://img.shields.io/pepy/dt/ragleap-app-chart?label=downloads)](https://pypi.org/project/ragleap-app-chart/)
 [![PyPI ragleap-observability](https://img.shields.io/pypi/v/ragleap-observability?label=ragleap-observability)](https://pypi.org/project/ragleap-observability/) [![Downloads](https://img.shields.io/pepy/dt/ragleap-observability?label=downloads)](https://pypi.org/project/ragleap-observability/)
 [![PyPI ragleap-terraform](https://img.shields.io/pypi/v/ragleap-terraform?label=ragleap-terraform)](https://pypi.org/project/ragleap-terraform/) [![Downloads](https://img.shields.io/pepy/dt/ragleap-terraform?label=downloads)](https://pypi.org/project/ragleap-terraform/)
+[![PyPI ragleap-ansible](https://img.shields.io/pypi/v/ragleap-ansible?label=ragleap-ansible)](https://pypi.org/project/ragleap-ansible/) [![Downloads](https://img.shields.io/pepy/dt/ragleap-ansible?label=downloads)](https://pypi.org/project/ragleap-ansible/)
 [![Maven Central ragleap-rag (Java)](https://img.shields.io/maven-central/v/io.github.antonyrag/ragleap-rag?label=ragleap-rag%20(Java))](https://central.sonatype.com/artifact/io.github.antonyrag/ragleap-rag)
 [![Maven Central ragleap-graph (Java)](https://img.shields.io/maven-central/v/io.github.antonyrag/ragleap-graph?label=ragleap-graph%20(Java))](https://central.sonatype.com/artifact/io.github.antonyrag/ragleap-graph)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://github.com/antonyrag/ragleap-core) [![Discord](https://img.shields.io/badge/Discord-Join%20us-5865F2?logo=discord&logoColor=white)](https://discord.gg/mQwJuQDVrA) [![Repo clones](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/antonyrag/ragleap-core/main/.github/badges/clone-count.json)](https://github.com/antonyrag/ragleap-core/pulse)
@@ -159,6 +160,14 @@ Prefer Terraform for a local cluster? `ragleap-terraform` is a Terraform module 
 pip install ragleap-terraform
 # or, with uv
 uv add ragleap-terraform
+```
+
+Prefer Ansible for a fresh Ubuntu server? `ragleap-ansible` is a set of Ansible roles that create a deploy user, set up sudo and unattended upgrades, and can optionally harden SSH and enable a firewall. It does not install k3s, Helm or the charts yet, and it has been tested in a container only:
+
+```bash
+pip install ragleap-ansible
+# or, with uv
+uv add ragleap-ansible
 ```
 
 Or run the full self-hosted app (channels, the AI Office dashboard, Docker Compose) — see [Quickstart](#quickstart) below. Browse every package at [packages.ragleap.com](https://packages.ragleap.com). Try it hands-on with the runnable scripts in [examples/](examples/) — `01_ingest_and_query.py` (upload a document, ask a question via the API) and `02_test_channel_directly.py` (test channel answering logic without real bot credentials).
@@ -362,8 +371,9 @@ pip install ragleap-rag
 - **`ragleap-app-chart`** — generic, reusable Helm chart for deploying arbitrary services to Kubernetes, not RagLeap-specific. Point it at your own app via a `services:` list. Install with `pip install ragleap-app-chart` or `uv add ragleap-app-chart`.
 - **`ragleap-observability`** — Prometheus, Grafana, Loki + Promtail for `ragleap-ops`, live-verified end-to-end against a real cluster (real connection confirmed, real non-zero metrics returned; 21+ real log streams with correct namespace/pod/container labels). AlertManager is wired to Prometheus with a first real alert rule, plus optional Slack/email receivers (off by default; delivery verified against a stand-in, real send not yet confirmed). Install with `pip install ragleap-observability` or `uv add ragleap-observability`.
 - **`ragleap-terraform`** — Terraform module that creates a local kind cluster and installs the RagLeap Helm charts, applied and destroyed on a real cluster (no cloud modules yet). Install with `pip install ragleap-terraform` or `uv add ragleap-terraform`.
+- **`ragleap-ansible`** — Ansible roles that prepare and harden a fresh Ubuntu server: deploy user, sudo, unattended upgrades, opt-in SSH hardening and an opt-in firewall (tested in a container; does not install k3s, Helm or the charts yet). Install with `pip install ragleap-ansible` or `uv add ragleap-ansible`.
 
-All nine are MIT licensed. Browse the full package index at [packages.ragleap.com](https://packages.ragleap.com).
+All ten are MIT licensed. Browse the full package index at [packages.ragleap.com](https://packages.ragleap.com).
 
 ## Use RagLeap from a coding agent (read-only plugin)
 
