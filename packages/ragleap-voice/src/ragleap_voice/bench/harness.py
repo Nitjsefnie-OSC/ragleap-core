@@ -26,7 +26,9 @@ def _audio_seconds(path):
         return None
 
 
-def run_stt(engine, items, clock=time.perf_counter):
+def run_stt(engine, items, clock=time.perf_counter, numbers=False):
+    """numbers=True uses the optional number step of the normalizer; record
+    metrics.normalizer_version(numbers) in the run's metadata when you do."""
     rows = []
     for it in items:
         row = {k: None for k in ROW_FIELDS}
@@ -42,8 +44,8 @@ def run_stt(engine, items, clock=time.perf_counter):
         row["hypothesis"] = hyp
         if not row["error"]:
             try:
-                row["word_errors"], row["ref_words"] = word_errors(it.reference, hyp)
-                row["char_errors"], row["ref_chars"] = char_errors(it.reference, hyp)
+                row["word_errors"], row["ref_words"] = word_errors(it.reference, hyp, numbers)
+                row["char_errors"], row["ref_chars"] = char_errors(it.reference, hyp, numbers)
             except ValueError as exc:
                 row["error"] = "ValueError: " + str(exc)
         rows.append(row)

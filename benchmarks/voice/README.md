@@ -16,13 +16,13 @@ Measurements for ragleap-voice and the script that produced them. Nothing here i
 - Data: first 20 clips per language from the `test` split of `google/fleurs` (CC-BY-4.0). Audio is downloaded at run time and is not committed.
 - Engine: faster-whisper 1.1.1, model `Systran/faster-whisper-large-v3` at revision `edaa852ec7` (MIT), fp16, beam 5, temperature 0, language given.
 - Hardware: Tesla T4 (15 GB), Google Colab. Run on 2026-10-11. Harness commit on main: `6d9fbecd0c`.
-- Metrics: corpus-level WER and CER (total errors over total reference units), one shared normalizer (`ragleap_voice.bench.metrics`). CER counts Unicode code points. RTF is time spent divided by audio length (below 1 is faster than real time); the first call is a warm-up and is not timed.
+- Metrics: corpus-level WER and CER (total errors over total reference units), one shared normalizer (`ragleap_voice.bench.metrics`, version `1`: the default, without the number step). CER counts Unicode code points. RTF is time spent divided by audio length (below 1 is faster than real time); the first call is a warm-up and is not timed.
 
 ## Limits (read before quoting any number)
 
 - 20 clips per language is 3 to 5 minutes of audio. There are no confidence intervals. Treat the numbers as rough.
 - Few systems, one run each. Two open systems are compared on Hindi and Tamil only (next section). Nothing here supports a claim about any commercial service.
-- The normalizer does not unify digits and spelled-out numbers, and WER on agglutinative languages such as Tamil is inflated by one wrong suffix. CER is the fairer figure for Indic scripts.
+- The normalizer used here (version `1`) does not unify digits and spelled-out numbers. An optional number step (`numbers=True`, version `1+numbers-en.1`) now unifies English number words with digits and maps Indic digits to ASCII; no number on this page was measured with it, and a number measured with it is not comparable with these. WER on agglutinative languages such as Tamil is inflated by one wrong suffix. CER is the fairer figure for Indic scripts.
 - GPU speed only. CPU speed and time to first partial result are not measured.
 - Reference transcripts are used as given by FLEURS and were not re-checked.
 - The per-clip raw results (CSV and JSON) are not committed yet. They are produced by the script below and will be added in a later change. Until then the table above comes from the printed run summary.
