@@ -7,10 +7,16 @@ ENV PYTHONUTF8=1
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements.txt requirements.lock ./
+# requirements.lock pins every package to the exact version that was tested; requirements.txt is the list people edit
+RUN pip install --no-cache-dir -r requirements.lock
 
 COPY . .
+
+# Run as an unprivileged user. The app writes no files of its own; HOME exists for libraries that cache there.
+RUN useradd --system --uid 10001 --create-home --home-dir /home/ragleap --shell /usr/sbin/nologin ragleap
+ENV HOME=/home/ragleap PYTHONDONTWRITEBYTECODE=1
+USER ragleap
 
 EXPOSE 8000
 
