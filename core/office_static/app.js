@@ -20,7 +20,7 @@
   let stamp = null;
   const tabButtons = {};
   const expanded = new Set();
-  const TABS = [["setup", "Setup"], ["overview", "Overview"], ["approvals", "Approvals"], ["employees", "Employees"], ["tasks", "Tasks"], ["documents", "Documents"], ["runs", "Agent runs"], ["log", "Activity"], ["settings", "Settings"]];
+  const TABS = [["setup", "Setup"], ["overview", "Overview"], ["approvals", "Approvals"], ["employees", "Employees"], ["tasks", "Tasks"], ["documents", "Documents"], ["proactive", "Proactive"], ["sources", "Connectors"], ["runs", "Agent runs"], ["log", "Activity"], ["settings", "Settings"]];
 
   // All dynamic text goes in as text nodes; nothing here ever builds HTML from data.
   const add = (el, kid) => {
@@ -68,6 +68,10 @@
     key = "";
     taskFormEl = null;
     boardEl = null;
+    proFormEl = null;
+    proListEl = null;
+    srcFormEl = null;
+    srcListEl = null;
     settingsEl = null;
     sessionStorage.removeItem("ragleap_key");
     if (timer) { clearInterval(timer); timer = null; }
@@ -348,6 +352,164 @@
     docListEl.replaceChildren(docs.length ? h("div", { class: "list" }, docs.map(docCard)) : h("p", { class: "empty" }, "No documents yet. Add one above."));
   };
 
+  // ---- Proactive tab: scheduled prompts that an AI employee runs on its own ----
+  let proFormEl = null;
+  let proListEl = null;
+  let proMsgEl = null;
+  const proConfirm = new Map();
+  const PRO_CONFIRM_MS = 10000;
+  const scheduleText = (t) => (t.cron ? "cron " + t.cron + " (" + t.timezone + ")" : "every " + t.schedule_minutes + " min");
+  const buildProactiveForm = (roleNames) => {
+    const name = h("input", { type: "text", placeholder: "Name, e.g. Morning sales summary", maxlength: 200 });
+    const who = h("select", null, roleNames.map((r) => h("option", { value: r }, r)));
+    const prompt = h("textarea", { rows: 3, placeholder: "What should the AI employee do each time? Up to 4000 characters.", maxlength: 4000 });
+    const kind = h("select", { on: { change: () => {
+      when_.setAttribute("placeholder", kind.value === "cron" ? "0 9 * * 1-5" : "60");
+      tz.disabled = kind.value !== "cron";
+    } } }, h("option", { value: "cron" }, "Cron schedule"), h("option", { value: "minutes" }, "Every N minutes"));
+    const when_ = h("input", { type: "text", placeholder: "0 9 * * 1-5", maxlength: 100 });
+    let zone = "UTC";
+    try { zone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } catch (e) { zone = "UTC"; }
+    const tz = h("input", { type: "text", placeholder: "Time zone", value: zone, maxlength: 64 });
+    proMsgEl = h("span", { class: "sub" }, "");
+    const go = h("button", { type: "button", class: "ok", on: { click: async () => {
+      const body = { name: name.value.trim(), role: who.value, prompt: prompt.value.trim(), is_active: true };
+      if (!body.name || !body.prompt) { proMsgEl.textContent = "Give the trigger a name and a prompt."; return; }
+      if (kind.value === "cron") { body.cron = when_.value.trim(); body.timezone = tz.value.trim() || "UTC"; }
+      else { body.schedule_minutes = parseInt(when_.value.trim(), 10); }
+      go.disabled = true;
+      try {
+        await api("POST", "/proactive-triggers", body);
+        name.value = "";
+        prompt.value = "";
+        proMsgEl.textContent = "Added.";
+      } catch (e) {
+        if (String(e.message) !== "unauthorized") proMsgEl.textContent = "Could not add: " + clip(e.message, 160);
+      }
+      go.disabled = false;
+      await refreshProactive();
+    } } }, "Add trigger");
+    return h("section", { class: "card" }, h("h2", null, "Add a proactive trigger"),
+      h("p", { class: "sub" }, "A trigger makes an AI employee run a prompt on a schedule. The answer reaches you through the approval gate, so look in the Approvals and Activity tabs. While autonomy mode is off, actions are skipped. Cron example: 0 9 * * 1-5 means 09:00 on weekdays in the time zone you give."),
+      h("div", { class: "row" }, name, who), prompt, h("div", { class: "row" }, kind, when_, tz), h("div", { class: "row" }, go, proMsgEl));
+  };
+  const triggerCard = (t) => {
+    const isArmed = () => proConfirm.has(t.id) && Date.now() - proConfirm.get(t.id) < PRO_CONFIRM_MS;
+    const toggleBtn = h("button", { type: "button", class: "ghost", on: { click: async () => {
+      toggleBtn.disabled = true;
+      try {
+        await api("PATCH", "/proactive-triggers/" + encodeURIComponent(t.id), { is_active: !t.is_active });
+        proMsgEl.textContent = (t.is_active ? "Paused " : "Resumed ") + clip(t.name, 60) + ".";
+      } catch (e) {
+        if (String(e.message) !== "unauthorized") proMsgEl.textContent = "Could not change it: " + clip(e.message, 160);
+      }
+      await refreshProactive();
+    } } }, t.is_active ? "Pause" : "Resume");
+    const del = h("button", { type: "button", class: "bad", on: { click: async () => {
+      if (!isArmed()) { proConfirm.set(t.id, Date.now()); await refreshProactive(); return; }
+      proConfirm.delete(t.id);
+      del.disabled = true;
+      try {
+        await api("DELETE", "/proactive-triggers/" + encodeURIComponent(t.id));
+        proMsgEl.textContent = "Deleted " + clip(t.name, 60) + ".";
+      } catch (e) {
+        if (String(e.message) !== "unauthorized") proMsgEl.textContent = "Could not delete: " + clip(e.message, 160);
+      }
+      await refreshProactive();
+    } } }, isArmed() ? "Click again to delete" : "Delete");
+    return h("article", { class: "item" },
+      h("div", { class: "row" }, h("strong", null, clip(t.name, 100)), h("span", { class: "tag" }, t.role),
+        h("span", { class: "tag " + (t.is_active ? "ok" : "warn") }, t.is_active ? "active" : "paused"), toggleBtn, del),
+      h("div", { class: "sub" }, scheduleText(t) + " | last run " + (t.last_run_at ? ago(t.last_run_at) : "never") + " | next run " + (t.is_active && t.next_run_at ? when(t.next_run_at) : "-")),
+      h("pre", null, clip(t.prompt, 400)));
+  };
+  const refreshProactive = async () => {
+    if (!proFormEl) {
+      const roleNames = (await api("GET", "/employees?active_only=true")).roles.map((r) => r.role);
+      proFormEl = buildProactiveForm(roleNames);
+      proListEl = h("div", null);
+    }
+    if (view.firstChild !== proFormEl) view.replaceChildren(proFormEl, proListEl);
+    const triggers = (await api("GET", "/proactive-triggers")).triggers;
+    proListEl.replaceChildren(triggers.length
+      ? h("div", { class: "list" }, triggers.map((t) => triggerCard(t)))
+      : h("p", { class: "empty" }, "No proactive triggers yet. Add one above."));
+  };
+
+  // ---- Connectors tab: data sources that bring business data in as context ----
+  let srcFormEl = null;
+  let srcListEl = null;
+  let srcMsgEl = null;
+  const postForm = async (path, body) => {
+    const res = await fetch(path, { method: "POST", cache: "no-store", headers: { "x-api-key": key }, body });
+    if (res.status === 401) { lock("That key was not accepted."); throw new Error("unauthorized"); }
+    let data = {};
+    try { data = await res.json(); } catch (e) { data = {}; }
+    if (!res.ok) throw new Error(clip(data.detail || ("request failed (" + res.status + ")"), 200));
+    return data;
+  };
+  const buildSourceForm = () => {
+    const name = h("input", { type: "text", placeholder: "Name, e.g. Customers", maxlength: 200 });
+    const file = h("input", { type: "file", accept: ".csv" });
+    const idField = h("input", { type: "text", placeholder: "Column that identifies each row", value: "user_id", maxlength: 100 });
+    srcMsgEl = h("span", { class: "sub" }, "");
+    const go = h("button", { type: "button", class: "ok", on: { click: async () => {
+      const f = file.files && file.files[0];
+      const nm = name.value.trim();
+      if (!nm || !f) { srcMsgEl.textContent = "Give the source a name and choose a .csv file."; return; }
+      const body = new FormData();
+      body.append("name", nm);
+      body.append("user_identifier_field", idField.value.trim() || "user_id");
+      body.append("file", f);
+      go.disabled = true;
+      try {
+        await postForm("/integrations/csv", body);
+        srcMsgEl.textContent = "Added " + clip(nm, 60) + ". Use Sync now if it shows no records.";
+        name.value = "";
+        file.value = "";
+      } catch (e) {
+        if (String(e.message) !== "unauthorized") srcMsgEl.textContent = "Could not add the file: " + clip(e.message, 160);
+      }
+      go.disabled = false;
+      await refreshSources();
+    } } }, "Add CSV source");
+    return h("section", { class: "card" }, h("h2", null, "Add a data source"),
+      h("p", { class: "sub" }, "Connectors bring your business data in as context for the AI employees. Here you can add a CSV file (up to 10 MB, UTF-8), test a source and sync it. Database and API sources that need credentials are added through the API for now, because the dashboard does not store secrets for them yet."),
+      h("div", { class: "row" }, name, idField), h("div", { class: "row" }, file, go), h("div", { class: "row" }, srcMsgEl));
+  };
+  const sourceCard = (s) => {
+    const run = async (btn, path, label, okText) => {
+      btn.disabled = true;
+      srcMsgEl.textContent = label + " " + clip(s.name, 60) + " ...";
+      try {
+        const r = await api("POST", "/integrations/" + encodeURIComponent(s.id) + path);
+        srcMsgEl.textContent = r.success ? okText(r) : (clip(s.name, 60) + ": failed. " + clip(r.error || r.message || "", 160));
+      } catch (e) {
+        if (String(e.message) !== "unauthorized") srcMsgEl.textContent = clip(s.name, 60) + ": failed. " + clip(e.message, 160);
+      }
+      btn.disabled = false;
+      await refreshSources();
+    };
+    const testBtn = h("button", { type: "button", class: "ghost", on: { click: () => run(testBtn, "/test", "Testing", (r) => clip(s.name, 60) + ": connection OK. " + clip(r.message || "", 120)) } }, "Test");
+    const syncBtn = h("button", { type: "button", on: { click: () => run(syncBtn, "/sync", "Syncing", (r) => clip(s.name, 60) + ": synced " + r.records_synced + " record(s).") } }, "Sync now");
+    return h("article", { class: "item" },
+      h("div", { class: "row" }, h("strong", null, clip(s.name, 100)), h("span", { class: "tag" }, s.source_type),
+        s.last_sync_status ? h("span", { class: "tag " + (s.last_sync_status === "success" ? "ok" : "bad") }, s.last_sync_status) : h("span", { class: "tag warn" }, "never synced"),
+        testBtn, syncBtn),
+      h("div", { class: "sub" }, "last sync " + (s.last_sync_at ? ago(s.last_sync_at) : "never")
+        + (s.last_sync_record_count !== null && s.last_sync_record_count !== undefined ? " | " + s.last_sync_record_count + " record(s)" : "")
+        + (s.sync_interval_minutes ? " | auto every " + s.sync_interval_minutes + " min" : "")
+        + (s.is_active === false ? " | inactive" : "")));
+  };
+  const refreshSources = async () => {
+    if (!srcFormEl) { srcFormEl = buildSourceForm(); srcListEl = h("div", null); }
+    if (view.firstChild !== srcFormEl) view.replaceChildren(srcFormEl, srcListEl);
+    const sources = (await api("GET", "/integrations")).data_sources;
+    srcListEl.replaceChildren(sources.length
+      ? h("div", { class: "list" }, sources.map((s) => sourceCard(s)))
+      : h("p", { class: "empty" }, "No data sources yet. Add a CSV file above."));
+  };
+
   const SETTINGS_NOTE = "A value saved here wins over the .env file. Saved keys are encrypted and can never be read back.";
   const sourceTag = (it) => h("span", { class: "tag" }, it.source === "dashboard" ? "set here" : (it.source === "env" ? "from .env" : "default"));
   const llmFields = (p) => {
@@ -490,6 +652,8 @@
       else if (tab === "employees") content = renderOrg(await api("GET", "/org"));
       else if (tab === "tasks") { await refreshTasks(); content = null; }
       else if (tab === "documents") { await refreshDocuments(); content = null; }
+      else if (tab === "proactive") { await refreshProactive(); content = null; }
+      else if (tab === "sources") { await refreshSources(); content = null; }
       else if (tab === "settings") { await refreshSettings(); content = null; }
       else if (tab === "setup") content = renderSetup(await api("GET", "/setup/status"));
       else content = renderLog((await api("GET", "/autonomy/log?limit=60")).log);
