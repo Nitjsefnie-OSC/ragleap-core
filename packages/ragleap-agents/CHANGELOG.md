@@ -5,6 +5,8 @@ loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-13
+
 ### Changed (behaviour change: the prompt wording)
 
 - The instruction at the end of the prompt now depends on `prompt_style`. `"json"` (the default)
@@ -22,10 +24,15 @@ loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Verified
 
-- 119 tests pass on Python 3.10, 3.11 and 3.12. Mutation-checked: 9 of 9 mutations of the new
+- 123 tests pass on Python 3.10, 3.11 and 3.12. Mutation-checked: 9 of 9 mutations of the new
   behaviour (wording not switched, style not read from the callable, explicit style ignored, unknown
   style accepted, repair note not style-aware, JSON sentence dropped, native wording asking for JSON,
   adapter not advertising its mode, adapter always advertising json) are caught.
+- Cold start, with a positive control in each test: the first step is never gated even with no
+  policy; with no policy the second step pauses visibly (`awaiting_approval`, `forced`) while the
+  identical run with the tool declared trusted completes; an outbound tool runs first but pauses
+  after a tainting tool; a policy naming a tool that does not exist is refused at construction
+  (no test covered that check before). 4 of 4 targeted mutations are caught by these tests alone.
 - Live runs against Groq with `openai/gpt-oss-20b` after the change, one run per task, 20 tasks in each
   mode: tasks done were json 19, native 19 (the earlier sweeps with the 0.2.0 wording had json 15 and 16,
   native 17 and 20, the second of each with repair on; these are single runs and not a controlled
@@ -47,6 +54,8 @@ loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   model declines by replying with a JSON action naming a tool `refusal`, not in plain text, even though
   the native wording says to answer in plain text. The loop has no defined way for a model to decline.
 - Two native runs ended `done` without the tool result the task needed (the model skipped a step).
+- Not fixed: a run with no tools, or an empty task, returns `status="done"` with
+  `stop_reason="no_task_or_tools"` although nothing happened. Check `stop_reason`, not only `status`.
 - The taint rule against a real model: no run proposed the injected send, so it was never triggered.
 
 ## [0.2.0] - 2026-10-12
