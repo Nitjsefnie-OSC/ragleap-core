@@ -6,22 +6,23 @@
 
     <groupId>io.github.antonyrag</groupId>
     <artifactId>ragleap-graph</artifactId>
-    <version>0.1.0</version>
+    <version>0.2.0</version>
     <packaging>jar</packaging>
 
     <name>ragleap-graph (Java port)</name>
     <description>
         Java port of ragleap-graph: knowledge-graph-augmented retrieval for RAG, talking to
         Neo4j over its HTTP Query API (no Neo4j driver dependency; tested only against
-        Neo4j 5.26 Community, single server only). Early release: deterministic regex
-        entity extraction, document indexing (upsertDocument) with per-document weights
-        and co-occurrence edges, and six lookups (documents by entities, related
-        entities, typed relations, lineage, entities by type, document entities). The
-        typed-relation lookup reads relations written by other tools; this version does
-        not extract them. Not yet ported: LLM entity and relation extraction,
-        deduplication, graph retrieval, migrations and backfills, and the Postgres
-        audit writer. Independently versioned from the Python package
-        (see https://pypi.org/project/ragleap-graph/).
+        Neo4j 5.26 Community, single server only). Included: regex entity extraction;
+        optional LLM entity and relation extraction through a small LlmClient interface,
+        with an optional adapter for ragleap-rag (not live-verified against real model
+        providers, tested with scripted answers only); entity deduplication; document
+        indexing (upsertDocument) with per-document weights, co-occurrence edges and typed
+        relations; six lookups (documents by entities, related entities, typed relations,
+        lineage, entities by type, document entities); GraphRetriever (hybrid vector plus
+        graph retrieval, or graph only, with citations); and one-time backfills with a
+        schema migration runner. Not yet ported: the Postgres audit writer. Independently
+        versioned from the Python package (see https://pypi.org/project/ragleap-graph/).
     </description>
     <url>https://github.com/antonyrag/ragleap-core</url>
 
