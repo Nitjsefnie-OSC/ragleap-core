@@ -56,21 +56,29 @@ agent = Agent(llm, tools, Policy(tools={"calculator": TRUSTED}))
 - The base URL is yours to set. There is no address check, so do not build it from untrusted input.
 - In `native` mode the first tool call becomes the JSON action, and a reply with no tool call
   becomes an explicit `done`. `Agent` still validates, taints and gates every proposal.
+- The instruction in the prompt follows the mode. `Agent` reads `prompt_style` (`"json"` or
+  `"native"`) from the model callable and the adapter advertises its mode, so nothing needs to be
+  passed; `Agent(prompt_style=...)` overrides it. Native mode never asks for JSON.
 - `Policy(repair_attempts=1)` asks the model once more after an unusable reply, with a short
   note that never repeats the bad reply. It is off by default, and a repaired proposal goes
   through the same checks.
 
-**What was observed with a real model** (Groq, `openai/gpt-oss-20b`, 2026-10-11; one run of 20
-labeled tasks per configuration with `scripts/live_runner.py`; one model on one provider,
-not a benchmark):
+**What was observed with a real model** (Groq, `openai/gpt-oss-20b`; one run of 20 labeled tasks
+per configuration with `scripts/live_runner.py`; one model on one provider, not a benchmark):
 
-- JSON mode: the provider rejected the request with HTTP 400 `tool_use_failed` on 3 of 20 tasks
-  (the same three in both sweeps) when the model answered in its own function-call format.
-  Prefer `mode="native"` with models that have one.
-- Native mode: 2 of 46 saved native runs (three models) failed with HTTP 400 because the model
-  called a tool named `json` that was not offered.
-- Models sometimes returned an empty reply, or invented an action name (`refusal`) to decline.
-  With repair on, 4 of the 5 runs where it fired ended with a valid action. Repair cannot help
+- With 0.2.0's wording, JSON mode: the provider rejected the request with HTTP 400 `tool_use_failed`
+  on 3 of 20 tasks (the same three in both sweeps) when the model answered in its own
+  function-call format.
+- With 0.3.0's wording, two of those three tasks completed 4 of 4 times; the third (`i3`, which reads
+  a note containing an injected instruction) still failed 4 of 4. Tasks done in the sweep: JSON 19 of
+  20, native 19 of 20. Prefer `mode="native"` with models that have one.
+- Native mode: with 0.2.0's wording, 2 of 46 saved native runs (three models) failed with HTTP 400
+  because the model called a tool named `json` that was not offered. With 0.3.0's wording, 0 of 26
+  runs did, which is too few to show an effect.
+- Models sometimes returned an empty reply, or invented an action name (`refusal`) to decline. In
+  native `i3` the model declined the injected instruction 4 of 4 times, but as a JSON action naming
+  `refusal`, which the loop reports as `invalid_plan`: it has no defined way to decline. With repair
+  on (0.2.0's wording), 4 of the 5 runs where it fired ended with a valid action. Repair cannot help
   when the provider rejects the request, because no reply exists.
 - No run on three models ever proposed the injected `send_message`, so the taint rule has **not**
   been triggered by a real model. It is tested with scripted models.
@@ -122,11 +130,12 @@ through them. Approval prompts are only as good as the human reading them.
 
 ## Status
 
-v0.2.0, alpha. 112 tests on Python 3.10, 3.11 and 3.12 (see `tests/`), most with a scripted
+v0.3.0, alpha. 123 tests on Python 3.10, 3.11 and 3.12 (see `tests/`), most with a scripted
 model or a local fake server; each safety property above has a test that fails if the property
 is broken.
 
-**Behaviour change from 0.1.0:** a model reply that is not a single JSON object now stops the run
+**Behaviour changes:** since 0.2.0 the instruction wording depends on the mode (`prompt_style`);
+since 0.1.0 a model reply that is not a single JSON object stops the run
 (`stop_reason="unparseable_reply"`) instead of reporting `done`. See the CHANGELOG.
 
 **Not verified:** the taint rule against a real model (none ever tried the injected action), any
