@@ -85,12 +85,12 @@ Prefer Java? `ragleap-rag` is also on Maven Central:
 ```
 Independently versioned from the Python package above — see [`java/ragleap-rag`](java/ragleap-rag) for current scope.
 
-The Neo4j graph index has an early, partial Java port too (regex entity extraction and the Neo4j write and query path over the HTTP Query API; LLM extraction, deduplication and `GraphRetriever` are not ported yet):
+The Neo4j graph index has a Java port too, over the HTTP Query API (regex or, optionally, LLM entity and relation extraction, deduplication, document indexing and lookups, `GraphRetriever`, backfills and migrations; the Postgres audit writer is not ported yet):
 ```xml
 <dependency>
     <groupId>io.github.antonyrag</groupId>
     <artifactId>ragleap-graph</artifactId>
-    <version>0.1.0</version>
+    <version>0.2.0</version>
 </dependency>
 ```
 See [`java/ragleap-graph`](java/ragleap-graph) for current scope.
