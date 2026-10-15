@@ -14,7 +14,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * Always safe to construct: if the server cannot be reached, isAvailable() is false and every method returns
  * an empty result (upsertDocument reports an error) instead of throwing.
  */
-public final class GraphIndex implements AutoCloseable {
+public final class GraphIndex implements GraphSearch, AutoCloseable {
     /** Hard ceiling on traversal depth for related-entity searches. */
     public static final int MAX_ALLOWED_DEPTH = 10;
     static final String NOT_AVAILABLE = "Neo4j driver not available";
