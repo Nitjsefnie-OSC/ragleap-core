@@ -6,7 +6,7 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 ### Added
 - Benchmark JSON result metadata now records the normalizer version used for the run. Files from before this field was added are version "1".
-- `ragleap_voice.bench`: optional number step in the WER/CER normalizer (`numbers=True` on `normalize`, `wer`, `cer`, `word_errors`, `char_errors` and `run_stt`). English number words become digits ("four seven two nine" -> "4729", "one hundred twenty" -> "120"), thousands separators between digits are dropped and decimal digits of any script (Devanagari, Tamil, ...) become ASCII. Off by default, so already published numbers are unchanged. `normalizer_version(numbers)` names the settings ("1" by default, "1+numbers-en.1" with the step); record it next to any number measured with the step. Not covered: decimals, ordinals, currency words, years read in pairs, and spelled-out numbers in languages other than English.
+- `ragleap_voice.bench`: optional number normalization for WER/CER and `run_stt`. `numbers=True` (or `"en"`) retains English behavior; `numbers="tr"` adds Turkish cardinal-number words. The option stays off by default, so published results are unchanged; unsupported language strings raise ValueError rather than silently falling back to English. `normalizer_version(numbers)` returns `"1"`, `"1+numbers-en.1"`, or `"1+numbers-tr.1"` for the selected configuration. Both modes map decimal digits of any script to ASCII. Turkish coverage is standalone cardinal numbers through katrilyon; ordinals, dates, currency-specific handling, dialect and inflected forms are not covered. Test sentences are author-written; no external number-word data is included.
 
 ## [0.0.1] - first release (date set at tagging)
 ### Added

@@ -1,15 +1,23 @@
 """The optional number step of the WER normalizer (issue #754)."""
+import json
 import pathlib
 import sys
 import wave
 
-import json
-
 import pytest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
-from ragleap_voice.bench import (cer, environment_info, load_manifest, normalize,  # noqa: E402
-                                 normalizer_version, run_stt, summarize, wer, write_results)
+from ragleap_voice.bench import (
+    cer,
+    environment_info,
+    load_manifest,
+    normalize,
+    normalizer_version,
+    run_stt,
+    summarize,
+    wer,
+    write_results,
+)
 
 # benchmarks/stt-neutral-10s: the ground truth, and how an engine that writes digits
 # would transcribe the same audio
@@ -24,6 +32,7 @@ def test_default_is_unchanged():
     assert normalizer_version() == "1"
     assert normalize("four seven two nine") == "four seven two nine"
     assert normalize("4,729") == "4 729"
+    assert normalize("kırk iki") == "kırk iki"
     assert wer(NEUTRAL_REF, NEUTRAL_HYP) == pytest.approx(9 / 21)
 
 
@@ -36,6 +45,53 @@ def test_stt_neutral_10s_example():
         "please schedule a callback for tomorrow at 3 15 order number 4729 total due 120 dollars")
     assert wer(NEUTRAL_REF, NEUTRAL_HYP, numbers=True) == 0
     assert cer(NEUTRAL_REF, NEUTRAL_HYP, numbers=True) == 0
+
+
+def test_turkish_number_words_and_metrics():
+    # Author-written examples, under this MIT-licensed package; no external corpus or word list.
+    examples = [
+        ("sıfır", "0"),
+        ("yirmi bir", "21"),
+        ("kırk iki", "42"),
+        ("yüz yirmi üç", "123"),
+        ("dokuz yüz doksan dokuz", "999"),
+        ("iki bin yirmi altı", "2026"),
+        ("İKİ BİN YİRMİ ALTI", "2026"),
+        ("KIRK İKİ", "42"),
+        ("ALTMIŞ", "60"),
+        ("bir milyon iki yüz otuz dört bin beş yüz altmış yedi", "1234567"),
+        ("bir iki üç", "123"),  # Unit words spoken digit by digit.
+        ("Toplam kırk iki puan aldım.", "toplam 42 puan aldım"),
+        ("İki yüz otuz dört kişi geldi.", "234 kişi geldi"),
+    ]
+    for text, expected in examples:
+        assert normalize(text, numbers="tr") == expected
+    assert normalize("Toplam ٤٢ puan", numbers="tr") == "toplam 42 puan"
+
+    reference = "Bu sınavdan kırk iki puan aldım."
+    hypothesis = "Bu sınavdan 42 puan aldım."
+    assert normalize(reference, numbers="tr") == normalize(hypothesis, numbers="tr")
+    assert wer(reference, hypothesis, numbers="tr") == 0
+    assert cer(reference, hypothesis, numbers="tr") == 0
+
+
+def test_turkish_version_and_english_alias():
+    assert normalizer_version(numbers="tr") == "1+numbers-tr.1"
+    assert normalizer_version(numbers="en") == normalizer_version(numbers=True) == "1+numbers-en.1"
+    assert normalize("twenty one", numbers="en") == normalize("twenty one", numbers=True) == "21"
+
+
+@pytest.mark.parametrize("numbers", ["fr", "TR", ""])
+def test_unsupported_number_language_is_rejected(numbers):
+    with pytest.raises(ValueError, match="unsupported number-normalization language"):
+        normalize("hello", numbers=numbers)
+    with pytest.raises(ValueError, match="unsupported number-normalization language"):
+        normalizer_version(numbers=numbers)
+
+
+def test_non_boolean_non_string_number_option_is_rejected():
+    with pytest.raises(TypeError, match="numbers must be"):
+        normalize("hello", numbers=1)
 
 
 @pytest.mark.parametrize("text, expected", [
@@ -64,6 +120,46 @@ def test_stt_neutral_10s_example():
 ])
 def test_english_number_words(text, expected):
     assert normalize(text, numbers=True) == expected
+
+
+def test_run_stt_applies_turkish_to_both_texts_and_records_version(tmp_path):
+    with wave.open(str(tmp_path / "a.wav"), "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(16000)
+        w.writeframes(b"\x00\x00" * 16000)
+    m = tmp_path / "m.csv"
+    m.write_text("id,path,reference,language,license,source\n"
+                 "a,a.wav,Bu sınavdan kırk iki puan aldım.,tr,MIT,author-written MIT test\n", encoding="utf-8")
+    items, problems = load_manifest(m)
+    assert problems == []
+
+    rows = run_stt(lambda path, language: "Bu sınavdan 42 puan aldım.", items, numbers="tr")
+    assert summarize(rows)["tr"]["wer"] == 0
+    assert summarize(rows)["tr"]["cer"] == 0
+    _, json_path = write_results(tmp_path / "out", "fake", rows, environment_info())
+    saved = json.loads(pathlib.Path(json_path).read_text(encoding="utf-8"))
+    assert saved["meta"]["normalizer_version"] == "1+numbers-tr.1"
+
+
+def test_run_stt_does_not_infer_number_normalizer_from_manifest_language(tmp_path):
+    with wave.open(str(tmp_path / "a.wav"), "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(16000)
+        w.writeframes(b"\x00\x00" * 16000)
+    m = tmp_path / "m.csv"
+    m.write_text("id,path,reference,language,license,source\n"
+                 "a,a.wav,Bu sınavdan kırk iki puan aldım.,tr,MIT,author-written MIT test\n", encoding="utf-8")
+    items, problems = load_manifest(m)
+    assert problems == []
+
+    rows = run_stt(lambda path, language: "Bu sınavdan 42 puan aldım.", items)
+    assert summarize(rows)["tr"]["wer"] == pytest.approx(2 / 6)
+    assert summarize(rows)["tr"]["cer"] > 0
+    _, json_path = write_results(tmp_path / "out", "fake", rows, environment_info())
+    saved = json.loads(pathlib.Path(json_path).read_text(encoding="utf-8"))
+    assert saved["meta"]["normalizer_version"] == "1"
 
 
 @pytest.mark.parametrize("text, expected", [
@@ -103,4 +199,5 @@ def test_run_stt_passes_the_option(tmp_path):
     rows = run_stt(engine, items, numbers=True)
     assert summarize(rows)["en"]["wer"] == 0
     _, json_path = write_results(tmp_path / "out", "fake", rows, environment_info())
-    assert json.loads(open(json_path, encoding="utf-8").read())["meta"]["normalizer_version"] == "1+numbers-en.1"
+    saved = json.loads(pathlib.Path(json_path).read_text(encoding="utf-8"))
+    assert saved["meta"]["normalizer_version"] == "1+numbers-en.1"
