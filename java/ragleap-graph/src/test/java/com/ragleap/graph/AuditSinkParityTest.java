@@ -25,7 +25,7 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
 /**
  * Compares PostgresAuditSink with the real Python AuditLogger (stubbed psycopg2): every connect, autocommit, execute
- * with its parameters, close, and the kinds of warnings, for 26 scripted scenarios.
+ * with its parameters, close, and the kinds of warnings, for 27 scripted scenarios.
  */
 @EnabledIfEnvironmentVariable(named = "RAGLEAP_GRAPH_PARITY_DIR", matches = ".+")
 class AuditSinkParityTest {
@@ -204,7 +204,7 @@ class AuditSinkParityTest {
     void auditSinkMatchesPython() throws IOException {
         JsonNode cases = MAPPER.readTree(Path.of(System.getenv("RAGLEAP_GRAPH_PARITY_DIR"), "audit_cases.json")
                 .toFile()).get("cases");
-        assertTrue(cases.size() >= 26, "fixture count: " + cases.size());
+        assertTrue(cases.size() >= 27, "fixture count: " + cases.size());
         List<String> bad = new ArrayList<>();
         Logger logger = Logger.getLogger("ragleap_graph.audit");
         boolean useParent = logger.getUseParentHandlers();
