@@ -705,6 +705,16 @@ same live API.
 
 See [ROADMAP.md](ROADMAP.md) for the full phase-by-phase history.
 
+## Tested by others
+
+We call a feature proven only when someone other than the maintainers has run it and reported the result. This table starts empty on purpose. It is filled in from reports on the [community testing issues](https://github.com/antonyrag/ragleap-core/issues/787), and nothing counts as tested until a report is listed here.
+
+You do not need to write code to help: pick a test, run a few steps on sample files, and comment with what happened, even if everything worked. Please never share keys or real data.
+
+| Area | Tested by | OS / setup | Result | Issue |
+|---|---|---|---|---|
+| (no reports yet) | | | | |
+
 ## Contributing
 
 RagLeap Core is working, tested, and open for contributions now. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to get started, and check the [good first issue](../../issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) label for scoped tasks.
