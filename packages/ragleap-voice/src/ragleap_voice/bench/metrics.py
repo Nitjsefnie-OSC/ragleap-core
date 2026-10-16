@@ -6,28 +6,33 @@ scripts are not damaged. CER counts Unicode code points (not grapheme clusters)
 of the normalized text.
 
 By default digits and spelled-out numbers are NOT unified (normalizer version
-"1", the one every published number so far was measured with); that is a known
-limitation and must be stated next to any published number. Pass numbers=True
-for the optional number step (version "1+numbers-en.1"), and record
-normalizer_version(numbers) next to any number measured with it:
+"1", the one every published number so far was measured with). Pass
+numbers=True (or numbers="en") for English cardinal-number normalization
+(version "1+numbers-en.1"), or numbers="tr" for Turkish cardinal-number
+normalization (version "1+numbers-tr.1"). Record normalizer_version(numbers)
+next to every result measured with either option. Decimal digits of any script
+become ASCII digits with both options. Other language strings raise ValueError;
+values other than booleans or strings raise TypeError.
 
 - English number words become digits: a run of single digits is read digit by
-  digit ("four seven two nine" -> "4729"), anything else as cardinal numbers
-  ("one hundred twenty" -> "120"); a word that cannot continue the number starts
-  a new one ("three fifteen" -> "3 15", which is what "3:15" becomes).
+  digit ("four seven two nine" -> "4729"); other supported runs are cardinals
+  ("one hundred twenty" -> "120").
+- Turkish number words become digits: "kırk iki" -> "42",
+  "iki bin yirmi altı" -> "2026". A run consisting only of unit words is read
+  digit by digit, as in the English mode.
 - A thousands separator between digits is dropped ("1,200" -> "1200").
-- Decimal digits of any script become ASCII digits (Devanagari, Tamil, ...).
 
-Not covered: decimals ("three point five"), ordinals ("first", "1st"), "oh" for
-zero, years read in pairs ("nineteen eighty" -> "19 80", not "1980"), currency
-symbols ("$120" stays "120", without "dollars"), and spelled-out numbers in any
-language but English. Every "one" becomes "1", on both sides alike.
+Not covered: decimals ("three point five"), ordinals, dates, currency-specific
+handling, years read in pairs, or dialect and inflected forms. The Turkish mode
+does not infer whether a number word is functioning as a number; for example,
+"bir" in ordinary prose is normalized to "1" wherever it occurs.
 """
 import re
 import unicodedata
 
 NORMALIZER_VERSION = "1"
 NUMBERS_VERSION = "numbers-en.1"
+NUMBERS_TR_VERSION = "numbers-tr.1"
 
 _APOSTROPHES = {"'", "\u2019", "\u02bc"}
 
@@ -42,14 +47,35 @@ _NUMBER_WORDS = set(_UNITS) | set(_TEENS) | set(_TENS) | set(_SCALES) | {"hundre
 _THOUSANDS_SEPARATOR = re.compile(r"(?<=\d)[,\u066c](?=\d{3}(?!\d))")
 
 
+def _number_mode(numbers):
+    if numbers is False:
+        return None
+    if numbers is True:
+        return "en"
+    if numbers in ("en", "tr"):
+        return numbers
+    if isinstance(numbers, str):
+        raise ValueError(f"unsupported number-normalization language: {numbers!r}")  # noqa: TRY004
+    raise TypeError("numbers must be False, True, 'en', or 'tr'")
+
+
 def normalizer_version(numbers=False):
     """The version string to record next to any number measured with these settings."""
-    return NORMALIZER_VERSION + ("+" + NUMBERS_VERSION if numbers else "")
+    mode = _number_mode(numbers)
+    if mode is None:
+        return NORMALIZER_VERSION
+    version = NUMBERS_VERSION if mode == "en" else NUMBERS_TR_VERSION
+    return NORMALIZER_VERSION + "+" + version
 
 
 def normalize(text, numbers=False):
-    text = unicodedata.normalize("NFKC", text or "").casefold()
-    if numbers:
+    mode = _number_mode(numbers)
+    text = unicodedata.normalize("NFKC", text or "")
+    if mode == "tr":
+        # Turkish dotted/dotless I casing differs from Unicode's default casefold.
+        text = text.replace("I", "ı").replace("İ", "i")
+    text = text.casefold()
+    if mode is not None:
         text = _THOUSANDS_SEPARATOR.sub("", text)
     out = []
     for ch in text:
@@ -58,13 +84,16 @@ def normalize(text, numbers=False):
         cat = unicodedata.category(ch)
         if cat[0] in ("P", "S") or ch.isspace():
             out.append(" ")
-        elif numbers and cat == "Nd":
+        elif mode is not None and cat == "Nd":
             out.append(str(unicodedata.decimal(ch)))
         else:
             out.append(ch)
     words = "".join(out).split()
-    if numbers:
+    if mode == "en":
         words = _numbers_to_digits(words)
+    elif mode == "tr":
+        from .numbers_tr import numbers_to_digits
+        words = numbers_to_digits(words)
     return " ".join(words)
 
 
