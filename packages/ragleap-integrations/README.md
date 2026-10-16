@@ -10,7 +10,7 @@ pip install ragleap-integrations
 
 ## What this is (and isn't)
 
-v0.1.0 is an MCP client over **Streamable HTTP only**. The *owner* configures
+v0.1.1 is an MCP client over **Streamable HTTP only**. The *owner* configures
 servers and an exact `server.tool` allowlist; the model only supplies a tool's
 JSON arguments, never a URL, a token or a tool outside the allowlist. It does
 not own a tool-calling loop (that is `ragleap-agents`' job).
@@ -138,6 +138,20 @@ handshake with protocol version 2025-06-18 only (an explicit allowlist, not
   servers answered an unsupported protocol version with HTTP 400 and
   `-32600` and no supported-version list; neither implements `server/discover`
   (this client never calls it).
+- **Live-checked on 2026-10-16** against `https://pubsub.googleapis.com/mcp`
+  using the published 0.1.1 wheel in a clean virtual environment (Python
+  3.10.12), with no limit overrides. Read-only: `tools/list` only, no
+  credentials, no `tools/call`. The 359,293-byte list of the 15-tool server,
+  which 0.1.0 refused at its 256 KiB default, is now accepted with the
+  default `max_response_bytes` (1 MiB), and the client recorded the modern
+  era. Four of the 15 tools have an input schema above the default
+  `max_schema_chars` (10,000): `update_subscription` (33,502 characters),
+  `create_subscription` (32,989), `update_topic` (23,537) and `create_topic`
+  (22,835); the other eleven are 2,631 or smaller. With the first three tools
+  allowlisted, discovery registered one and skipped `create_topic` and
+  `update_topic`, as designed. As an experiment only, `max_schema_chars=40000`
+  (an override; the default is unchanged) registered all 15 tools. Not
+  verified: that schemas of this size are usable by a model.
 - **Not live-verified:** modern-path `tools/call`, `x-mcp-header` mirroring,
   bearer-token authentication, pagination (neither server paginated) and
   where a `-32022` error carries its supported-version list (not observed:
