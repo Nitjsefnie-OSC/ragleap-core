@@ -205,6 +205,26 @@ tools/call, x-mcp-header mirroring, bearer-token authentication, pagination
 (neither server paginated), and where a -32022 error carries its
 supported-version list (not observed).
 
+Live check 3 (2026-10-16): the published 0.1.1 wheel (sdist and wheel
+hashes matched PyPI's records; the changed source files were byte-identical
+to main), installed in a clean virtual environment on Python 3.10.12, was
+run against pubsub.googleapis.com/mcp, read-only: tools/list only, no
+credentials, no tools/call, no limit overrides. Verified live: with the
+default limits, the 359,293-byte tools/list reply of the 15-tool server is
+accepted (0.1.0 refused it at the old 256 KiB default) and the client
+records the modern era. Measured: four of the 15 tools have an inputSchema
+above max_schema_chars (10,000): update_subscription 33,502 characters,
+create_subscription 32,989, update_topic 23,537 and create_topic 22,835;
+the other eleven are 2,631 or smaller. With the first three tools
+allowlisted, discovery registered one and skipped create_topic and
+update_topic (inputSchema too large), as designed. As an experiment only,
+max_schema_chars=40000 (an override, not the default) registered all 15
+tools and skipped none. The default is unchanged; whether to trim or
+summarize very large schemas is an open design question. server/discover
+again answered -32601 (this client never calls it) and an unsupported
+version again answered HTTP 400 with -32600. Not verified: that schemas of
+this size are usable by a model, and the items listed under live check 2.
+
 ## Open decisions (resolved when v0.1.0 was built)
 
 Resolved: (1) both paths, with legacy limited to 2025-06-18; (2) DeepWiki's

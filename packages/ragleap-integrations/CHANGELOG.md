@@ -5,6 +5,30 @@ loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Verified (after 0.1.1)
+
+- Live check on 2026-10-16 of the published 0.1.1 wheel (clean virtual
+  environment, Python 3.10.12) against pubsub.googleapis.com/mcp, read-only:
+  tools/list only, no credentials, no tools/call, no limit overrides. The
+  359,293-byte list of the 15-tool server is accepted with the 1 MiB default
+  (0.1.0 refused it at 256 KiB) and the client recorded the modern era.
+
+### Observed
+
+- Four of that server's 15 tools have an inputSchema above max_schema_chars
+  (10,000): update_subscription 33,502 characters, create_subscription
+  32,989, update_topic 23,537 and create_topic 22,835; the other eleven are
+  2,631 or smaller. With the first three tools allowlisted, discovery
+  registered one and skipped create_topic and update_topic, as designed. As
+  an experiment only, max_schema_chars=40000 (an override; the default is
+  unchanged) registered all 15 tools.
+
+### Not verified
+
+- That schemas of this size are usable by a model. Modern-path tools/call,
+  x-mcp-header mirroring, bearer-token authentication, pagination and where
+  a -32022 error carries its supported-version list are still unverified live.
+
 ## [0.1.1] - 2026-10-15
 
 ### Changed
