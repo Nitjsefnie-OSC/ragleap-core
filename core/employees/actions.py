@@ -39,6 +39,8 @@ ACTION_TOOLS = {
     "run_code": {"channel": "code"},
     "run_shell": {"channel": "shell"},
     "fetch_page": {"channel": "fetch"},
+    "list_files": {"channel": "files_list"},
+    "read_file": {"channel": "files_read"},
 }
 
 
@@ -156,6 +158,24 @@ def available_tools() -> Dict[str, str]:
             "sort) in an isolated sandbox: no network, nothing kept afterwards, 10 second limit. "
             "target is ignored (leave empty). content must be the command, under 2000 characters."
         )
+    # Opt-in: FILE_TOOLS_ENABLED=true plus SANDBOX_TOKEN, and at least one grant made on the host.
+    try:
+        from core import file_access
+        granted = file_access.grant_names()
+    except Exception:
+        granted = []
+    if granted:
+        grant_list = ", ".join(granted)
+        tools["list_files"] = (
+            "List the files and folders inside a folder the owner has granted (read-only). "
+            "target must be exactly one of these grant names: " + grant_list + ". "
+            "content is the folder path inside the grant, or . for its top folder."
+        )
+        tools["read_file"] = (
+            "Read the start of one text file inside a folder the owner has granted (read-only, "
+            "about 12000 bytes at most). target must be exactly one of these grant names: " + grant_list + ". "
+            "content is the file path inside the grant, for example reports/q3.txt."
+        )
     # Opt-in: BROWSER_FETCH_ENABLED=true plus a non-empty BROWSER_ALLOWED_DOMAINS.
     try:
         from core import page_fetch
@@ -257,6 +277,15 @@ def _validate_plan(plan: Dict, tools: Dict[str, str]) -> Optional[Dict]:
         target = ""
         if len(str(plan.get("content", "") or "").strip()) > MAX_ACTION_CONTENT:
             return None  # never run silently truncated code
+    elif tool in ("list_files", "read_file"):
+        from core import file_access
+        if target not in file_access.grant_names():
+            return None
+        cleaned = file_access.clean_rel("list" if tool == "list_files" else "read",
+                                        str(plan.get("content", "") or ""))
+        if cleaned is None:
+            return None
+        content = cleaned or "."
     else:
         target = "slack"
     return {"tool": tool, "channel": ACTION_TOOLS[tool]["channel"], "target": target,
