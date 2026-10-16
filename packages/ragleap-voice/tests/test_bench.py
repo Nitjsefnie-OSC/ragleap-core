@@ -105,4 +105,5 @@ def test_write_results_roundtrip(tmp_path):
     data = json.loads(pathlib.Path(json_path).read_text(encoding="utf-8"))
     assert data["engine"] == "fake" and len(data["rows"]) == 2
     assert data["meta"]["engine_version"] == "fake-0"
+    assert data["meta"]["normalizer_version"] == "1"
     assert pathlib.Path(csv_path).read_text(encoding="utf-8").startswith("id,language")

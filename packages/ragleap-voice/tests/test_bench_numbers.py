@@ -3,11 +3,13 @@ import pathlib
 import sys
 import wave
 
+import json
+
 import pytest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
-from ragleap_voice.bench import (cer, load_manifest, normalize, normalizer_version,  # noqa: E402
-                                 run_stt, summarize, wer)
+from ragleap_voice.bench import (cer, environment_info, load_manifest, normalize,  # noqa: E402
+                                 normalizer_version, run_stt, summarize, wer, write_results)
 
 # benchmarks/stt-neutral-10s: the ground truth, and how an engine that writes digits
 # would transcribe the same audio
@@ -98,4 +100,7 @@ def test_run_stt_passes_the_option(tmp_path):
         return "order number 4729"
 
     assert summarize(run_stt(engine, items))["en"]["wer"] == pytest.approx(4 / 6)
-    assert summarize(run_stt(engine, items, numbers=True))["en"]["wer"] == 0
+    rows = run_stt(engine, items, numbers=True)
+    assert summarize(rows)["en"]["wer"] == 0
+    _, json_path = write_results(tmp_path / "out", "fake", rows, environment_info())
+    assert json.loads(open(json_path, encoding="utf-8").read())["meta"]["normalizer_version"] == "1+numbers-en.1"

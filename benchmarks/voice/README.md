@@ -13,6 +13,7 @@ Measurements for ragleap-voice and the script that produced them. Nothing here i
 
 ## Method
 
+- Every JSON result file records its normalizer version in `meta.normalizer_version`; files written before this field existed use version `1` (the default normalizer).
 - Data: first 20 clips per language from the `test` split of `google/fleurs` (CC-BY-4.0). Audio is downloaded at run time and is not committed.
 - Engine: faster-whisper 1.1.1, model `Systran/faster-whisper-large-v3` at revision `edaa852ec7` (MIT), fp16, beam 5, temperature 0, language given.
 - Hardware: Tesla T4 (15 GB), Google Colab. Run on 2026-10-11. Harness commit on main: `6d9fbecd0c`.
