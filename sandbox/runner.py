@@ -181,7 +181,11 @@ BROAD_PATHS = frozenset({"/", "/root", "/home", "/Users", "/var", "/tmp", "/opt"
 
 
 def computer_control_on():
-    return os.environ.get("COMPUTER_CONTROL", "").strip().lower() == "true"
+    """On only when COMPUTER_CONTROL=true AND the owner has not paused it with `ragleap files off`,
+    which creates a DISABLED file next to the grants. The flag is checked on every call, so it is immediate."""
+    if os.environ.get("COMPUTER_CONTROL", "").strip().lower() != "true":
+        return False
+    return not os.path.exists(os.path.join(os.path.dirname(GRANTS_FILE), "DISABLED"))
 
 
 def name_denied(name):

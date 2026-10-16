@@ -235,10 +235,11 @@ def test_compose_sandbox_service_is_isolated():
     assert svc["profiles"] == ["sandbox"]          # never starts by default
     assert "env_file" not in svc                   # no API keys from .env
     assert "ports" not in svc                      # not published to the host
-    assert set(svc["environment"]) <= {"SANDBOX_TOKEN", "SANDBOX_IMAGE"}
+    assert set(svc["environment"]) <= {"SANDBOX_TOKEN", "SANDBOX_IMAGE", "COMPUTER_CONTROL"}
     for name, other in yaml.safe_load((ROOT / "docker-compose.yml").read_text())["services"].items():
         if name != "sandbox":
             assert not any("docker.sock" in str(v) for v in other.get("volumes", [])), name
+            assert not any("grants" in str(v) for v in other.get("volumes", [])), name   # only the runner sees grants
 
 
 # ---------------- runner: run_in_sandbox with a fake Docker API ----------------

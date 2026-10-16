@@ -19,7 +19,7 @@ def test_sandbox_is_built_not_bind_mounted():
     svc = sandbox_service()
     assert svc["build"] == "./sandbox" and svc["image"] == "ragleap-core-sandbox"
     vols = [str(v) for v in svc.get("volumes", [])]
-    assert vols == ["/var/run/docker.sock:/var/run/docker.sock"]
+    assert vols == ["/var/run/docker.sock:/var/run/docker.sock", "./grants:/grants:ro"]   # grants: read-only
     assert svc["read_only"] is True and svc["cap_drop"] == ["ALL"] and "env_file" not in svc
 
 
