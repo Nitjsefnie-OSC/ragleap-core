@@ -127,6 +127,13 @@ jobs:
           DATABASE_URL: postgresql://ragleap:ragleap@localhost:5432/ragleap_core
         run: |
           python -m pytest tests/ -v
+      - name: Docker file-grant tests
+        env:
+          DATABASE_URL: postgresql://ragleap:ragleap@localhost:5432/ragleap_core
+          RAGLEAP_DOCKER_TESTS: '1'
+        run: |
+          docker pull python:3.11-slim
+          python -m pytest tests/test_sandbox_files_docker.py -v
 
   ragleap-rag-tests:
     runs-on: ubuntu-latest
