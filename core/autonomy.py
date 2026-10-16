@@ -191,6 +191,12 @@ def _send_via_channel(channel: str, target: str, content: str) -> str:
         elif channel == "fetch":
             from core.page_fetch import fetch_page
             return fetch_page(target)
+        elif channel == "files_list":
+            from core.file_access import list_files
+            return list_files(target, content)
+        elif channel == "files_read":
+            from core.file_access import read_file
+            return read_file(target, content)
         else:
             return f"Unsupported channel for autonomous send: {channel} (voice has no discrete send - see RFC #171)"
     except Exception as e:
