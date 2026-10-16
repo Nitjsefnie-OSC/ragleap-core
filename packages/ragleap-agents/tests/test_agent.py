@@ -73,9 +73,11 @@ def build(replies, policy=None, summarize=False, store=None, big=None, **policy_
 
 def test_no_tools_or_empty_task_makes_no_model_call():
     llm = FakeLLM([])
-    assert Agent(llm, []).run("do something").stop_reason == "no_task_or_tools"
+    r1 = Agent(llm, []).run("do something")
+    assert (r1.status, r1.stop_reason) == ("stopped", "no_task_or_tools")
     agent, llm2, _ = build([])
-    assert agent.run("   ").stop_reason == "no_task_or_tools"
+    r2 = agent.run("   ")
+    assert (r2.status, r2.stop_reason) == ("stopped", "no_task_or_tools")
     assert llm.prompts == [] and llm2.prompts == []
 
 

@@ -196,7 +196,7 @@ class Agent:
         }
         try:
             if not state["task"].strip() or not self.tools:
-                return self._finish(state, "done", "no_task_or_tools", use_llm=False)
+                return self._finish(state, "stopped", "no_task_or_tools", use_llm=False)
             return self._drive(state, self._deadline())
         except Exception as e:  # last resort; model and tool errors are handled where they happen
             logger.error("agent run failed unexpectedly: %s", type(e).__name__)
