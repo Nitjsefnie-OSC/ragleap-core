@@ -367,3 +367,17 @@ def test_the_run_endpoint_still_needs_the_token(srv):
     assert call("POST", "/run", {"code": "print(1)"}, token=None)[0] == 401
     assert call("POST", "/nothing", {}, token="tok")[0] == 404
     assert calls == []
+
+
+def test_the_disabled_flag_pauses_file_access_immediately(tmp_path, monkeypatch):
+    f = tmp_path / "grants.json"
+    f.write_text(json.dumps({"grants": [{"name": "a", "path": "/data/a", "mode": "read"}]}))
+    monkeypatch.setattr(runner, "GRANTS_FILE", str(f))
+    monkeypatch.setenv("COMPUTER_CONTROL", "true")
+    assert runner.computer_control_on() is True
+    (tmp_path / "DISABLED").write_text("paused")
+    assert runner.computer_control_on() is False
+    assert runner.file_op({"op": "list", "grant": "a"})[0] == 403
+    assert runner.grants_summary() == {"enabled": False, "grants": []}
+    (tmp_path / "DISABLED").unlink()
+    assert runner.computer_control_on() is True

@@ -34,3 +34,7 @@ build/
 # RagLeap command
 .ragleap-ollama
 backups/
+
+# Folder grants are the owner's private choices
+grants/*
+!grants/README.txt

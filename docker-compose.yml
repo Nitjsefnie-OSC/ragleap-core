@@ -127,8 +127,10 @@ services:
     environment:
       SANDBOX_TOKEN: ${SANDBOX_TOKEN:-}
       SANDBOX_IMAGE: ${SANDBOX_IMAGE:-python:3.11-slim}
+      COMPUTER_CONTROL: ${COMPUTER_CONTROL:-}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - ./grants:/grants:ro
     command: ["python", "-u", "/runner.py"]
 
   # Local models (opt-in): docker compose --profile ollama up -d
