@@ -12,10 +12,14 @@ import time
 import wave
 from datetime import datetime, timezone
 
-from .metrics import char_errors, word_errors
+from .metrics import char_errors, normalizer_version, word_errors
 
 ROW_FIELDS = ("id", "language", "reference", "hypothesis", "ref_words", "word_errors",
               "ref_chars", "char_errors", "audio_s", "latency_s", "error")
+
+
+class SttRows(list):
+    """Benchmark rows together with the normalizer settings that produced them."""
 
 
 def _audio_seconds(path):
@@ -27,9 +31,9 @@ def _audio_seconds(path):
 
 
 def run_stt(engine, items, clock=time.perf_counter, numbers=False):
-    """numbers=True uses the optional number step of the normalizer; record
-    metrics.normalizer_version(numbers) in the run's metadata when you do."""
-    rows = []
+    """Run an engine and retain the normalizer version for result metadata."""
+    rows = SttRows()
+    rows.normalizer_version = normalizer_version(numbers)
     for it in items:
         row = {k: None for k in ROW_FIELDS}
         row.update(id=it.id, language=it.language, reference=it.reference,
@@ -99,7 +103,9 @@ def write_results(out_dir, engine_name, rows, meta):
         w = csv.DictWriter(f, fieldnames=ROW_FIELDS)
         w.writeheader()
         w.writerows(rows)
+    result_meta = dict(meta)
+    result_meta.setdefault("normalizer_version", getattr(rows, "normalizer_version", "1"))
     with open(json_path, "w", encoding="utf-8") as f:
-        json.dump({"engine": engine_name, "meta": meta, "summary": summarize(rows),
+        json.dump({"engine": engine_name, "meta": result_meta, "summary": summarize(rows),
                    "rows": rows}, f, ensure_ascii=False, indent=2)
     return str(csv_path), str(json_path)
