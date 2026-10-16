@@ -5,7 +5,20 @@ loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-## [0.3.0] - 2026-10-13
+### Changed (behaviour change: an empty run now stops)
+
+- A run with no tools, or with an empty task, now returns `status="stopped"` with
+  `stop_reason="no_task_or_tools"`. 0.3.0 and earlier returned `status="done"` for it, so a run in
+  which nothing happened looked like a success. Code that checked only `status == "done"` will now
+  see `stopped` in this case.
+
+### Corrected
+
+- The `## [0.3.0]` heading below was dated 2026-10-13, but the tag was pushed on 2026-10-15 (tag run
+  38791601216). The date is corrected here; the published 0.3.0 files still carry the old date and
+  cannot change.
+
+## [0.3.0] - 2026-10-15
 
 ### Changed (behaviour change: the prompt wording)
 
