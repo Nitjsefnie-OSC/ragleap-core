@@ -106,6 +106,10 @@ handshake with protocol version 2025-06-18 only (an explicit allowlist, not
 - `ragleap_tools.Tool.call` in ragleap-tools 0.4.0 cannot take an argument
   literally named `self`.
 - Not safe to share one client between threads while calls are running.
+- Server-supplied text is untrusted and not screened for prompt injection:
+  tool descriptions and schemas, tool results, and the text of a tool-level
+  error (it becomes `ToolResult.error`, capped at `max_result_chars` like a
+  result).
 - A server whose tool list is larger than the response cap (1 MiB by default;
   256 KiB in 0.1.0, which a real 15-tool server's 359 KB list exceeded) makes
   discovery fail with "response too large; raise max_response_bytes" until
@@ -152,12 +156,29 @@ handshake with protocol version 2025-06-18 only (an explicit allowlist, not
   `update_topic`, as designed. As an experiment only, `max_schema_chars=40000`
   (an override; the default is unchanged) registered all 15 tools. Not
   verified: that schemas of this size are usable by a model.
-- **Not live-verified:** modern-path `tools/call`, `x-mcp-header` mirroring,
-  bearer-token authentication, pagination (neither server paginated) and
-  where a `-32022` error carries its supported-version list (not observed:
-  the live servers returned `-32600`). They follow the public specification
-  and are covered by tests against fakes only; treat them as best-effort
-  until confirmed live.
+- **Live-checked on 2026-10-17** against a third party's public test servers
+  (`https://mcpplaygroundonline.com/mock-mcp-servers`; their own description
+  of what each server does is not independently verified), using the
+  repository source at commit 912d100 (0.1.1) on Python 3.10.12 and
+  `scripts/live_check_mock.py` (repository only, not in the wheel): (a) a
+  modern-path `tools/call` succeeded against the stateless server, both
+  pinned with `?rev=2026-07-28` and unpinned, and the tool itself reported
+  the modern era and revision 2026-07-28; (b) bearer-token authentication: a
+  call without a token was refused (HTTP 401) and the same call with a
+  freshly minted token succeeded; (c) against the same server pinned to the
+  legacy revision (`?rev=2025-11-25`) the client fell back to the legacy
+  handshake and a tool call succeeded, the tool reporting the legacy era
+  (the reply that triggered the fallback was not recorded); (d) a tool that
+  reports an error returned `success=False` with the server's message in
+  `error` and nothing raised.
+- **Not live-verified:** `x-mcp-header` mirroring (none of the four tools on
+  the complex-schema server carries the annotation), pagination (none of the
+  servers checked paginated) and this client's own handling of a `-32022`
+  reply (it never received one live; a raw legacy `initialize` sent to the
+  modern-only server got HTTP 400 and `-32022` with the supported versions
+  in `error.data.supported`, which is where the client looks). They follow
+  the public specification and are covered by tests against fakes only;
+  treat them as best-effort until confirmed live.
 
 ## License
 

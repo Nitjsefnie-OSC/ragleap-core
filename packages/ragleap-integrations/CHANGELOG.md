@@ -12,6 +12,14 @@ loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   tools/list only, no credentials, no tools/call, no limit overrides. The
   359,293-byte list of the 15-tool server is accepted with the 1 MiB default
   (0.1.0 refused it at 256 KiB) and the client recorded the modern era.
+- Live check on 2026-10-17 against a third party's public test servers
+  (mcpplaygroundonline.com mock servers; their own description of each
+  server is not independently verified), repository source at commit 912d100
+  (0.1.1), Python 3.10.12, `scripts/live_check_mock.py`: a modern-path
+  tools/call succeeded (pinned to 2026-07-28 and unpinned); bearer
+  authentication worked (no token: HTTP 401 and refused; fresh token: call
+  succeeded); against the same server pinned to the legacy revision the
+  client fell back to the legacy handshake and a tool call succeeded.
 
 ### Observed
 
@@ -22,6 +30,21 @@ loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   registered one and skipped create_topic and update_topic, as designed. As
   an experiment only, max_schema_chars=40000 (an override; the default is
   unchanged) registered all 15 tools.
+- A raw legacy initialize sent to the modern-only mock server (not through
+  this client) got HTTP 400 and -32022 with the supported versions in
+  error.data.supported, which is where the client looks for them and where
+  the specification's versioning page puts them.
+- A tool-level error (isError) came back as success=False with the server's
+  own message in ToolResult.error, capped at max_result_chars like a result;
+  nothing raised. None of the four tools on the complex-schema mock carries
+  x-mcp-header.
+
+### Not verified
+
+- x-mcp-header mirroring (none of the four tools checked carries the
+  annotation), pagination (no server checked paginated), and the client's
+  own handling of a live -32022 reply (it never received one; only the shape
+  was observed with a raw request).
 
 ### Not verified
 
