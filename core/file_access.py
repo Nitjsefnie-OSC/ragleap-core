@@ -154,3 +154,36 @@ def access_request_text(name) -> str:
     return ("Access request approved, but nothing is granted yet. To give read-only access, run this on the "
             "machine and replace the folder with the one you choose: "
             "ragleap files add /path/to/folder --name " + name + " --mode read")
+
+
+def overview() -> dict:
+    """What the dashboard Files tab shows: the switches and grant names only, never a host path.
+    Read-only. Asks the runner whenever SANDBOX_TOKEN is set, so grants stay visible even while the
+    agent tools are off. Never raises."""
+    out = {"tools_enabled": enabled(), "runner": "not_configured", "computer_control": False, "grants": []}
+    if not os.environ.get("SANDBOX_TOKEN", "").strip():
+        return out
+    try:
+        resp = requests.get(_base() + "/grants", headers=_headers(), timeout=5, allow_redirects=False)
+        if resp.status_code != 200:
+            out["runner"] = "error"
+            return out
+        data = resp.json()
+        out["runner"] = "ok"
+        out["computer_control"] = bool(isinstance(data, dict) and data.get("enabled"))
+        items = data.get("grants") if isinstance(data, dict) else None
+        for g in (items if isinstance(items, list) else [])[:50]:
+            if not isinstance(g, dict):
+                continue
+            name = g.get("name")
+            if not isinstance(name, str) or not NAME_RE.fullmatch(name):
+                continue
+            mode = g.get("mode") if g.get("mode") in ("read", "write") else "read"
+            purpose = g.get("purpose") if g.get("purpose") in ("use", "knowledge") else "use"
+            exp = g.get("expires")
+            out["grants"].append({"name": name, "mode": mode, "purpose": purpose,
+                                  "expires": exp[:40] if isinstance(exp, str) else None})
+    except Exception as e:
+        logger.error("file overview failed: %s", e)
+        out["runner"] = "unreachable"
+    return out

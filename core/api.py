@@ -998,6 +998,13 @@ def office_autonomy_log(limit: int = 50, approved: bool | None = None):
     return {"log": office.autonomy_log(limit=limit, approved=approved)}
 
 
+@app.get("/file-grants")
+def office_file_grants():
+    """Folder grants and the file-access switches for the dashboard Files tab (names only, never host paths)."""
+    from core import file_access
+    return file_access.overview()
+
+
 @app.get("/org")
 def office_org():
     """Org chart for the AI Office: departments with each role's status, usage, caps and open tasks."""
