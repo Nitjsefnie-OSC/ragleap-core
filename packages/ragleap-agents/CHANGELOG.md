@@ -5,6 +5,8 @@ loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-17
+
 ### Changed (behaviour change: an empty run now stops)
 
 - A run with no tools, or with an empty task, now returns `status="stopped"` with
@@ -35,6 +37,29 @@ loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The `## [0.3.0]` heading below was dated 2026-10-13, but the tag was pushed on 2026-10-15 (tag run
   38791601216). The date is corrected here; the published 0.3.0 files still carry the old date and
   cannot change.
+
+### Verified
+
+- 151 tests (123 in 0.3.0). CI on PR #793 (run 39008521939): the ragleap-agents tests passed on
+  Python 3.10, 3.11 and 3.12.
+- Tests were written first. The new resume test failed before the change (the second resume did not
+  raise) and the tampered-row test failed with a ValueError instead of ResumeError; both pass after
+  it.
+- SQLite store: 24 tests, including four separate processes racing to claim one paused run (exactly
+  one wins) and a claim that waits for a competing writer instead of failing. Mutation-checked:
+  removing the status check, skipping run-id and state validation, a 0644 file mode, skipping the
+  corrupt-row checks, and a deferred BEGIN instead of BEGIN IMMEDIATE are each caught by at least
+  one test.
+
+### Not verified
+
+- SQLite on a network filesystem (file locking there is unreliable; use a local disk), throughput,
+  and long-running use. The file is not encrypted.
+- Stores other than the two shipped ones: a custom store with only save() and load() cannot make the
+  claim atomic.
+- Unchanged since 0.3.0: the prompt wording was not touched, so the real-model results of 0.3.0
+  stand and were not re-run for this release. JSON mode on the model tested is still intermittent,
+  and the taint rule has still never been triggered by a real model.
 
 ## [0.3.0] - 2026-10-15
 

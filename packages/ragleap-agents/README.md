@@ -133,7 +133,7 @@ through them. Approval prompts are only as good as the human reading them.
 
 ## Status
 
-v0.3.0, alpha. 123 tests on Python 3.10, 3.11 and 3.12 (see `tests/`), most with a scripted
+v0.4.0, alpha. 151 tests on Python 3.10, 3.11 and 3.12 (see `tests/`), most with a scripted
 model or a local fake server; each safety property above has a test that fails if the property
 is broken.
 
