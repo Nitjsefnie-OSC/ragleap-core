@@ -200,6 +200,9 @@ def _send_via_channel(channel: str, target: str, content: str) -> str:
         elif channel == "files_read":
             from core.file_access import read_file
             return read_file(target, content)
+        elif channel == "files_request":
+            from core.file_access import access_request_text
+            return access_request_text(target)
         else:
             return f"Unsupported channel for autonomous send: {channel} (voice has no discrete send - see RFC #171)"
     except Exception as e:
@@ -325,7 +328,7 @@ def execute_or_request(action_type: str, channel: str, target: str,
     if channels and channel not in channels:
         return {"status": "skipped", "result": f"{channel} not in allowed channels"}
 
-    if mode == "full" and force_semi:
+    if mode == "full" and (force_semi or action_type == "request_access"):
         # caller (e.g. a run that has read untrusted web/MCP content) requires approval for this call
         logger.info(f"force_semi: {action_type} forced full->semi")
         mode = "semi"

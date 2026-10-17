@@ -144,3 +144,13 @@ def list_files(grant, rel) -> str:
 
 def read_file(grant, rel) -> str:
     return _call("File read", "read", grant, rel, _format_read)
+
+
+def access_request_text(name) -> str:
+    """What the owner sees after approving a request. Nothing is granted by this: the owner must run the
+    command on the machine. Built only from a validated grant name, never from the model's reason text."""
+    if not isinstance(name, str) or not NAME_RE.fullmatch(name):
+        return "Access request: refused (bad grant name)"
+    return ("Access request approved, but nothing is granted yet. To give read-only access, run this on the "
+            "machine and replace the folder with the one you choose: "
+            "ragleap files add /path/to/folder --name " + name + " --mode read")
