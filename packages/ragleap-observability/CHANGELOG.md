@@ -5,6 +5,22 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-10-17
+
+### Added
+
+- `RagleapTargetAbsent` alert (with `slo.enabled`): one `absent(up{job="..."})` rule per job in `slo.availability.jobs`, critical after 5 minutes. It covers a target that vanishes entirely, which the burn-rate alerts could not see.
+
+### Verified
+
+- `promtool check rules` and `test rules` pass: present target (no alert), vanished target (fires), only another job present (fires), two-minute gap (no alert). Breaking the expression and the `for` duration each made the tests fail; the restored rules passed.
+- With defaults, `helm template` output is identical to 0.8.1.
+
+### Known limitations
+
+- Rule logic only, on simulated data. Not run on a live Prometheus; no alert reached AlertManager.
+- With `slo.enabled=true` and a listed job the chart does not scrape (for example `ragleap-postgres` with `postgresExporter.enabled=false`), `RagleapTargetAbsent` fires permanently. List only scraped jobs.
+
 ## [0.8.1] - 2026-10-17
 
 ### Fixed

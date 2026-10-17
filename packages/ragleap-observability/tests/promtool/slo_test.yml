@@ -54,3 +54,51 @@ tests:
               job: ragleap-postgres
             exp_annotations:
               summary: "availability SLO slow burn on ragleap-postgres"
+  - name: present target, no absent alert
+    interval: 30s
+    input_series:
+      - series: 'up{job="ragleap-postgres"}'
+        values: '1x240'
+    alert_rule_test:
+      - eval_time: 1h
+        alertname: RagleapTargetAbsent
+        exp_alerts: []
+  - name: vanished target fires absent alert
+    interval: 30s
+    input_series:
+      - series: 'up{job="ragleap-postgres"}'
+        values: '1x20 _x100'
+    alert_rule_test:
+      - eval_time: 40m
+        alertname: RagleapTargetAbsent
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              job: ragleap-postgres
+            exp_annotations:
+              summary: "no up series for ragleap-postgres"
+              description: "Prometheus has no up series for ragleap-postgres. The target was removed, renamed or never scraped, so the burn-rate alerts cannot fire for it."
+  - name: only another job present fires absent alert
+    interval: 30s
+    input_series:
+      - series: 'up{job="other"}'
+        values: '1x240'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: RagleapTargetAbsent
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              job: ragleap-postgres
+            exp_annotations:
+              summary: "no up series for ragleap-postgres"
+              description: "Prometheus has no up series for ragleap-postgres. The target was removed, renamed or never scraped, so the burn-rate alerts cannot fire for it."
+  - name: two-minute gap does not fire absent alert
+    interval: 30s
+    input_series:
+      - series: 'up{job="ragleap-postgres"}'
+        values: '1x20 _x4 1x100'
+    alert_rule_test:
+      - eval_time: 1h
+        alertname: RagleapTargetAbsent
+        exp_alerts: []
