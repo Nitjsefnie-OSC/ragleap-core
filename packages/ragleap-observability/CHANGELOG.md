@@ -5,6 +5,30 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-17
+
+### Added
+
+- Optional availability SLO alerts (`slo.enabled`, off by default): fast burn (1h and 5m, 14.4x) and slow burn (6h and 30m, 6x) on the Prometheus `up` metric for `slo.availability.jobs` (default `ragleap-postgres`). `errorBudget` 0.005 (99.5%) is a placeholder, not measured.
+- Rule unit tests in `tests/promtool/` (pinned `prom/prometheus:v3.13.4`) and a CI job.
+
+### Fixed
+
+- `rule_files` now loads even with `alertmanager.enabled=false`. Before, `PostgresExporterDown` was silently inactive in that case.
+
+### Verified
+
+- Default `helm template` is identical to 0.7.0 except the chart version. With AlertManager off, only the new `rule_files` lines and the config checksum differ.
+- `promtool check rules` and `test rules` pass (healthy, sustained outage, one-minute blip, one-hour outage). Breaking each threshold made the tests fail; the restored rules passed.
+
+### Known limitations
+
+- Rule logic only, on simulated data. Not run on a live Prometheus; no alert reached AlertManager.
+- Measures target reachability, not user experience. The app exports no request metrics yet.
+- A target that vanishes entirely has no `up` series, so no alert fires. No `absent()` rule yet.
+- Right after a Prometheus restart the windows hold little history, so a brief outage can trip an alert.
+- Prometheus retention is 15d, so a 30-day budget window is not evaluated; windows are 6h or less.
+
 ## [0.7.0] - 2026-10-12
 
 ### Added

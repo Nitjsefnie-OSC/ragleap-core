@@ -1,0 +1,56 @@
+rule_files:
+  - alerts.yml
+evaluation_interval: 1m
+tests:
+  - name: healthy target, no alert
+    interval: 30s
+    input_series:
+      - series: 'up{job="ragleap-postgres"}'
+        values: '1x240'
+    alert_rule_test:
+      - eval_time: 2h
+        alertname: RagleapAvailabilityFastBurn
+        exp_alerts: []
+      - eval_time: 2h
+        alertname: RagleapAvailabilitySlowBurn
+        exp_alerts: []
+  - name: sustained outage fires fast burn
+    interval: 30s
+    input_series:
+      - series: 'up{job="ragleap-postgres"}'
+        values: '1x20 0x60'
+    alert_rule_test:
+      - eval_time: 40m
+        alertname: RagleapAvailabilityFastBurn
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              job: ragleap-postgres
+            exp_annotations:
+              summary: "availability SLO fast burn on ragleap-postgres"
+  - name: one-minute blip does not fire
+    interval: 30s
+    input_series:
+      - series: 'up{job="ragleap-postgres"}'
+        values: '0x2 1x238'
+    alert_rule_test:
+      - eval_time: 1h
+        alertname: RagleapAvailabilityFastBurn
+        exp_alerts: []
+      - eval_time: 1h
+        alertname: RagleapAvailabilitySlowBurn
+        exp_alerts: []
+  - name: one-hour outage fires slow burn
+    interval: 30s
+    input_series:
+      - series: 'up{job="ragleap-postgres"}'
+        values: '1x600 0x120'
+    alert_rule_test:
+      - eval_time: 6h
+        alertname: RagleapAvailabilitySlowBurn
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: ragleap-postgres
+            exp_annotations:
+              summary: "availability SLO slow burn on ragleap-postgres"

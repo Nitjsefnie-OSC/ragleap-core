@@ -108,3 +108,11 @@ helm upgrade ragleap-observability ./ragleap-observability --set alloy.enabled=t
 - Alloy keeps its read positions in `alloy.dataHostPath` (default `/var/lib/ragleap-alloy`) on each node. That is the only writable host path in this chart, and removing Alloy leaves the directory behind.
 - Alloy runs as root, because the node's pod log files are root-owned. Pull its image onto the nodes first to keep the gap between shippers short.
 - Tested on one `kind` node: a marker stream stayed in order, without gaps or repeats, across a switch to Alloy and back. A fresh Alloy replays existing files, and Loki rejects the entries that are too old, which Alloy logs as `entry too far behind`.
+
+## Availability SLO alerts (0.8.0, opt-in)
+
+Set `slo.enabled=true` to add fast-burn and slow-burn alerts on the Prometheus `up` metric for the jobs in `slo.availability.jobs`. The 99.5% target (`slo.availability.errorBudget: 0.005`) is a placeholder, not a measured figure.
+
+- Verified: the rule logic, with `promtool` unit tests (`tests/promtool/run.sh`).
+- Not verified: evaluation on a live Prometheus, and delivery through AlertManager.
+- Limits: this measures target reachability, not user experience, because the app exports no request metrics yet. A target that disappears entirely does not trigger the alerts.
