@@ -117,6 +117,9 @@ def log_autonomous_action(action_type: str, channel: str, target: str,
     """Log an autonomous action. Table keeps unbounded history; callers
     wanting production's "last 200" behavior should query with LIMIT.
     role is optional and nullable -- older callers/rows keep working."""
+    if action_type in ("list_files", "read_file"):
+        # Keep only the fixed first line (size, truncation). The log never stores file contents.
+        result = (result or "").split("\n", 1)[0]
     conn = get_connection()
     try:
         cur = conn.cursor()
