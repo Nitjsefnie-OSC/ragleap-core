@@ -5,6 +5,14 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-10-17
+
+### Fixed
+
+- The wheel now includes the Helm chart. Earlier releases (including 0.5.0) shipped only the Python module, because the build table was misnamed and no files were included. `pip install` now gives you `helm/ragleap-ops` and `k8s/`.
+
+
+
 ## [0.5.0] - 2026-10-09
 
 ### Added
