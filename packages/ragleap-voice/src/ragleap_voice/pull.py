@@ -8,7 +8,8 @@ import shutil
 from .cache import model_dir
 from .fetch import DEFAULT_BASE, FetchError, Policy, download_file, get_json, repo_id_from_url, resolve_url
 from .licences import check_licence
-from .locks import MAX_FILES, SCHEMA, lock_digest, safe_relpath, unsafe_format_files, validate_lock, verify_dir
+from .locks import (MAX_FILES, SCHEMA, _header_problem, has_valid_format_tag, lock_digest, safe_relpath,
+                    unsafe_format_files, validate_lock, verify_dir)
 
 SPACE_MARGIN = 256 * 1024 ** 2
 _COMMIT = re.compile(r"^[0-9a-f]{40}$")
@@ -155,18 +156,48 @@ def plan_lock(source_url, revision, includes=(), excludes=(), policy=None, base_
     return [(p, sizes[p]) for p in chosen]
 
 
-def build_lock(name, source_url, revision, plan, policy=None, base_url=DEFAULT_BASE, token=None, say=print):
-    """Download every planned file (hash only, nothing is stored) and return the lock dict."""
+def check_format_options(plan, formats):
+    """Refuse --format options that name a file outside the plan, an unknown tag or a wrong suffix."""
+    planned = {p for p, _ in plan}
+    for path, tag in sorted((formats or {}).items()):
+        if path not in planned:
+            raise PullError("--format: %s is not in the file list" % path)
+        if not has_valid_format_tag({"path": path, "format": tag}):
+            raise PullError("--format: %r is not an allowed format tag for %s (allowed: ctranslate2 on .bin files)" % (tag, path))
+
+
+def build_lock(name, source_url, revision, plan, policy=None, base_url=DEFAULT_BASE, token=None, say=print, formats=None):
+    """Download every planned file (hash only, nothing is stored) and return the lock dict.
+
+    formats maps a path to a format tag (see locks.FORMAT_EXCEPTIONS). A tagged file is downloaded to a
+    temporary folder so its header can be checked before the tag is written; it is deleted afterwards."""
     policy = policy or Policy()
+    formats = dict(formats or {})
+    check_format_options(plan, formats)
     repo = _repo_and_revision(source_url, revision)
     files = []
     for i, (path, _) in enumerate(plan, 1):
         say("  [%d/%d] hashing %s" % (i, len(plan), path))
+        tag, why = formats.get(path), None
+        url = resolve_url(base_url, repo, revision, path)
         try:
-            size, digest = download_file(resolve_url(base_url, repo, revision, path), None, policy, token)
+            if tag is None:
+                size, digest = download_file(url, None, policy, token)
+            else:
+                import pathlib
+                import tempfile
+                with tempfile.TemporaryDirectory() as tmp:
+                    dest = pathlib.Path(tmp) / "file"
+                    size, digest = download_file(url, dest, policy, token)
+                    why = _header_problem(dest, {"path": path, "format": tag})
         except FetchError as exc:
             raise PullError("%s: %s" % (path, exc))
-        files.append({"path": path, "size": size, "sha256": digest})
+        if why:
+            raise PullError("%s: %s; not writing the format tag" % (path, why))
+        entry = {"path": path, "size": size, "sha256": digest}
+        if tag is not None:
+            entry["format"] = tag
+        files.append(entry)
     lock = {"schema": SCHEMA, "model": name, "revision": revision, "source_url": source_url, "files": files}
     problems = validate_lock(lock, name=name, revision=revision)
     if problems:
