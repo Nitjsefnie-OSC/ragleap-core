@@ -45,12 +45,7 @@ loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   annotation), pagination (no server checked paginated), and the client's
   own handling of a live -32022 reply (it never received one; only the shape
   was observed with a raw request).
-
-### Not verified
-
-- That schemas of this size are usable by a model. Modern-path tools/call,
-  x-mcp-header mirroring, bearer-token authentication, pagination and where
-  a -32022 error carries its supported-version list are still unverified live.
+- That schemas of this size are usable by a model.
 
 ## [0.1.1] - 2026-10-15
 
