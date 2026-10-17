@@ -1,0 +1,14 @@
+# Code owners: for visibility only. The main-protection ruleset requires 0 approvals,
+# so this file does not block merges. It asks the owner to look at changes to files
+# that the downloader or the release process trusts.
+# Enforced code-owner review can be switched on once a second maintainer exists.
+
+# CI and release workflows (includes release.yml)
+/.github/workflows/ @antonyrag
+/.github/CODEOWNERS @antonyrag
+
+# ragleap-voice: model list, lock hashes, and the code that downloads and verifies models
+/packages/ragleap-voice/models.toml @antonyrag
+/packages/ragleap-voice/locks/ @antonyrag
+/packages/ragleap-voice/src/ragleap_voice/fetch.py @antonyrag
+/packages/ragleap-voice/src/ragleap_voice/pull.py @antonyrag
