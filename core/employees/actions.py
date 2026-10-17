@@ -41,6 +41,7 @@ ACTION_TOOLS = {
     "fetch_page": {"channel": "fetch"},
     "list_files": {"channel": "files_list"},
     "read_file": {"channel": "files_read"},
+    "request_access": {"channel": "files_request"},
 }
 
 
@@ -176,6 +177,20 @@ def available_tools() -> Dict[str, str]:
             "about 12000 bytes at most). target must be exactly one of these grant names: " + grant_list + ". "
             "content is the file path inside the grant, for example reports/q3.txt."
         )
+    # Opt-in: FILE_TOOLS_ENABLED=true plus SANDBOX_TOKEN. Offered even when no folder is granted yet.
+    try:
+        from core import file_access as _file_access
+        files_on = _file_access.enabled()
+    except Exception:
+        files_on = False
+    if files_on:
+        tools["request_access"] = (
+            "Ask the owner to grant read-only access to a folder. You cannot choose or see the folder: "
+            "the owner picks it on their own machine, and nothing is granted until they do. "
+            "target is a short grant name you suggest (lowercase letters, digits, - or _, at most 32 characters). "
+            "content is one or two sentences saying why you need it, under 300 characters. "
+            "Use it only when you need files and no existing grant fits."
+        )
     # Opt-in: BROWSER_FETCH_ENABLED=true plus a non-empty BROWSER_ALLOWED_DOMAINS.
     try:
         from core import page_fetch
@@ -277,6 +292,14 @@ def _validate_plan(plan: Dict, tools: Dict[str, str]) -> Optional[Dict]:
         target = ""
         if len(str(plan.get("content", "") or "").strip()) > MAX_ACTION_CONTENT:
             return None  # never run silently truncated code
+    elif tool == "request_access":
+        from core import file_access
+        if not file_access.NAME_RE.fullmatch(target):
+            return None
+        content = " ".join(content.split())
+        content = "".join(c for c in content if c.isprintable())[:300].strip()
+        if not content:
+            return None
     elif tool in ("list_files", "read_file"):
         from core import file_access
         if target not in file_access.grant_names():
