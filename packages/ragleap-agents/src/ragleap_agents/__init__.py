@@ -18,14 +18,16 @@ from ragleap_agents.agent import (
     validate_arguments,
 )
 from ragleap_agents.providers import ProviderError, openai_compatible
-from ragleap_agents.state import InMemoryStateStore, StateStore
+from ragleap_agents.state import AtomicStateStore, InMemoryStateStore, SQLiteStateStore, StateStore
 
 __version__ = "0.3.0"
 
 __all__ = [
     "Agent",
     "HARD_MAX_STEPS",
+    "AtomicStateStore",
     "InMemoryStateStore",
+    "SQLiteStateStore",
     "Policy",
     "ProviderError",
     "ResumeError",

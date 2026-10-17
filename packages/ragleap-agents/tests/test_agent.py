@@ -1,6 +1,7 @@
 """Tests for ragleap_agents.agent. A scripted fake model replaces the LLM and the
 tools are plain in-process Tool objects, so nothing here touches a network."""
 import json
+import sqlite3
 
 import pytest
 from ragleap_tools import Tool, ToolResult
@@ -12,6 +13,7 @@ from ragleap_agents import (
     InMemoryStateStore,
     Policy,
     ResumeError,
+    SQLiteStateStore,
     ToolPolicy,
     parse_plan,
     validate_arguments,
@@ -287,6 +289,98 @@ def test_a_paused_run_can_be_resumed_by_a_new_agent_sharing_the_store():
     second, _, log = build([DONE], policy=pol, store=store)
     r2 = second.resume(r.run_id, {r.pending["call_id"]: True})
     assert r2.status == "done" and log == [("send", "hi")]
+
+
+class RacingStore:
+    """Hands out the paused state, then lets a competing resume() finish before the caller goes on."""
+
+    def __init__(self, inner):
+        self.inner, self.rival = inner, None
+
+    def save(self, run_id, state):
+        self.inner.save(run_id, state)
+
+    def load(self, run_id):
+        state = self.inner.load(run_id)
+        rival, self.rival = self.rival, None
+        if rival is not None:
+            rival()
+        return state
+
+    def save_if_status(self, run_id, state, expected_status):
+        return self.inner.save_if_status(run_id, state, expected_status)
+
+
+class PlainStore:
+    """A store with only save() and load(): the claim cannot be atomic, but it must keep working."""
+
+    def __init__(self):
+        self._d = {}
+
+    def save(self, run_id, state):
+        self._d[run_id] = json.dumps(state)
+
+    def load(self, run_id):
+        text = self._d.get(run_id)
+        return None if text is None else json.loads(text)
+
+
+def _send_policy():
+    return Policy(tools={**BASE_POLICY, "send": ToolPolicy(False, False, requires_approval=True)})
+
+
+def test_two_resumes_of_the_same_run_execute_the_call_once():
+    inner = InMemoryStateStore()
+    store = RacingStore(inner)
+    pol = _send_policy()
+    first, _, log1 = build([plan("send", message="hi"), DONE], policy=pol, store=store)
+    r = first.run("q")
+    cid = r.pending["call_id"]
+    second, _, log2 = build([DONE], policy=pol, store=inner)
+    store.rival = lambda: second.resume(r.run_id, {cid: True})  # wins the race after first has loaded the state
+    with pytest.raises(ResumeError):
+        first.resume(r.run_id, {cid: True})
+    assert log1 == [] and log2 == [("send", "hi")]
+
+
+def test_a_store_without_an_atomic_claim_still_works():
+    store = PlainStore()
+    pol = _send_policy()
+    first, _, _ = build([plan("send", message="hi")], policy=pol, store=store)
+    r = first.run("q")
+    cid = r.pending["call_id"]
+    second, _, log = build([DONE], policy=pol, store=store)
+    assert second.resume(r.run_id, {cid: True}).status == "done" and log == [("send", "hi")]
+    with pytest.raises(ResumeError):
+        second.resume(r.run_id, {cid: True})
+
+
+def test_a_paused_run_survives_in_a_sqlite_store_and_resumes_once(tmp_path):
+    p = tmp_path / "s.db"
+    pol = _send_policy()
+    first, _, _ = build([plan("send", message="hi")], policy=pol, store=SQLiteStateStore(p))
+    r = first.run("q")
+    cid = r.pending["call_id"]
+    second, _, log = build([DONE], policy=pol, store=SQLiteStateStore(p))
+    assert second.resume(r.run_id, {cid: True}).status == "done" and log == [("send", "hi")]
+    with pytest.raises(ResumeError):
+        second.resume(r.run_id, {cid: True})
+    assert log == [("send", "hi")]
+
+
+def test_a_tampered_stored_run_is_refused_and_nothing_runs(tmp_path):
+    p = tmp_path / "s.db"
+    pol = _send_policy()
+    first, _, _ = build([plan("send", message="hi")], policy=pol, store=SQLiteStateStore(p))
+    r = first.run("q")
+    con = sqlite3.connect(str(p))
+    con.execute("UPDATE runs SET state = ? WHERE run_id = ?", ("not json", r.run_id))
+    con.commit()
+    con.close()
+    second, _, log = build([DONE], policy=pol, store=SQLiteStateStore(p))
+    with pytest.raises(ResumeError):
+        second.resume(r.run_id, {r.pending["call_id"]: True})
+    assert log == []
 
 
 # ---- construction, schema check, parsing ----

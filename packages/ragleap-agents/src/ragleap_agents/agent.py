@@ -203,7 +203,10 @@ class Agent:
             return self._finish(state, "failed", "internal_error", use_llm=False)
 
     def resume(self, run_id: str, decisions: Dict[str, bool]) -> RunResult:
-        state = self.store.load(run_id)
+        try:
+            state = self.store.load(run_id)
+        except ValueError:  # a store refused a corrupt stored state: nothing may run from it
+            raise ResumeError("the stored run state is invalid") from None
         if state is None:
             raise ResumeError("unknown run")
         pending = state.get("pending")
@@ -219,7 +222,13 @@ class Agent:
             raise ResumeError("a decision must be True or False")
         state["status"] = "running"  # claim the run so a second resume() is refused
         state["pending"] = None
-        self.store.save(state["run_id"], state)
+        claim = getattr(self.store, "save_if_status", None)
+        if claim is not None:
+            # atomic: only one resume(), across threads and processes, can move the run out of awaiting_approval
+            if not claim(state["run_id"], state, "awaiting_approval"):
+                raise ResumeError("run is not awaiting approval")
+        else:
+            self.store.save(state["run_id"], state)
         try:
             if not approved:
                 state["steps"].append({"tool": pending["tool"], "arguments": pending["arguments"], "sig": pending["sig"],

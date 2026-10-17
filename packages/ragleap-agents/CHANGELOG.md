@@ -12,6 +12,24 @@ loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   which nothing happened looked like a success. Code that checked only `status == "done"` will now
   see `stopped` in this case.
 
+### Added
+
+- `SQLiteStateStore(path)`: a durable `StateStore` in one SQLite file, standard library only. JSON text
+  only (nothing is unpickled), a new file is created with mode 0600, run ids are limited to
+  `A-Za-z0-9_-` (1-64), and a stored row that is not valid JSON, names another run or has an unknown
+  status is refused with `ValueError`. The file is not encrypted: it holds tool arguments and
+  observations, so protect it like that data.
+- `save_if_status(run_id, state, expected_status) -> bool` on both shipped stores (an atomic
+  compare-and-set; SQLite uses `BEGIN IMMEDIATE`) and the `AtomicStateStore` protocol that describes it.
+
+### Fixed
+
+- `resume()` claimed a paused run with load, check, save, which two workers could both pass, so an
+  approved call could run twice. With a store that has `save_if_status` the claim is now atomic. A store
+  with only `save()` and `load()` keeps the old, non-atomic behaviour (documented in `state.py`).
+- A stored run state that a store refuses as corrupt now makes `resume()` raise `ResumeError`, and
+  nothing runs.
+
 ### Corrected
 
 - The `## [0.3.0]` heading below was dated 2026-10-13, but the tag was pushed on 2026-10-15 (tag run
