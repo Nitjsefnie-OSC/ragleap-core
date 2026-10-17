@@ -20,7 +20,7 @@
   let stamp = null;
   const tabButtons = {};
   const expanded = new Set();
-  const TABS = [["setup", "Setup"], ["overview", "Overview"], ["approvals", "Approvals"], ["employees", "Employees"], ["tasks", "Tasks"], ["documents", "Documents"], ["proactive", "Proactive"], ["sources", "Connectors"], ["runs", "Agent runs"], ["log", "Activity"], ["settings", "Settings"]];
+  const TABS = [["setup", "Setup"], ["overview", "Overview"], ["approvals", "Approvals"], ["employees", "Employees"], ["tasks", "Tasks"], ["documents", "Documents"], ["files", "Files"], ["proactive", "Proactive"], ["sources", "Connectors"], ["runs", "Agent runs"], ["log", "Activity"], ["settings", "Settings"]];
 
   // All dynamic text goes in as text nodes; nothing here ever builds HTML from data.
   const add = (el, kid) => {
@@ -352,6 +352,31 @@
     docListEl.replaceChildren(docs.length ? h("div", { class: "list" }, docs.map(docCard)) : h("p", { class: "empty" }, "No documents yet. Add one above."));
   };
 
+  // ---- Files tab: folders the owner granted to AI employees. Read-only: grants are made only on the machine ----
+  const GRANT_NAME = /^[a-z0-9][a-z0-9_-]{0,31}$/;
+  const grantCommand = (name) => "ragleap files add /path/to/folder --name " + name + " --mode read";
+  const renderFiles = (info, log) => {
+    const notes = [];
+    if (!info.tools_enabled) notes.push("Agent file tools are off. To turn them on, set FILE_TOOLS_ENABLED=true in .env and restart the app.");
+    if (info.runner === "not_configured") notes.push("The sandbox runner is not set up (no SANDBOX_TOKEN), so no folders can be granted.");
+    else if (info.runner === "unreachable" || info.runner === "error") notes.push("The sandbox runner did not answer. Check that the sandbox service is running.");
+    else if (!info.computer_control) notes.push("File access is off or paused on the machine. Turn it on with: ragleap files on (and COMPUTER_CONTROL=true).");
+    const grants = info.grants || [];
+    const requests = (log || []).filter((r) => r.action_type === "request_access" && r.approved && GRANT_NAME.test(String(r.target))).slice(0, 10);
+    return h("div", { class: "list" },
+      notes.map((n) => h("p", { class: "sub" }, n)),
+      h("p", { class: "sub" }, "Folders are granted only by a command on this machine, never from this page. To stop all file access right now, run: ragleap files off"),
+      grants.length ? grants.map((g) => h("article", { class: "item" },
+        h("div", { class: "row" }, h("strong", null, g.name), h("span", { class: "tag" }, g.mode), h("span", { class: "tag" }, g.purpose),
+          h("span", { class: "sub" }, g.expires ? "expires " + when(g.expires) : "no expiry"))))
+        : h("p", { class: "empty" }, "No folders are granted. To grant one, run: " + grantCommand("NAME")),
+      requests.length ? h("p", { class: "sub" }, "Approved access requests. Approving grants nothing; run the command to give access.") : null,
+      requests.map((r) => h("article", { class: "item" },
+        h("div", { class: "row" }, h("strong", null, r.target), r.role ? h("span", { class: "tag" }, r.role) : null, h("span", { class: "sub" }, when(r.created_at))),
+        h("div", { class: "sub" }, "Reason: " + clip(r.content, 300)),
+        h("pre", null, grantCommand(r.target)))));
+  };
+
   // ---- Proactive tab: scheduled prompts that an AI employee runs on its own ----
   let proFormEl = null;
   let proListEl = null;
@@ -652,6 +677,7 @@
       else if (tab === "employees") content = renderOrg(await api("GET", "/org"));
       else if (tab === "tasks") { await refreshTasks(); content = null; }
       else if (tab === "documents") { await refreshDocuments(); content = null; }
+      else if (tab === "files") content = renderFiles(await api("GET", "/file-grants"), (await api("GET", "/autonomy/log?limit=200")).log);
       else if (tab === "proactive") { await refreshProactive(); content = null; }
       else if (tab === "sources") { await refreshSources(); content = null; }
       else if (tab === "settings") { await refreshSettings(); content = null; }
