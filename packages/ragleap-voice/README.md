@@ -9,6 +9,8 @@ Open-source (MIT), local-first speech tooling, with Indian languages as a priori
 A command line and a small standard-library-only Python core (no runtime dependencies, Python 3.10 or newer) for finding, locking, downloading and verifying speech models safely:
 
     pip install ragleap-voice
+    uv pip install ragleap-voice
+    uvx ragleap-voice models list
     ragleap-voice models list
     ragleap-voice models show indic-parler-tts
     ragleap-voice models check
