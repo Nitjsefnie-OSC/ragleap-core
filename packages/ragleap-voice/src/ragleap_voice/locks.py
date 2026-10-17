@@ -18,6 +18,59 @@ MAX_LOCK_BYTES = 8 * 1024 * 1024
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")
 _SEGMENT = re.compile(r"^[A-Za-z0-9._+=@,~-]+$")
 
+# Closed table of file formats allowed despite an unsafe-looking suffix. A lock marks a file with
+# "format": NAME. The tag counts only for the suffix listed here, and only while the file's header
+# passes the check for that format (verify_dir). Every other unsafe suffix stays refused.
+FORMAT_EXCEPTIONS = {"ctranslate2": ".bin"}
+HEADER_BYTES = 256
+
+
+def check_ctranslate2_header(head):
+    """Return None if head looks like the start of a CTranslate2 model file, else a reason.
+
+    Positive check: little-endian uint32 version, uint16 name length (NUL included), an alphanumeric
+    ASCII name ending in 'Spec', then the NUL. Pickle (0x80...) and zip (PK) starts fail it.
+    """
+    if len(head) < 6:
+        return "file too short for a CTranslate2 header"
+    version = int.from_bytes(head[:4], "little")
+    if not 1 <= version <= 32:
+        return "unexpected CTranslate2 version field %d" % version
+    n = int.from_bytes(head[4:6], "little")
+    if not 5 <= n <= 64 or len(head) < 6 + n:
+        return "unexpected model name length"
+    name = head[6:6 + n]
+    if name[-1:] != b"\x00":
+        return "model name is not NUL-terminated"
+    text = name[:-1]
+    if not text.endswith(b"Spec") or not all(48 <= c <= 57 or 65 <= c <= 90 or 97 <= c <= 122 for c in text):
+        return "model name is not an alphanumeric name ending in Spec"
+    return None
+
+
+HEADER_CHECKS = {"ctranslate2": check_ctranslate2_header}
+
+
+def has_valid_format_tag(f):
+    """True when a file entry carries a tag from FORMAT_EXCEPTIONS that matches its suffix."""
+    if not isinstance(f, dict):
+        return False
+    tag, path = f.get("format"), f.get("path")
+    return (isinstance(tag, str) and tag in FORMAT_EXCEPTIONS and isinstance(path, str)
+            and path.lower().endswith(FORMAT_EXCEPTIONS[tag]))
+
+
+def _header_problem(path, f):
+    if not has_valid_format_tag(f):
+        return "invalid format tag"
+    try:
+        with open(path, "rb") as fh:
+            head = fh.read(HEADER_BYTES)
+    except OSError as exc:
+        return "cannot read header: " + str(exc)
+    why = HEADER_CHECKS[f["format"]](head)
+    return ("%s header check failed: %s" % (f["format"], why)) if why else None
+
 
 class LockError(Exception):
     """A lock file or cache path is unreadable, unsafe or inconsistent."""
@@ -103,7 +156,7 @@ def validate_lock(lock, name=None, revision=None):
         if not isinstance(f, dict):
             problems.append(label + ": not an object")
             continue
-        unknown = sorted(set(f) - {"path", "size", "sha256"})
+        unknown = sorted(set(f) - {"path", "size", "sha256", "format"})
         if unknown:
             problems.append(label + ": unknown key(s): " + ", ".join(unknown))
         path = f.get("path")
@@ -126,6 +179,9 @@ def validate_lock(lock, name=None, revision=None):
         sha = f.get("sha256")
         if not isinstance(sha, str) or not _HEX64.match(sha):
             problems.append(label + ": sha256 must be 64 lowercase hex characters")
+        if "format" in f and not has_valid_format_tag(f):
+            problems.append(label + ": format tag must be one of %s and match the file suffix"
+                            % ", ".join(sorted(FORMAT_EXCEPTIONS)))
     for key in paths:
         if key in dirs:
             problems.append(key + ": path conflict, listed both as a file and as a directory")
@@ -175,6 +231,10 @@ def verify_dir(lock, directory):
         _, digest = hash_file(p)
         if digest != f["sha256"]:
             problems.append(rel + ": sha256 mismatch")
+        elif "format" in f:
+            why = _header_problem(p, f)
+            if why:
+                problems.append(rel + ": " + why)
     for dirpath, dirnames, filenames in os.walk(str(base), followlinks=False):
         for name in dirnames:
             full = os.path.join(dirpath, name)
@@ -198,4 +258,5 @@ def unsafe_format_files(lock):
     files = lock.get("files", []) if isinstance(lock, dict) else []
     return sorted(f["path"] for f in files
                   if isinstance(f, dict) and isinstance(f.get("path"), str)
-                  and f["path"].lower().endswith(UNSAFE_SUFFIXES))
+                  and f["path"].lower().endswith(UNSAFE_SUFFIXES)
+                  and not has_valid_format_tag(f))
