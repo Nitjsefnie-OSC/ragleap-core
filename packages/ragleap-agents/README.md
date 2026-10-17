@@ -99,7 +99,10 @@ if result.status == "awaiting_approval":
 ```
 
 A paused run is a plain JSON dict in a `StateStore` (`save`/`load`). The
-in-memory store is included; write your own for a file, Redis or a database.
+in-memory store and a SQLite store (`SQLiteStateStore(path)`: one local file, standard library only,
+not encrypted) are included; write your own for Redis or a database. If several workers can resume the
+same run, the store needs an atomic `save_if_status(run_id, state, expected_status)`; both shipped
+stores have it, and a store with only `save`/`load` cannot make the claim atomic.
 `resume()` raises `ResumeError` if the run is unknown, not awaiting approval,
 or the decision does not match the pending call, so an approval cannot be replayed.
 
