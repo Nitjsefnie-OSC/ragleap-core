@@ -5,8 +5,9 @@ metadata:
   name: ragleap-prometheus-rules
 data:
   alerts.yml: |
-    {{- if .Values.postgresExporter.enabled }}
+    {{- if or .Values.postgresExporter.enabled .Values.slo.enabled }}
     groups:
+    {{- if .Values.postgresExporter.enabled }}
       - name: ragleap-core
         rules:
           - alert: PostgresExporterDown
@@ -17,6 +18,33 @@ data:
             annotations:
               summary: "postgres-exporter target down"
               description: "Prometheus has not successfully scraped ragleap-postgres for 5 minutes. Either the exporter pod is down or ragleap-db itself is unreachable."
+    {{- end }}
+    {{- if .Values.slo.enabled }}
+    {{- $jobs := join "|" .Values.slo.availability.jobs }}
+    {{- $budget := .Values.slo.availability.errorBudget }}
+      - name: ragleap-slo
+        rules:
+          - alert: RagleapAvailabilityFastBurn
+            expr: |
+              (1 - avg by (job) (avg_over_time(up{job=~"{{ $jobs }}"}[1h]))) > (14.4 * {{ $budget }})
+              and
+              (1 - avg by (job) (avg_over_time(up{job=~"{{ $jobs }}"}[5m]))) > (14.4 * {{ $budget }})
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: "availability SLO fast burn on {{ "{{ $labels.job }}" }}"
+          - alert: RagleapAvailabilitySlowBurn
+            expr: |
+              (1 - avg by (job) (avg_over_time(up{job=~"{{ $jobs }}"}[6h]))) > (6 * {{ $budget }})
+              and
+              (1 - avg by (job) (avg_over_time(up{job=~"{{ $jobs }}"}[30m]))) > (6 * {{ $budget }})
+            for: 15m
+            labels:
+              severity: warning
+            annotations:
+              summary: "availability SLO slow burn on {{ "{{ $labels.job }}" }}"
+    {{- end }}
     {{- else }}
     groups: []
     {{- end }}

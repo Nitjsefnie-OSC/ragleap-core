@@ -460,6 +460,13 @@ jobs:
         working-directory: packages/ragleap-terraform
         run: terraform fmt -check -recursive
 
+  slo-rules-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: promtool rule tests
+        run: packages/ragleap-observability/tests/promtool/run.sh
+
   package-tests:
     runs-on: ubuntu-latest
     strategy:

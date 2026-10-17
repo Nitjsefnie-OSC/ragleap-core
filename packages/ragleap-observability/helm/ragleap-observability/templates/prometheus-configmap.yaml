@@ -12,9 +12,9 @@ data:
       alertmanagers:
         - static_configs:
             - targets: ['ragleap-alertmanager:{{ .Values.alertmanager.port }}']
+    {{- end }}
     rule_files:
       - /etc/prometheus/rules/alerts.yml
-    {{- end }}
     {{- if or .Values.postgresExporter.enabled .Values.neo4jExporter.enabled }}
     scrape_configs:
       {{- if .Values.postgresExporter.enabled }}
