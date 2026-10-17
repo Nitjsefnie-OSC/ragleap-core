@@ -19,6 +19,13 @@ A lock for a verified or default entry must not list pickle-capable files (`.pt`
 `.pkl`, `.pickle`, `.ckpt`, `.joblib`, `.dill`): loading them can execute code. Exclude them when
 locking, or keep the entry unverified. `ragleap-voice models check` enforces this.
 
+One justified exception: a file entry may carry `"format": "ctranslate2"` when it is a `.bin` file
+(the CTranslate2 weights of Whisper). The tag is part of the lock, so the lock digest in `models.toml`
+covers it. It is honoured only for that suffix, and `models verify` and `models pull` also check the
+file's header, in addition to size and SHA-256. Any other format needs a code change. Residual risk: the
+header check does not prove the rest of the file is well formed, and CTranslate2 reads the file with native
+code. The hash pins what was reviewed; it does not make the file trustworthy.
+
 A manifest entry can list other entries in `depends_on`. Each dependency has its own lock file and its own cache
 folder. `pull` fetches dependencies first and refuses to start if any lock is missing; a verified or default
 entry may only depend on verified entries.
