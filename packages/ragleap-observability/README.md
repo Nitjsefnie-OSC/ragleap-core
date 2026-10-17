@@ -114,5 +114,6 @@ helm upgrade ragleap-observability ./ragleap-observability --set alloy.enabled=t
 Set `slo.enabled=true` to add fast-burn and slow-burn alerts on the Prometheus `up` metric for the jobs in `slo.availability.jobs`. The 99.5% target (`slo.availability.errorBudget: 0.005`) is a placeholder, not a measured figure.
 
 - Verified: the rule logic, with `promtool` unit tests (`tests/promtool/run.sh`).
-- Not verified: evaluation on a live Prometheus, and delivery through AlertManager.
+- Verified on a real Prometheus (v3.13.4, one container, no Kubernetes, 15 s scrape interval; see `tests/live/`): fast burn, `PostgresExporterDown` and `RagleapTargetAbsent` fired and cleared as expected.
+- Not verified: slow-burn firing, delivery through AlertManager, and the Kubernetes wiring.
 - Limits: this measures target reachability, not user experience, because the app exports no request metrics yet. A target that disappears entirely does not trigger the burn-rate alerts; from 0.8.2 a separate `RagleapTargetAbsent` alert covers it (rule logic tested only).
