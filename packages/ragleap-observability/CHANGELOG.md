@@ -5,6 +5,16 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-10-17
+
+### Fixed
+
+- The wheel now includes the Helm chart. Earlier releases (including 0.8.0) shipped only the Python module, because the build table was misnamed and no files were included. `pip install` now gives you `helm/ragleap-observability`.
+
+### Known limitations
+
+- Rule logic for the SLO alerts is unchanged from 0.8.0 and was tested at rule-logic level only.
+
 ## [0.8.0] - 2026-10-17
 
 ### Added
