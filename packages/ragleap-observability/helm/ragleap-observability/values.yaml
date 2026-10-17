@@ -37,6 +37,8 @@ prometheus:
 # request metrics yet. errorBudget is a placeholder (0.005 = 99.5%), not
 # a measured figure. Prometheus keeps 15d by default, so a 30d budget
 # window cannot be evaluated directly; the alerts use windows of 6h or less.
+# Each job in slo.availability.jobs also gets an absent() alert (RagleapTargetAbsent).
+# List only jobs this chart really scrapes, or that alert fires permanently.
 slo:
   enabled: false
   availability:

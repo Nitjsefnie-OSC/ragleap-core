@@ -115,4 +115,4 @@ Set `slo.enabled=true` to add fast-burn and slow-burn alerts on the Prometheus `
 
 - Verified: the rule logic, with `promtool` unit tests (`tests/promtool/run.sh`).
 - Not verified: evaluation on a live Prometheus, and delivery through AlertManager.
-- Limits: this measures target reachability, not user experience, because the app exports no request metrics yet. A target that disappears entirely does not trigger the alerts.
+- Limits: this measures target reachability, not user experience, because the app exports no request metrics yet. A target that disappears entirely does not trigger the burn-rate alerts; from 0.8.2 a separate `RagleapTargetAbsent` alert covers it (rule logic tested only).
