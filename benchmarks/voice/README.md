@@ -162,3 +162,39 @@ For the TTS round trip, accept the conditions on `ai4bharat/indic-parler-tts` an
 ## Attribution
 
 FLEURS: Conneau et al., 2022 (CC-BY-4.0). See `packages/ragleap-voice/THIRD_PARTY_NOTICES.md`.
+
+## Whisper large-v3 on 12 languages from several regions (pilot)
+
+First non-Indian measurement for the language coverage matrix. Scripts: `colab_pilot12.py` (measurement) and `colab_pilot12_analysis.py` (intervals and diagnostics, same Colab session).
+
+| Language (FLEURS config) | WER (95% interval) | CER (95% interval) |
+|---|---|---|
+| Spanish (es_419) | 3.0% (1.8 to 4.5) | 1.1% (0.5 to 1.9) |
+| Portuguese (pt_br) | 4.2% (2.9 to 5.7) | 1.4% (0.9 to 2.1) |
+| Russian (ru_ru) | 4.9% (3.5 to 6.8) | 1.2% (0.7 to 1.7) |
+| Turkish (tr_tr) | 5.1% (3.5 to 6.9) | 1.3% (0.8 to 2.0) |
+| Indonesian (id_id) | 5.6% (3.8 to 7.5) | 1.8% (1.1 to 2.5) |
+| French (fr_fr) | 6.1% (4.4 to 8.1) | 2.1% (1.4 to 3.0) |
+| Vietnamese (vi_vn) | 8.8% (6.8 to 10.7) | 3.9% (2.9 to 4.9) |
+| Arabic (ar_eg) | 14.0% (10.6 to 17.6) | 3.5% (2.6 to 4.6) |
+| Swahili (sw_ke) | 33.5% (29.7 to 37.2) | 7.7% (6.5 to 9.1) |
+| Japanese (ja_jp) | 70.6% (61.5 to 79.0): not meaningful, no word spaces | 6.5% (4.9 to 8.3) |
+| Yoruba (yo_ng) | 103.8% (99.4 to 108.9) | 48.0% (45.3 to 50.6) |
+| Amharic (am_et) | 162.1% (147.0 to 178.7) | 110.1% (103.8 to 117.4) |
+
+Setup: 60 clips per language (first 60 of the FLEURS `test` split, CC-BY-4.0), run on 2026-10-18 on a Tesla T4. Model: `Systran/faster-whisper-large-v3` at revision `edaa852ec7e145841d8ffdb056a99866b5f0a478` (MIT), pulled with `ragleap-voice models pull` (hash-checked, CTranslate2-tagged lock) and loaded from that folder; faster-whisper 1.1.1, fp16, beam 5, temperature 0, no conditioning on previous text, language given. Harness on main at `d441b746c8`; normalizer version `1` (no number step). Intervals: 2000 bootstrap resamples of clips, seed 1234.
+
+Findings:
+- Spanish, Portuguese, Russian, Turkish, Indonesian and French are between 3% and 6% WER. Their intervals overlap, so their order is not reliable.
+- Swahili (33.5%) is a real recognition problem.
+- Japanese: use CER. WER is not meaningful without word spaces.
+- Yoruba: scoring again with diacritics removed from both sides gives WER 87.2% and CER 26.7%. A large part of the character error is missing tone marks and dot-below letters, but the output is still not usable text. The stripped figures still include Whisper's own romanisation (for example "ishe" for "ise"), so they do not separate spelling convention from mishearing.
+- Amharic: with our settings 36 of 60 outputs collapsed into a repeated syllable or word. Library defaults gave WER 114.1% and CER 104.7%, and a repetition guard gave WER 102.5% and CER 101.5%. In none of the three settings did the outputs resemble the reference. These variants were diagnostics run on the test set, not tuning, and the pilot numbers above stay the reported result. We did not find a usable Whisper large-v3 setting for Amharic; this is not a statement about every possible setting.
+
+Limits (read before quoting any number):
+- Read speech only. No telephone or noisy audio, no accents or code-switching.
+- Consecutive clips: speakers and sentences repeat, so the intervals are probably too narrow.
+- Arabic uses the Egyptian dialect configuration, while Whisper's `ar` is standard Arabic, so part of that error may be dialect mismatch. Spanish is the Latin American configuration.
+- One system. This shows where Whisper large-v3 is weak, not which open model is best for those languages.
+- Numbers and digits are not unified (normalizer version 1), which slightly inflates WER where references contain digits.
+- The per-clip raw CSV is not committed yet; the tables come from the printed run output.
