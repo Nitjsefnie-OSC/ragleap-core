@@ -1,7 +1,7 @@
 # ragleap-tools
 
 Standalone, dependency-light tool implementations for LLM tool-calling.
-Exposes OpenAI/Gemini-style function-calling schemas.
+Exposes OpenAI-, Gemini- and Anthropic-style function-calling schemas.
 
 ```bash
 pip install ragleap-tools
@@ -29,6 +29,60 @@ gemini_tools = [t.to_gemini_schema() for t in STATELESS_TOOLS]
 result = CALCULATOR_TOOL.call(expression="2 + 2 * sqrt(16)")
 print(result.success, result.result)  # True 10.0
 ```
+
+## Write your own tool
+
+A tool is a type-annotated function. The schema comes from the annotations and
+the docstring; the model's arguments are checked before your function runs.
+
+```python
+from typing import Literal
+from ragleap_tools import tool, ToolError
+
+@tool
+def lookup_order(order_id: str, status: Literal["open", "closed"] = "open") -> dict:
+    """Look up an order by id.
+
+    Args:
+        order_id: The order id, for example "A-1001".
+        status: Which orders to search.
+    """
+    if order_id not in ORDERS:
+        raise ToolError("order not found")   # safe to show the model
+    return ORDERS[order_id]
+
+lookup_order.to_openai_schema()      # also to_gemini_schema() / to_anthropic_schema()
+```
+
+Supported annotations: `str`, `int`, `float`, `bool`, `Optional[X]` (give it a
+default), `Literal[...]`, `list[X]`, `dict`, `Any`. Return a `ToolResult` to
+control the result, or any value to have it wrapped. `ToolError` messages reach
+the model; any other exception reaches it only as "name failed (Type)" (the
+detail goes to the `ragleap_tools` logger). Async functions are not supported
+yet. See `docs/design/tool-authoring.md`.
+
+## Dispatch safely with a Toolkit
+
+`Toolkit` collects tools and dispatches one model call without ever raising.
+Your loop is still yours.
+
+```python
+from ragleap_tools import Toolkit, default_toolkit
+
+kit = default_toolkit().add(lookup_order)            # the 12 stateless tools + yours
+provider_tools = kit.to_openai_schema()               # for the provider's tools= parameter
+
+# name and arguments exactly as the provider returned them (a JSON string or a dict):
+result = kit.call(name_from_model, arguments_from_model)
+print(result.success, result.result or result.error)
+
+read_only = kit.select(where=lambda t: t.metadata.get("read_only"))
+```
+
+`call` fails cleanly (a failed `ToolResult`, no exception) for an unknown tool,
+invalid or oversize JSON (100,000 characters by default), arguments that do not
+match the tool's schema, and any exception from the handler. `Tool.metadata` is
+a free-form dict for your own policy code; it is never sent to a provider.
 
 ## The 12 stateless tools
 
@@ -225,13 +279,15 @@ rushed inclusion here:
 
 ## Status
 
-v0.4.1. 200 tests, all passing, including real security verification
+v0.5.0. 362 tests, all passing, including real security verification
 for the two risk-sensitive tools (calculator's code-injection
 rejection, file ops' path-traversal and symlink-escape rejection) -
 not just documented as safe, actually tested against real attack
 vectors.
 
-Not live-verified: the web search providers (Tavily, Serper), the
+Not live-verified: that OpenAI, Gemini or Anthropic accept the schemas `@tool`
+generates (they use the same shape as the built-in tools plus `default` and
+integer `enum`); the web search providers (Tavily, Serper), the
 Anthropic vision provider, and authenticated GitHub requests - request
 shapes were checked against current public documentation only. The Gemini
 vision provider was live-checked once (see above). The v0.4.1 bounded
