@@ -183,14 +183,19 @@ class Agent:
 
     # ---- public ----
 
-    def run(self, task: str) -> RunResult:
+    def run(self, task: str, *, tainted: bool = False) -> RunResult:
+        """Run one task. tainted=True starts the run already tainted: every outbound tool needs
+        approval from the first step, as it does after a tainting tool has run. Use it when the
+        task comes from an untrusted source (an incoming message, a webhook payload)."""
+        if not isinstance(tainted, bool):
+            raise ValueError("tainted must be True or False")
         state = {
             "run_id": uuid.uuid4().hex[:12],
             "task": (task or "")[: self.policy.text_cap],
             "status": "running",
             "stop_reason": "",
             "steps": [],
-            "tainted": False,
+            "tainted": tainted,
             "pending": None,
             "summary": "",
         }

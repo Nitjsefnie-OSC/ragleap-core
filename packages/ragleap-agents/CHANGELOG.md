@@ -5,6 +5,14 @@ loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `Agent.run(task, *, tainted=False)`: start a run already tainted, so every outbound tool needs
+  approval from the first step, as it does after a tainting tool has run. `tainted` must be a bool
+  (anything else raises `ValueError`). The flag is saved in the run state, so it survives a pause
+  and resume. Meant for runs whose task comes from an untrusted source (an incoming message, a
+  webhook payload) and for sub-agents started by a tainted parent (#827).
+
 ## [0.4.0] - 2026-10-17
 
 ### Changed (behaviour change: an empty run now stops)

@@ -383,6 +383,46 @@ def test_a_tampered_stored_run_is_refused_and_nothing_runs(tmp_path):
     assert log == []
 
 
+def _outbound_send_policy():
+    return Policy(tools={**BASE_POLICY, "send": ToolPolicy(False, True)})
+
+
+def test_a_run_can_start_tainted():
+    agent, _, _ = build([DONE])
+    assert agent.run("q").tainted is False
+    agent2, _, _ = build([DONE])
+    assert agent2.run("q", tainted=True).tainted is True
+
+
+def test_a_tainted_start_forces_approval_for_the_first_outbound_call():
+    agent, _, log = build([plan("send", message="hi")], policy=_outbound_send_policy())
+    r = agent.run("q", tainted=True)
+    assert r.status == "awaiting_approval" and r.pending["forced"] is True and log == []
+
+
+def test_positive_control_an_untainted_start_runs_the_first_outbound_call():
+    agent, _, log = build([plan("send", message="hi"), DONE], policy=_outbound_send_policy())
+    r = agent.run("q")
+    assert r.status == "done" and log == [("send", "hi")]
+
+
+def test_a_tainted_start_survives_pause_and_resume():
+    store = InMemoryStateStore()
+    pol = _outbound_send_policy()
+    first, _, _ = build([plan("send", message="hi")], policy=pol, store=store)
+    r = first.run("q", tainted=True)
+    second, _, log = build([DONE], policy=pol, store=store)
+    r2 = second.resume(r.run_id, {r.pending["call_id"]: True})
+    assert r2.status == "done" and r2.tainted is True and log == [("send", "hi")]
+
+
+@pytest.mark.parametrize("bad", ["yes", 1, None])
+def test_tainted_must_be_a_bool(bad):
+    agent, _, _ = build([DONE])
+    with pytest.raises(ValueError):
+        agent.run("q", tainted=bad)
+
+
 # ---- construction, schema check, parsing ----
 
 def test_construction_is_validated():
