@@ -61,6 +61,63 @@ sed '1s/^\xEF\xBB\xBF//' "$APP/values-example.yaml" > /tmp/app-values-example.ya
 echo "== creating kind cluster $CL"
 kind create cluster --name "$CL" --wait 180s
 
+need_deploy() { # label namespace name
+  if kubectl -n "$2" wait --for=condition=Available "deployment/$3" --timeout=180s >/dev/null 2>&1; then
+    record "PASS  $1: deployment $3 exists and is available"
+  else
+    fail "$1: deployment $3 is missing or not available"; diag "$2"
+  fi
+}
+need_daemonset() { # label namespace name
+  local desired="0" ready="0" i
+  for i in $(seq 1 24); do
+    desired=$(kubectl -n "$2" get daemonset "$3" -o jsonpath='{.status.desiredNumberScheduled}' 2>/dev/null || true)
+    ready=$(kubectl -n "$2" get daemonset "$3" -o jsonpath='{.status.numberReady}' 2>/dev/null || true)
+    desired=${desired:-0}; ready=${ready:-0}
+    if [ "$desired" -ge 1 ] && [ "$ready" = "$desired" ]; then break; fi
+    sleep 5
+  done
+  if [ "$desired" -ge 1 ] && [ "$ready" = "$desired" ]; then
+    record "PASS  $1: daemonset $3 in $2 has $ready of $desired pods ready"
+  else
+    fail "$1: daemonset $3 in $2 has $ready of $desired pods ready (want at least 1, all ready)"; diag "$2"
+  fi
+}
+gone() { # label kind name [namespace]
+  local i args=()
+  if [ -n "${4:-}" ]; then args=(-n "$4"); fi
+  for i in $(seq 1 18); do
+    if ! kubectl get "$2" "$3" "${args[@]}" >/dev/null 2>&1; then record "PASS  $1: $2 $3 is gone after uninstall"; return 0; fi
+    sleep 5
+  done
+  fail "$1: $2 $3 still exists 90 seconds after uninstall"
+}
+post_install() { # label namespace
+  case "$1" in
+    ragleap-ops)
+      need_deploy "$1" "$2" ragleap-db
+      need_deploy "$1" "$2" ragleap-neo4j ;;
+    ragleap-app-chart)
+      need_deploy "$1" "$2" app-api
+      need_deploy "$1" "$2" app-cache ;;
+    ragleap-observability)
+      need_deploy "$1" "$2" ragleap-prometheus
+      need_deploy "$1" "$2" ragleap-grafana
+      need_deploy "$1" "$2" ragleap-loki
+      need_deploy "$1" "$2" ragleap-alertmanager
+      need_deploy "$1" "$2" ragleap-postgres-exporter
+      need_daemonset "$1" ragleap-observability-agents ragleap-promtail ;;
+  esac
+}
+post_uninstall() { # label
+  case "$1" in
+    ragleap-observability)
+      gone "$1" namespace ragleap-observability-agents
+      gone "$1" clusterrole ragleap-promtail-role
+      gone "$1" clusterrolebinding ragleap-promtail-binding ;;
+  esac
+}
+
 chart_test() { # label chart-dir namespace release keep-pattern -- helm args
   local label=$1 dir=$2 ns=$3 rel=$4 keep=$5
   shift 6
@@ -76,6 +133,7 @@ chart_test() { # label chart-dir namespace release keep-pattern -- helm args
     return 0
   fi
   kubectl -n "$ns" get pods
+  post_install "$label" "$ns"
 
   if helm upgrade "$rel" "$dir" -n "$ns" "$@" --wait --timeout 600s; then record "PASS  $label: upgrade with the same values"; else fail "$label: upgrade failed"; diag "$ns"; fi
 
@@ -83,6 +141,7 @@ chart_test() { # label chart-dir namespace release keep-pattern -- helm args
   local left
   left=$(kubectl -n "$ns" get deploy,statefulset,daemonset,pvc -o name 2>/dev/null | grep -v -x -e "$keep" || true)
   if [ -z "$left" ]; then record "PASS  $label: nothing left behind (deployments, statefulsets, daemonsets, PVCs)"; else fail "$label: left behind after uninstall: $(tr '\n' ' ' <<< "$left")"; fi
+  post_uninstall "$label"
 }
 
 kubectl create namespace ops-test
