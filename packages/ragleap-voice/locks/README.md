@@ -25,6 +25,8 @@ covers it. It is honoured only for that suffix, and `models verify` and `models 
 file's header, in addition to size and SHA-256. Any other format needs a code change. Residual risk: the
 header check does not prove the rest of the file is well formed, and CTranslate2 reads the file with native
 code. The hash pins what was reviewed; it does not make the file trustworthy.
+Write the tag with `ragleap-voice models lock NAME ... --format model.bin=ctranslate2`. A tagged file is downloaded
+to a temporary folder (free disk space for the whole file is needed) so its header is checked before the tag is written.
 
 A manifest entry can list other entries in `depends_on`. Each dependency has its own lock file and its own cache
 folder. `pull` fetches dependencies first and refuses to start if any lock is missing; a verified or default
