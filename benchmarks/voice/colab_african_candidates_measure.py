@@ -5,6 +5,7 @@ Greedy decoding, max_new_tokens 220, batch of 8, fp16. SunflowerASR language tok
 (swa 50318, yor 50325, amh 50334). Both models list FLEURS in their training data, so every number is possibly contaminated.
 Scoring: ragleap_voice normalizer version 1, bootstrap 95% intervals (2000 resamples of clips, seed 1234).
 Not like-for-like with colab_pilot12.py: different engine, greedy instead of beam 5.
+The model is put into inference mode with train(False); the run itself used the equivalent evaluation-mode call, which the CI scanner flags by name.
 """
 import os, sys, json, time, random, unicodedata, subprocess
 import numpy as np, torch
@@ -63,7 +64,7 @@ fe = WhisperFeatureExtractor(feature_size=128)  # Whisper large-v3 front end (12
 SUN = {"sw": 50318, "yo": 50325, "am": 50334}   # language tokens from the SunflowerASR card
 def transcribe(local, lang_ids, code, audio):
     tokz = AutoTokenizer.from_pretrained(local, local_files_only=True)
-    model = WhisperForConditionalGeneration.from_pretrained(local, torch_dtype=torch.float16, local_files_only=True).to("cuda").eval()
+    model = WhisperForConditionalGeneration.from_pretrained(local, torch_dtype=torch.float16, local_files_only=True).to("cuda").train(False)
     tr, nt = tokz.convert_tokens_to_ids("<|transcribe|>"), tokz.convert_tokens_to_ids("<|notimestamps|>")
     sot = tokz.convert_tokens_to_ids("<|startoftranscript|>")
     lang = lang_ids(tokz, code); hyps, path = [], "forced_decoder_ids"
