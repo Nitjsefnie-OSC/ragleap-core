@@ -43,6 +43,14 @@ argument literally named "self". New optional fields max_response_bytes
 and total_timeout on the providers and GitHubSearchConfig. Standard
 library only. See docs/design/http-limits.md.
 
+v0.5.0 - easy to extend, safe to dispatch: @tool turns a type-annotated
+function into a Tool (schema from the annotations and docstring), Toolkit
+collects tools and dispatches a model's call safely (JSON arguments parsed
+and size-limited, arguments validated against the schema before the handler
+runs, exceptions contained), ToolError for expected failures,
+Tool.metadata, Tool.to_anthropic_schema(), default_toolkit(). Standard
+library only. See docs/design/tool-authoring.md.
+
 Deliberately out of scope for now (each needs its own security-focused
 design pass, not a rushed inclusion here): code execution,
 HTTP fetch, and database/business-system connectors (SQL,
@@ -52,7 +60,10 @@ live payment processor) would be a materially different risk if
 exposed to LLM tool-calling without deliberate guardrails.
 """
 
-from ragleap_tools.base import Tool, ToolResult
+from ragleap_tools._schema import ToolDefinitionError, validate_arguments
+from ragleap_tools.base import Tool, ToolError, ToolResult
+from ragleap_tools.decorator import tool
+from ragleap_tools.toolkit import Toolkit
 from ragleap_tools.calculator import CALCULATOR_TOOL
 from ragleap_tools.datetime_tools import ADD_TO_DATE_TOOL, CURRENT_DATETIME_TOOL, DATE_DIFFERENCE_TOOL
 from ragleap_tools.file_ops import FileOpsConfig, make_file_tools
@@ -77,7 +88,7 @@ from ragleap_tools.vision import (
     make_vision_tool,
 )
 
-__version__ = "0.4.1"
+__version__ = "0.5.0"
 
 # Tools with no config/state needed - usable directly.
 STATELESS_TOOLS = [
@@ -95,9 +106,23 @@ STATELESS_TOOLS = [
     TEXT_CASE_TRANSFORM_TOOL,
 ]
 
+
+
+def default_toolkit() -> Toolkit:
+    """A new Toolkit holding the 12 STATELESS_TOOLS - a start-here toolbox
+    that needs no configuration."""
+    return Toolkit(STATELESS_TOOLS)
+
+
 __all__ = [
     "Tool",
     "ToolResult",
+    "ToolError",
+    "ToolDefinitionError",
+    "tool",
+    "Toolkit",
+    "default_toolkit",
+    "validate_arguments",
     "STATELESS_TOOLS",
     "CALCULATOR_TOOL",
     "CURRENT_DATETIME_TOOL",
