@@ -185,6 +185,33 @@ Limits (read before quoting any number):
 - Numbers and digits are not unified (normalizer version 1), which slightly inflates WER where references contain digits.
 - The per-clip raw CSV is not committed yet; the tables come from the printed run output.
 
+## Fine-tuned candidates for Swahili, Yoruba and Amharic (first look, possibly contaminated)
+
+Whisper large-v3 was weak or failed in these three languages (pilot above). Two open fine-tunes of Whisper large-v3 were measured on the same 60 FLEURS `test` clips per language. Scripts: `colab_african_candidates_download.py`, `colab_african_candidates_measure.py`, `colab_african_candidates_unicode_check.py`.
+
+| Language | Whisper large-v3 (pilot) | NaijaVox-2.0 | SunflowerASR |
+|---|---|---|---|
+| Swahili (sw_ke), WER (95% interval) | 33.5% (29.7 to 37.2) | not a candidate | 8.9% (7.0 to 11.0) |
+| Swahili, CER | 7.7% | | 2.4% (1.8 to 3.0) |
+| Yoruba (yo_ng), WER | 103.8% (99.4 to 108.9) | 46.5% (40.5 to 53.1) | 41.8% (35.6 to 48.6) |
+| Yoruba, CER | 48.0% | 16.6% (13.9 to 19.5) | 15.1% (12.5 to 17.9) |
+| Yoruba, diacritics removed from both sides, WER / CER | 87.2% / 26.7% | 24.1% / 7.2% | 20.7% / 5.8% |
+| Amharic (am_et), WER | 162.1% (147.0 to 178.7) | not a candidate | 28.8% (24.6 to 33.2) |
+| Amharic, CER | 110.1% | | 14.0% (10.1 to 18.5) |
+
+Models (downloaded with `huggingface_hub` at these revisions; **not** hash-checked by ragleap-voice, no lock exists yet):
+- `Axiveri/NaijaVox-2.0` at `22b94de94e59419cc9d6e25e6eaeceb1f1c42d00`: Apache-2.0 per its card, Yoruba, Hausa, Igbo, Pidgin and Nigerian English, single safetensors file, no code files.
+- `Sunbird/asr-whisper-51-african-languages` (the Hub now reports `Sunbird/SunflowerASR-51-african-languages`) at `4583c9dd251c422a4325fb0a0a509a3828097be2`: Apache-2.0 per its card, 51 African languages, gated (access mode auto), single safetensors file, no code files. Language tokens come from its card: `swa` 50318, `yor` 50325, `amh` 50334.
+
+Read these first:
+- **Possibly contaminated.** Both cards list google/fleurs among their training data (NaijaVox: the yo_ng, ha_ng and ig_ng configurations; SunflowerASR: FLEURS among its sources). Which splits they used is not stated. We scored on FLEURS test clips, so these numbers show that a large gap exists, not how well the models do on unseen audio. A clean test set is still needed (issue #758).
+- **Licences are not cleared.** Apache-2.0 is the licence of the weights as stated on the card. Both cards say the training datasets keep their own licences, and we have not reviewed them. Neither model is in `models.toml`, and neither belongs in the default path until a person has reviewed the training-data licences.
+- **Not like-for-like with the Whisper pilot.** Different engine (`transformers` instead of faster-whisper), greedy decoding instead of beam 5, fp16, batch of 8, `max_new_tokens` 220. Decoding settings were fixed before scoring. One difference from the run: the committed measure script calls `model.train(False)` where the run used the equivalent evaluation-mode call, because the CI scanner flags that call name as dynamic code; nothing else was changed. The `transformers` version was not recorded in this run.
+- **Unexplained gap to a model card.** The NaijaVox card reports 22.3% WER on 50 FLEURS Yoruba test clips ("strict WER, no normalization"). We measure 46.5% with diacritics counted and 24.1% without them. We checked Unicode composition (references 0/60 and outputs 3/60 not in NFC; NFC on both sides changed WER by under 0.1 points), so that is not the cause. We do not know which clips, scorer or decoding the card used.
+- **Yoruba.** About half of the word error comes from tone marks and dot-below letters. Both models produce real Yoruba text, which Whisper large-v3 did not.
+- **Amharic.** SunflowerASR output resembles the reference where Whisper large-v3 produced repeated syllables.
+- Same limits as the other sections: read speech only, consecutive clips (speakers and sentences repeat, so the intervals are probably too narrow), 60 clips, one GPU (Tesla T4), normalizer version 1 (no number step), per-clip raw results not committed.
+
 ## Reproduce
 
 Open Google Colab, choose a T4 GPU runtime, paste `colab_whisper_baseline.py` into one cell and run it. It stops if the dataset or model licence differs from the expected one.
