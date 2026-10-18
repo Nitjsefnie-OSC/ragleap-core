@@ -13,7 +13,7 @@ Format (schema 1):
 Paths are relative POSIX paths without `..`, backslashes or unusual characters. Entries stay
 `unverified` until a person has reviewed their lock file. Current lock files: `indic-parler-tts.json`
 (10 files, safetensors only) and `flan-t5-large-tokenizer.json` (5 tokenizer files of the text encoder it
-loads at run time; its dependency). Both are pinned but not yet reviewed.
+loads at run time; its dependency). Both are pinned but not yet reviewed. `whisper-large-v3.json` (7 files, `model.bin` tagged `ctranslate2`) was built on Colab; its `model.bin` size and SHA-256 equal the Hugging Face listing, the six small files rest on our own download only. The entry stays unverified.
 
 A lock for a verified or default entry must not list pickle-capable files (`.pt`, `.pth`, `.bin`,
 `.pkl`, `.pickle`, `.ckpt`, `.joblib`, `.dill`): loading them can execute code. Exclude them when
