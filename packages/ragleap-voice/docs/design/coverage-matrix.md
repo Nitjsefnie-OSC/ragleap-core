@@ -81,3 +81,11 @@ Each routing decision cites its row. No row means `NoEngineError`, not a guess.
 4. Low-resource languages with no permissively licensed open model: do we list research-licensed models at tier 0 or 1 for
    information only, or leave them out entirely?
 5. Does a fine-tuned model published by a contributor on Hugging Face get its own matrix row with its own evidence?
+
+## 8. First data (implementation notes)
+
+- Files: `coverage/stt.csv` and `coverage/tts.csv`, checked by `ragleap_voice.coverage` and by the test suite. They ship in the wheel.
+- Columns are fewer than sketched in section 2: licences stay in `models.toml` for manifest engines, and a short `weights_licence` text is kept for candidates. A `raw_committed` column and a `contamination` column were added.
+- Models that are not in `models.toml` are written as `candidate:NAME` and are never used by engine selection.
+- Until raw per-clip results are committed, tier 2 means reproducible by script and not independently reviewed.
+- Text to speech rows stay at tier 1 (open question 2). No tier 0 rows exist yet, because "no open engine known" needs its own research.
