@@ -149,20 +149,6 @@ Limits specific to this measurement:
 - Kokoro's Hindi path uses the GPLv3 espeak-ng package according to its model card; it was installed from the OS package manager for this measurement only.
 - `colab_tts_roundtrip.py` was assembled from three cells that were each run successfully. The combined script has not been run end to end as one piece.
 
-## Reproduce
-
-Open Google Colab, choose a T4 GPU runtime, paste `colab_whisper_baseline.py` into one cell and run it. It stops if the dataset or model licence differs from the expected one.
-
-For the IndicConformer comparison, first accept the model conditions on Hugging Face and store a read token in Colab Secrets as `HF_TOKEN`, then paste `colab_indic_conformer.py` into one cell. It rebuilds the test set and Whisper results itself if the runtime has none. Delete the token afterwards.
-
-For the five-language comparison, use the same Hugging Face token setup and paste `colab_multilang_comparison.py` into one cell (about 25 minutes). It is self-contained and also runs the device check and the default-decoding Whisper check.
-
-For the TTS round trip, accept the conditions on `ai4bharat/indic-parler-tts` and `ai4bharat/indic-conformer-600m-multilingual` with the same Hugging Face account, store the token as `HF_TOKEN`, keep the Colab tab in the foreground at the start, and paste `colab_tts_roundtrip.py` into one cell (about 60 minutes; not yet run as one piece).
-
-## Attribution
-
-FLEURS: Conneau et al., 2022 (CC-BY-4.0). See `packages/ragleap-voice/THIRD_PARTY_NOTICES.md`.
-
 ## Whisper large-v3 on 12 languages from several regions (pilot)
 
 First non-Indian measurement for the language coverage matrix. Scripts: `colab_pilot12.py` (measurement) and `colab_pilot12_analysis.py` (intervals and diagnostics, same Colab session).
@@ -198,3 +184,17 @@ Limits (read before quoting any number):
 - One system. This shows where Whisper large-v3 is weak, not which open model is best for those languages.
 - Numbers and digits are not unified (normalizer version 1), which slightly inflates WER where references contain digits.
 - The per-clip raw CSV is not committed yet; the tables come from the printed run output.
+
+## Reproduce
+
+Open Google Colab, choose a T4 GPU runtime, paste `colab_whisper_baseline.py` into one cell and run it. It stops if the dataset or model licence differs from the expected one.
+
+For the IndicConformer comparison, first accept the model conditions on Hugging Face and store a read token in Colab Secrets as `HF_TOKEN`, then paste `colab_indic_conformer.py` into one cell. It rebuilds the test set and Whisper results itself if the runtime has none. Delete the token afterwards.
+
+For the five-language comparison, use the same Hugging Face token setup and paste `colab_multilang_comparison.py` into one cell (about 25 minutes). It is self-contained and also runs the device check and the default-decoding Whisper check.
+
+For the TTS round trip, accept the conditions on `ai4bharat/indic-parler-tts` and `ai4bharat/indic-conformer-600m-multilingual` with the same Hugging Face account, store the token as `HF_TOKEN`, keep the Colab tab in the foreground at the start, and paste `colab_tts_roundtrip.py` into one cell (about 60 minutes; not yet run as one piece).
+
+## Attribution
+
+FLEURS: Conneau et al., 2022 (CC-BY-4.0). See `packages/ragleap-voice/THIRD_PARTY_NOTICES.md`.
