@@ -673,7 +673,7 @@ Honest limitation for `cohere`: its API distinguishes query vs. document embeddi
 
 ## More examples
 
-See [`examples/`](https://github.com/antonyrag/ragleap-core/tree/main/packages/ragleap-rag/examples)
+See [`examples/`](https://github.com/ragleap/ragleap-core/tree/main/packages/ragleap-rag/examples)
 in the source repo:
 - `01_basic_ingest_and_ask.py` — the loop above, runnable as-is
 - `02_streaming.py` — streaming responses
@@ -692,7 +692,7 @@ the actual cost of, isn't production-ready no matter how good its
 retrieval is.
 
 `ragleap-rag` is the foundation layer of
-[ragleap-core](https://github.com/antonyrag/ragleap-core), a larger
+[ragleap-core](https://github.com/ragleap/ragleap-core), a larger
 open-source, self-hosted AI platform (channels, knowledge graph,
 language detection, business integrations). Companion package `ragleap-graph` (knowledge-graph-augmented
 retrieval) is published; `ragleap-integrations` is in progress.

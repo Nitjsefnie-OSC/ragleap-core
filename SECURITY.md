@@ -18,7 +18,7 @@ this stage of the project.
 Instead, report it privately using one of these methods:
 
 1. **GitHub Security Advisories (preferred):** open a private report via
-   [github.com/antonyrag/ragleap-core/security/advisories/new](https://github.com/antonyrag/ragleap-core/security/advisories/new)
+   [github.com/ragleap/ragleap-core/security/advisories/new](https://github.com/ragleap/ragleap-core/security/advisories/new)
 2. **Email:** send details to the address listed on the maintainer's GitHub
    profile ([@antonyrag](https://github.com/antonyrag)).
 

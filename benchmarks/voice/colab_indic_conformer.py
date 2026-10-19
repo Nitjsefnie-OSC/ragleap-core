@@ -15,7 +15,7 @@ import importlib.metadata as md
 if "items" not in globals():
     import urllib.request
     src = urllib.request.urlopen(
-        "https://raw.githubusercontent.com/antonyrag/ragleap-core/main/benchmarks/voice/colab_whisper_baseline.py"
+        "https://raw.githubusercontent.com/ragleap/ragleap-core/main/benchmarks/voice/colab_whisper_baseline.py"
     ).read().decode()
     exec(compile(src, "colab_whisper_baseline.py", "exec"))
 

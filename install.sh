@@ -2,15 +2,15 @@
 # RagLeap Core installer: checks Docker, downloads the code, creates .env with fresh secrets,
 # starts everything and prints a one-click link to the dashboard.
 #
-#   curl -fsSL https://raw.githubusercontent.com/antonyrag/ragleap-core/main/install.sh | bash
-#   curl -fsSL https://raw.githubusercontent.com/antonyrag/ragleap-core/main/install.sh | bash -s -- --ollama
+#   curl -fsSL https://raw.githubusercontent.com/ragleap/ragleap-core/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/ragleap/ragleap-core/main/install.sh | bash -s -- --ollama
 #
 # Unattended: RAGLEAP_PROVIDER=gemini|ollama|skip  GEMINI_API_KEY=...  RAGLEAP_DIR=...  RAGLEAP_NONINTERACTIVE=1
 # An existing .env is never modified.
 # Safety checks (free disk, another setup under the same project name) can be skipped with RAGLEAP_SKIP_CHECKS=1.
 set -euo pipefail
 
-REPO_URL="${RAGLEAP_REPO:-https://github.com/antonyrag/ragleap-core.git}"
+REPO_URL="${RAGLEAP_REPO:-https://github.com/ragleap/ragleap-core.git}"
 DIR="${RAGLEAP_DIR:-ragleap-core}"
 PROVIDER="${RAGLEAP_PROVIDER:-}"
 CHAT_MODEL="${RAGLEAP_OLLAMA_MODEL:-qwen2.5:3b}"

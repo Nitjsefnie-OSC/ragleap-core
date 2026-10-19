@@ -14,12 +14,12 @@ def out(*a):
 
 sh(sys.executable, "-m", "pip", "install", "-q", "faster-whisper==1.1.1", "datasets==3.6.0", "soundfile",
    "nvidia-cublas-cu12", "nvidia-cudnn-cu12", "--force-reinstall", "--no-deps", "--no-cache-dir",
-   "git+https://github.com/antonyrag/ragleap-core.git#subdirectory=packages/ragleap-voice")
+   "git+https://github.com/ragleap/ragleap-core.git#subdirectory=packages/ragleap-voice")
 sh(sys.executable, "-m", "pip", "install", "-q", "faster-whisper==1.1.1", "datasets==3.6.0", "soundfile",
    "nvidia-cublas-cu12", "nvidia-cudnn-cu12")
 gpu = out("nvidia-smi", "--query-gpu=name,memory.total", "--format=csv,noheader")
 assert gpu, "No GPU: Runtime > Change runtime type > T4 GPU, press Save"
-main_sha = out("git", "ls-remote", "https://github.com/antonyrag/ragleap-core.git", "refs/heads/main").split()[0]
+main_sha = out("git", "ls-remote", "https://github.com/ragleap/ragleap-core.git", "refs/heads/main").split()[0]
 
 libs = []
 for r in site.getsitepackages() + [site.getusersitepackages()]:

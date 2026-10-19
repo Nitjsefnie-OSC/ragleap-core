@@ -29,7 +29,7 @@ def smi(q):
     except FileNotFoundError: return ""
 gpu = smi("name,memory.total")
 assert gpu, "No GPU: Runtime > Change runtime type > T4 GPU"
-main_sha = run("git", "ls-remote", "https://github.com/antonyrag/ragleap-core.git", "refs/heads/main").stdout.split()[0]
+main_sha = run("git", "ls-remote", "https://github.com/ragleap/ragleap-core.git", "refs/heads/main").stdout.split()[0]
 parler_sha = run("git", "ls-remote", "https://github.com/huggingface/parler-tts.git", "HEAD").stdout.split()[0]
 
 from huggingface_hub import HfApi, snapshot_download
@@ -188,7 +188,7 @@ print("\nsystems with output:", systems)
 
 # ---- Judges: IndicConformer (Indian languages) and Whisper large-v3 (English) ----
 pip("faster-whisper==1.1.1", "nvidia-cublas-cu12", "nvidia-cudnn-cu12",
-    "git+https://github.com/antonyrag/ragleap-core.git#subdirectory=packages/ragleap-voice")
+    "git+https://github.com/ragleap/ragleap-core.git#subdirectory=packages/ragleap-voice")
 pip("transformers==5.18.0", "onnxruntime-gpu==1.31.0", "onnx==1.20.1", "torchaudio")
 libs = []
 for r in site.getsitepackages() + [site.getusersitepackages()]:

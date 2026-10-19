@@ -30,10 +30,10 @@ dependencies = ["ragleap-tools>=0.4.0"]
 test = ["pytest>=8.0.0"]
 
 [project.urls]
-Homepage = "https://github.com/antonyrag/ragleap-core"
-Repository = "https://github.com/antonyrag/ragleap-core"
-Documentation = "https://github.com/antonyrag/ragleap-core/tree/main/packages/ragleap-integrations"
-Issues = "https://github.com/antonyrag/ragleap-core/issues"
+Homepage = "https://github.com/ragleap/ragleap-core"
+Repository = "https://github.com/ragleap/ragleap-core"
+Documentation = "https://github.com/ragleap/ragleap-core/tree/main/packages/ragleap-integrations"
+Issues = "https://github.com/ragleap/ragleap-core/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/ragleap_integrations"]

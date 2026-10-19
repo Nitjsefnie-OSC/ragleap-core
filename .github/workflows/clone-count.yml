@@ -35,7 +35,7 @@ jobs:
       - name: Update clone count
         env:
           GH_TRAFFIC_TOKEN: ${{ secrets.CLONE_TRAFFIC_TOKEN }}
-          REPO: antonyrag/ragleap-core
+          REPO: ragleap/ragleap-core
         run: python3 scripts/track_clone_count.py
 
       - name: Open PR with updated badge, if anything changed

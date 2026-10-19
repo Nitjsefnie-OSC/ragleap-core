@@ -90,7 +90,7 @@ def write_state(state_path: str, state: dict) -> None:
 
 
 def main() -> int:
-    repo = os.environ.get("REPO", "antonyrag/ragleap-core")
+    repo = os.environ.get("REPO", "ragleap/ragleap-core")
     token = os.environ.get("GH_TRAFFIC_TOKEN", "")
     state_path = os.environ.get("STATE_PATH", ".github/badges/clone-history.json")
     badge_path = os.environ.get("BADGE_PATH", ".github/badges/clone-count.json")

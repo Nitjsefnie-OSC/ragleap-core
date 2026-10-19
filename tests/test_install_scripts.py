@@ -176,7 +176,7 @@ def test_ragleap_key_rotate_replaces_key_and_keeps_other_settings(tmp_path):
 def test_install_ps1_does_not_advertise_the_wrapped_one_liner():
     s = _read("install.ps1").read_text()
     assert 'powershell -c "irm' not in s
-    assert "irm https://raw.githubusercontent.com/antonyrag/ragleap-core/main/install.ps1 | iex" in s
+    assert "irm https://raw.githubusercontent.com/ragleap/ragleap-core/main/install.ps1 | iex" in s
 
 
 def test_install_sh_guidance_for_missing_requirements_and_windows_hint():
@@ -222,7 +222,7 @@ def test_disk_check_refuses_when_there_is_not_enough_space():
 
 def test_readme_has_windows_install_without_the_wrapped_form():
     s = _read("README.md").read_text(encoding="utf-8")
-    assert "irm https://raw.githubusercontent.com/antonyrag/ragleap-core/main/install.ps1 | iex" in s
+    assert "irm https://raw.githubusercontent.com/ragleap/ragleap-core/main/install.ps1 | iex" in s
     assert 'powershell -c "irm' not in s
 
 
