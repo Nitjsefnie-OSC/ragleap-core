@@ -77,6 +77,47 @@ echo "== creating kind cluster $CL"
 kind create cluster --name "$CL" --wait 180s
 kubectl get storageclass
 
+echo "== storage Velero can back up: static PersistentVolumes of type local (not hostPath)"
+KNODE=$(kubectl get nodes -o jsonpath='{.items[0].metadata.name}')
+kubectl patch storageclass standard -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"false"}}}' || true
+kubectl apply -f - <<EOF
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: velero-local
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
+provisioner: kubernetes.io/no-provisioner
+volumeBindingMode: WaitForFirstConsumer
+EOF
+make_pv() { # name path: wipe the directory on the node and (re)create the PV
+  docker exec "$KNODE" sh -c "rm -rf $2 && mkdir -p $2 && chmod 777 $2"
+  kubectl apply -f - <<EOF
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: $1
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes: ["ReadWriteOnce"]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: velero-local
+  local:
+    path: $2
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values: ["$KNODE"]
+EOF
+}
+make_pv pv-db /mnt/pv-db
+make_pv pv-neo /mnt/pv-neo
+kubectl get pv,storageclass
+
 echo "== S3 stand-in (RustFS)"
 kubectl create namespace velero
 kubectl -n velero apply -f - <<EOF
@@ -201,6 +242,11 @@ if grep -q -x "db-data=Completed" <<< "$VOLS"; then record "PASS  the Postgres d
 echo "== disaster: delete the namespace"
 kubectl delete namespace "$NS" --wait --timeout=300s
 if kubectl get namespace "$NS" >/dev/null 2>&1; then fail "namespace $NS still exists"; else record "PASS  namespace $NS is gone"; fi
+echo "== the disks are lost too: replace both volumes with fresh empty ones"
+kubectl delete pv pv-db pv-neo --wait --timeout=120s || true
+make_pv pv-db /mnt/pv-db
+make_pv pv-neo /mnt/pv-neo
+if [ -z "$(docker exec "$KNODE" ls -A /mnt/pv-db)" ]; then record "PASS  the replacement database volume is empty (the restore must bring the data back)"; else fail "the replacement volume is not empty"; fi
 
 echo "== restore"
 velero restore create probe-restore --from-backup probe-backup --wait
@@ -232,6 +278,7 @@ if grep -q "neo4j-probe-node" <<< "$NODE"; then record "PASS  the Neo4j probe no
 echo
 echo "== SUMMARY ($(date +%T))"
 for r in "${RESULTS[@]}"; do echo "$r"; done
+echo "Storage: static local PersistentVolumes. Velero file-system backup skips hostPath volumes, which kind and k3s default storage use."
 echo "Not exercised: application-consistent backups (these are crash-consistent file copies of running databases; the runbook's pg_dump CronJob"
 echo "remains the stronger guarantee), CSI snapshots, scheduled backups, restore into a different cluster, TTL and retention, real object storage, multi-node."
 if [ "$FAILS" -eq 0 ]; then echo "ALL CHECKS PASSED"; else echo "$FAILS CHECK(S) FAILED"; exit 1; fi
