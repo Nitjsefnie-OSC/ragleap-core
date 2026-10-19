@@ -19,7 +19,7 @@ def pip(*pk):
 t0 = time.time()
 print("1/5 installing packages...")
 pip("uv", "huggingface_hub", "soundfile")
-pip("--force-reinstall", "--no-deps", "--no-cache-dir", "git+https://github.com/antonyrag/ragleap-core.git#subdirectory=packages/ragleap-voice")
+pip("--force-reinstall", "--no-deps", "--no-cache-dir", "git+https://github.com/ragleap/ragleap-core.git#subdirectory=packages/ragleap-voice")
 pip("faster-whisper==1.1.1", "nvidia-cublas-cu12", "nvidia-cudnn-cu12")
 pip("transformers==5.18.0", "onnxruntime-gpu==1.31.0", "onnx==1.20.1", "torchaudio")
 run("apt-get", "update", "-qq"); run("apt-get", "install", "-y", "-qq", "espeak-ng")   # GPLv3, used by Kokoro's non-English paths: demo use only

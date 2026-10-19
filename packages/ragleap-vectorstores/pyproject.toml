@@ -36,10 +36,10 @@ upstash = ["upstash-vector>=0.8.0"]
 opensearch = ["opensearch-py>=3.2.0"]
 
 [project.urls]
-Homepage = "https://github.com/antonyrag/ragleap-core"
-Repository = "https://github.com/antonyrag/ragleap-core"
+Homepage = "https://github.com/ragleap/ragleap-core"
+Repository = "https://github.com/ragleap/ragleap-core"
 Documentation = "https://packages.ragleap.com/docs/ragleap-vectorstores.html"
-Issues = "https://github.com/antonyrag/ragleap-core/issues"
+Issues = "https://github.com/ragleap/ragleap-core/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/ragleap_vectorstores"]

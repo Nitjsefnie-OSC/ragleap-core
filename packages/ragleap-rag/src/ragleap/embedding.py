@@ -38,7 +38,7 @@ CUSTOM_SHAPE_PROVIDERS = ("cohere", "voyage")
 # EmbeddingConfig(base_url=...), same as every other provider. Previously
 # _embed_cohere/_embed_voyage hardcoded the full first-party URL and never
 # read self.config.base_url at all - a real bug found via a community
-# live-verification report (see antonyrag/ragleap-core#360).
+# live-verification report (see ragleap/ragleap-core#360).
 CUSTOM_SHAPE_DEFAULT_BASE_URLS = {
     "cohere": "https://api.cohere.ai/v1",
     "voyage": "https://api.voyageai.com/v1",

@@ -1,6 +1,6 @@
 # RagLeap Core installer for Windows PowerShell.
 #
-#   irm https://raw.githubusercontent.com/antonyrag/ragleap-core/main/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/ragleap/ragleap-core/main/install.ps1 | iex
 #
 # Type it in an open PowerShell window. Do not wrap it in powershell -c, because Windows Defender
 # can block a child PowerShell that downloads and runs a script in one command line.
@@ -94,7 +94,7 @@ function Install-RagLeap {
   }
 
   $url = $env:RAGLEAP_INSTALL_URL
-  if (-not $url) { $url = 'https://raw.githubusercontent.com/antonyrag/ragleap-core/main/install.sh' }
+  if (-not $url) { $url = 'https://raw.githubusercontent.com/ragleap/ragleap-core/main/install.sh' }
   $dir = $env:RAGLEAP_DIR
   if (-not $dir) { $dir = Join-Path $env:USERPROFILE 'ragleap-core' }
   $tmp = Join-Path ([IO.Path]::GetTempPath()) ('ragleap-install-' + [Guid]::NewGuid().ToString('N') + '.sh')

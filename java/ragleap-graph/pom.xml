@@ -24,7 +24,7 @@
         schema migration runner. Not yet ported: the Postgres audit writer. Independently
         versioned from the Python package (see https://pypi.org/project/ragleap-graph/).
     </description>
-    <url>https://github.com/antonyrag/ragleap-core</url>
+    <url>https://github.com/ragleap/ragleap-core</url>
 
     <licenses>
         <license>
@@ -42,9 +42,9 @@
     </developers>
 
     <scm>
-        <connection>scm:git:https://github.com/antonyrag/ragleap-core.git</connection>
-        <developerConnection>scm:git:https://github.com/antonyrag/ragleap-core.git</developerConnection>
-        <url>https://github.com/antonyrag/ragleap-core</url>
+        <connection>scm:git:https://github.com/ragleap/ragleap-core.git</connection>
+        <developerConnection>scm:git:https://github.com/ragleap/ragleap-core.git</developerConnection>
+        <url>https://github.com/ragleap/ragleap-core</url>
     </scm>
 
     <properties>

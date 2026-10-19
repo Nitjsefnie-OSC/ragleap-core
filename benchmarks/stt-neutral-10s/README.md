@@ -1,6 +1,6 @@
 # Neutral STT Benchmark WAV
 
-Created for [issue #12](https://github.com/antonyrag/ragleap-core/issues/12) — a neutral, vendor-agnostic test file for comparing STT provider cost/accuracy/latency (Deepgram, OpenAI, ElevenLabs).
+Created for [issue #12](https://github.com/ragleap/ragleap-core/issues/12) — a neutral, vendor-agnostic test file for comparing STT provider cost/accuracy/latency (Deepgram, OpenAI, ElevenLabs).
 
 ## File
 

@@ -23,7 +23,7 @@ from ragleap_agents.agent import SUMMARY_PROMPT_PREFIX, parse_plan
 MAX_RETRIES = 5
 MAX_RETRY_AFTER = 30.0
 _RETRY_STATUS = {408, 429, 500, 502, 503, 504}
-DEFAULT_USER_AGENT = "ragleap-agents (+https://github.com/antonyrag/ragleap-core)"
+DEFAULT_USER_AGENT = "ragleap-agents (+https://github.com/ragleap/ragleap-core)"
 
 
 class ProviderError(RuntimeError):

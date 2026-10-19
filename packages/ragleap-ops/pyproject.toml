@@ -26,9 +26,9 @@ dependencies = []
 [project.urls]
 Homepage = "https://packages.ragleap.com/docs/ragleap-ops.html"
 Documentation = "https://packages.ragleap.com/docs/ragleap-ops.html"
-Source = "https://github.com/antonyrag/ragleap-core/tree/main/packages/ragleap-ops"
-Changelog = "https://github.com/antonyrag/ragleap-core/blob/main/packages/ragleap-ops/CHANGELOG.md"
-Issues = "https://github.com/antonyrag/ragleap-core/issues"
+Source = "https://github.com/ragleap/ragleap-core/tree/main/packages/ragleap-ops"
+Changelog = "https://github.com/ragleap/ragleap-core/blob/main/packages/ragleap-ops/CHANGELOG.md"
+Issues = "https://github.com/ragleap/ragleap-core/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/ragleap_ops"]

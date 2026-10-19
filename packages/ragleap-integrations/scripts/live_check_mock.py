@@ -19,7 +19,7 @@ import urllib.request
 from ragleap_integrations import McpClient, McpConfig, McpConfigError, McpDiscoveryError, McpServerConfig
 
 BASE = "https://mcpplaygroundonline.com"
-UA = "ragleap-live-check (+https://github.com/antonyrag/ragleap-core)"
+UA = "ragleap-live-check (+https://github.com/ragleap/ragleap-core)"
 PLAN = [
     "A  modern tools/call: stateless server pinned to ?rev=2026-07-28, tool which_protocol_era",
     "B  same tool, no ?rev (the server decides)",

@@ -56,7 +56,7 @@ TOTAL_TIMEOUT = 20
 MAX_BYTES = 1024 * 1024
 MAX_RESULT_CHARS = 4000
 ALLOWED_TYPES = ("text/html", "text/plain", "application/json")
-USER_AGENT = "Mozilla/5.0 (compatible; RagLeapBot/1.0; +https://github.com/antonyrag/ragleap-core)"
+USER_AGENT = "Mozilla/5.0 (compatible; RagLeapBot/1.0; +https://github.com/ragleap/ragleap-core)"
 
 
 def allowed_domains() -> List[str]:

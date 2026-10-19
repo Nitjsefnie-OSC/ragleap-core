@@ -5,7 +5,7 @@ built-in 6 (PgVector, FAISS, Pinecone, Weaviate, Qdrant, Milvus).
 
 This package is under active development - more backends will be added
 over time. See the
-[roadmap](https://github.com/antonyrag/ragleap-core/wiki/Roadmap) for status.
+[roadmap](https://github.com/ragleap/ragleap-core/wiki/Roadmap) for status.
 
 ## Available backends
 

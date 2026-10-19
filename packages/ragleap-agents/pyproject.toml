@@ -32,9 +32,9 @@ dependencies = [
 test = ["pytest>=8.0.0"]
 
 [project.urls]
-Homepage = "https://github.com/antonyrag/ragleap-core"
-Repository = "https://github.com/antonyrag/ragleap-core"
-Issues = "https://github.com/antonyrag/ragleap-core/issues"
+Homepage = "https://github.com/ragleap/ragleap-core"
+Repository = "https://github.com/ragleap/ragleap-core"
+Issues = "https://github.com/ragleap/ragleap-core/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/ragleap_agents"]

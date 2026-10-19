@@ -16,7 +16,7 @@ except Exception as e:
     if type(e).__name__ == "TimeoutException": print("NOTE: could not check the secret (tab in the background?). Make sure it is deleted.")
 if leak: raise SystemExit("HF_TOKEN secret still exists: delete it and the token, then rerun.")
 if "tok" in globals(): raise SystemExit("token still in memory: restart the session and rerun the download cell, then delete the secret.")
-subprocess.run([sys.executable, "-m", "pip", "install", "-q", "git+https://github.com/antonyrag/ragleap-core.git#subdirectory=packages/ragleap-voice"], check=True)
+subprocess.run([sys.executable, "-m", "pip", "install", "-q", "git+https://github.com/ragleap/ragleap-core.git#subdirectory=packages/ragleap-voice"], check=True)
 from ragleap_voice.bench.metrics import normalize
 from datasets import load_dataset
 from transformers import WhisperForConditionalGeneration, WhisperFeatureExtractor, AutoTokenizer

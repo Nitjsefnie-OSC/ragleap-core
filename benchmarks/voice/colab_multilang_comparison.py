@@ -18,7 +18,7 @@ def pip(*pk):
     r = run(sys.executable, "-m", "pip", "install", "-q", *pk)
     assert r.returncode == 0, r.stderr[-800:]
 pip("faster-whisper==1.1.1", "datasets==3.6.0", "soundfile", "nvidia-cublas-cu12", "nvidia-cudnn-cu12",
-    "git+https://github.com/antonyrag/ragleap-core.git#subdirectory=packages/ragleap-voice")
+    "git+https://github.com/ragleap/ragleap-core.git#subdirectory=packages/ragleap-voice")
 pip("transformers==5.18.0", "onnxruntime-gpu==1.31.0", "onnx==1.20.1", "torchaudio")
 
 def smi(q):
@@ -27,7 +27,7 @@ def smi(q):
 gpu = smi("name,memory.total")
 assert gpu, "No GPU: Runtime > Change runtime type > T4 GPU"
 def used(): return int(smi("memory.used").split()[0])
-main_sha = run("git", "ls-remote", "https://github.com/antonyrag/ragleap-core.git", "refs/heads/main").stdout.split()[0]
+main_sha = run("git", "ls-remote", "https://github.com/ragleap/ragleap-core.git", "refs/heads/main").stdout.split()[0]
 
 from google.colab import userdata
 try: tok = userdata.get("HF_TOKEN")

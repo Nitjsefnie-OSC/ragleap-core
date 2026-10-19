@@ -231,6 +231,6 @@ match LangChain/LlamaIndex feature-for-feature.
 
 If your setup uses a LangChain/LlamaIndex feature not shown here (custom
 retrievers, reranking, memory/session handling, structured output), open
-an issue on `antonyrag/ragleap-core` describing your current setup — real
+an issue on `ragleap/ragleap-core` describing your current setup — real
 migration examples are more useful than we can anticipate in advance, and
 we'd rather add a verified example than guess at one.

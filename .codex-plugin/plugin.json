@@ -6,8 +6,8 @@
     "name": "antonyrag",
     "url": "https://github.com/antonyrag"
   },
-  "homepage": "https://github.com/antonyrag/ragleap-core",
-  "repository": "https://github.com/antonyrag/ragleap-core",
+  "homepage": "https://github.com/ragleap/ragleap-core",
+  "repository": "https://github.com/ragleap/ragleap-core",
   "license": "MIT",
   "keywords": ["rag", "self-hosted", "ai-employees", "knowledge-base", "documents", "agents"],
   "skills": "./skills/"

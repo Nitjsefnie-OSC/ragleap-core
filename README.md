@@ -6,7 +6,7 @@
 
 **Open-source AI employees that ask before they act.**
 
-[![license MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE) [![Core Release](https://img.shields.io/github/v/release/antonyrag/ragleap-core?filter=v*&label=ragleap-core&color=blue)](https://github.com/antonyrag/ragleap-core/releases) [![46 AI Employees](https://img.shields.io/badge/46-AI%20Employees-brightgreen)](https://github.com/antonyrag/ragleap-core) [![Autonomous](https://img.shields.io/badge/Autonomous-brightgreen)](https://github.com/antonyrag/ragleap-core) [![Self--Hosted](https://img.shields.io/badge/Self--Hosted-brightgreen)](https://github.com/antonyrag/ragleap-core)
+[![license MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE) [![Core Release](https://img.shields.io/github/v/release/ragleap/ragleap-core?filter=v*&label=ragleap-core&color=blue)](https://github.com/ragleap/ragleap-core/releases) [![46 AI Employees](https://img.shields.io/badge/46-AI%20Employees-brightgreen)](https://github.com/ragleap/ragleap-core) [![Autonomous](https://img.shields.io/badge/Autonomous-brightgreen)](https://github.com/ragleap/ragleap-core) [![Self--Hosted](https://img.shields.io/badge/Self--Hosted-brightgreen)](https://github.com/ragleap/ragleap-core)
 [![PyPI ragleap-rag](https://img.shields.io/pypi/v/ragleap-rag?label=ragleap-rag)](https://pypi.org/project/ragleap-rag/) [![Downloads](https://img.shields.io/pepy/dt/ragleap-rag?label=downloads)](https://pypi.org/project/ragleap-rag/)
 [![PyPI ragleap-graph](https://img.shields.io/pypi/v/ragleap-graph?label=ragleap-graph)](https://pypi.org/project/ragleap-graph/) [![Downloads](https://img.shields.io/pepy/dt/ragleap-graph?label=downloads)](https://pypi.org/project/ragleap-graph/)
 [![PyPI ragleap-vectorstores](https://img.shields.io/pypi/v/ragleap-vectorstores?label=ragleap-vectorstores)](https://pypi.org/project/ragleap-vectorstores/) [![Downloads](https://img.shields.io/pepy/dt/ragleap-vectorstores?label=downloads)](https://pypi.org/project/ragleap-vectorstores/)
@@ -21,7 +21,7 @@
 [![PyPI ragleap-voice](https://img.shields.io/pypi/v/ragleap-voice?label=ragleap-voice)](https://pypi.org/project/ragleap-voice/) [![Downloads](https://img.shields.io/pepy/dt/ragleap-voice?label=downloads)](https://pypi.org/project/ragleap-voice/)
 [![Maven Central ragleap-rag (Java)](https://img.shields.io/maven-central/v/io.github.antonyrag/ragleap-rag?label=ragleap-rag%20(Java))](https://central.sonatype.com/artifact/io.github.antonyrag/ragleap-rag)
 [![Maven Central ragleap-graph (Java)](https://img.shields.io/maven-central/v/io.github.antonyrag/ragleap-graph?label=ragleap-graph%20(Java))](https://central.sonatype.com/artifact/io.github.antonyrag/ragleap-graph)
-[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://github.com/antonyrag/ragleap-core) [![Discord](https://img.shields.io/badge/Discord-Join%20us-5865F2?logo=discord&logoColor=white)](https://discord.gg/mQwJuQDVrA) [![Repo clones](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/antonyrag/ragleap-core/main/.github/badges/clone-count.json)](https://github.com/antonyrag/ragleap-core/pulse)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://github.com/ragleap/ragleap-core) [![Discord](https://img.shields.io/badge/Discord-Join%20us-5865F2?logo=discord&logoColor=white)](https://discord.gg/mQwJuQDVrA) [![Repo clones](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ragleap/ragleap-core/main/.github/badges/clone-count.json)](https://github.com/ragleap/ragleap-core/pulse)
 
 English · [Afrikaans](readmes/README.af.md) · [العربية](readmes/README.ar.md) · [Български](readmes/README.bg.md) · [বাংলা](readmes/README.bn.md) · [Català](readmes/README.ca.md) · [Čeština](readmes/README.cs.md) · [Cymraeg](readmes/README.cy.md) · [Dansk](readmes/README.da.md) · [Deutsch](readmes/README.de.md) · [Ελληνικά](readmes/README.el.md) · [Español](readmes/README.es.md) · [Eesti](readmes/README.et.md) · [فارسی](readmes/README.fa.md) · [Suomi](readmes/README.fi.md) · [Français](readmes/README.fr.md) · [ગુજરાતી](readmes/README.gu.md) · [עברית](readmes/README.he.md) · [हिन्दी](readmes/README.hi.md) · [Hrvatski](readmes/README.hr.md) · [Magyar](readmes/README.hu.md) · [Bahasa Indonesia](readmes/README.id.md) · [Italiano](readmes/README.it.md) · [日本語](readmes/README.ja.md) · [ಕನ್ನಡ](readmes/README.kn.md) · [한국어](readmes/README.ko.md) · [Lietuvių](readmes/README.lt.md) · [Latviešu](readmes/README.lv.md) · [Македонски](readmes/README.mk.md) · [മലയാളം](readmes/README.ml.md) · [मराठी](readmes/README.mr.md) · [नेपाली](readmes/README.ne.md) · [Nederlands](readmes/README.nl.md) · [Norsk](readmes/README.no.md) · [ਪੰਜਾਬੀ](readmes/README.pa.md) · [Polski](readmes/README.pl.md) · [Português](readmes/README.pt.md) · [Română](readmes/README.ro.md) · [Русский](readmes/README.ru.md) · [Slovenčina](readmes/README.sk.md) · [Slovenščina](readmes/README.sl.md) · [Soomaali](readmes/README.so.md) · [Shqip](readmes/README.sq.md) · [Svenska](readmes/README.sv.md) · [Kiswahili](readmes/README.sw.md) · [தமிழ்](readmes/README.ta.md) · [తెలుగు](readmes/README.te.md) · [ไทย](readmes/README.th.md) · [Tagalog](readmes/README.tl.md) · [Türkçe](readmes/README.tr.md) · [Українська](readmes/README.uk.md) · [اردو](readmes/README.ur.md) · [Tiếng Việt](readmes/README.vi.md) · [简体中文](readmes/README.zh-cn.md) · [繁體中文](readmes/README.zh-tw.md)
 
@@ -45,7 +45,7 @@ RagLeap Core is the open-source engine behind RagLeap — a self-hosted, agentic
 **Install in one command** (needs Docker Desktop on macOS and Windows, or Docker Engine on Linux; the script asks which AI to use and never changes an existing `.env`):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/antonyrag/ragleap-core/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ragleap/ragleap-core/main/install.sh | bash
 ```
 
 Prefer to read it first? See [install.sh](install.sh). For a fully local setup with no API key, use `bash -s -- --ollama` at the end of that command.
@@ -53,7 +53,7 @@ Prefer to read it first? See [install.sh](install.sh). For a fully local setup w
 **Windows:** install [Docker Desktop](https://www.docker.com/products/docker-desktop) (it needs WSL 2 and CPU virtualization turned on) and [Git for Windows](https://git-scm.com/download/win), then type this in an open PowerShell window:
 
 ```powershell
-irm https://raw.githubusercontent.com/antonyrag/ragleap-core/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/ragleap/ragleap-core/main/install.ps1 | iex
 ```
 
 It asks which AI to use, builds and starts RagLeap, and opens the dashboard in your browser without printing your login key in the terminal. Type it directly in PowerShell: wrapped inside `powershell -c "..."`, Windows Defender stopped that form on the one machine we tested. To read the script first, run `$s = irm` with the same address, look at `$s`, then run `iex $s`. After the install, run RagLeap commands in Git Bash from the install folder, for example `bash scripts/ragleap key`.
@@ -338,19 +338,19 @@ ragleap-core/
 **Fastest way to try it** — one command checks Docker, clones the repo, and sets up `.env` for you:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/antonyrag/ragleap-core/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ragleap/ragleap-core/main/install.sh | bash
 ```
 
 (Windows users: run this in Git Bash, not Command Prompt or PowerShell.)
 
-The installer asks which AI to use (Gemini, or fully local Ollama with no API key), generates your API key and secrets, starts everything and prints a one-click link to the dashboard. For local AI run `curl -fsSL https://raw.githubusercontent.com/antonyrag/ragleap-core/main/install.sh | bash -s -- --ollama` (small local models on a CPU are slower and less accurate than Gemini). For unattended installs set `RAGLEAP_PROVIDER` (`gemini`, `ollama` or `skip`) and `GEMINI_API_KEY`. An existing `.env` is never modified.
+The installer asks which AI to use (Gemini, or fully local Ollama with no API key), generates your API key and secrets, starts everything and prints a one-click link to the dashboard. For local AI run `curl -fsSL https://raw.githubusercontent.com/ragleap/ragleap-core/main/install.sh | bash -s -- --ollama` (small local models on a CPU are slower and less accurate than Gemini). For unattended installs set `RAGLEAP_PROVIDER` (`gemini`, `ollama` or `skip`) and `GEMINI_API_KEY`. An existing `.env` is never modified.
 
 After installing, control RagLeap with the `ragleap` command: `ragleap launch` (start; `--ollama` also runs the local AI service and switches to it), `ragleap stop`, `ragleap status`, `ragleap logs`, `ragleap update` (backs up the database first) and `ragleap key` (prints your one-click dashboard link).
 
 **Or, the manual way** — better if you want to read the code before running anything:
 
 ```bash
-git clone https://github.com/antonyrag/ragleap-core.git
+git clone https://github.com/ragleap/ragleap-core.git
 cd ragleap-core
 cp .env.example .env
 # add your Gemini API key to .env
@@ -717,7 +717,7 @@ See [ROADMAP.md](ROADMAP.md) for the full phase-by-phase history.
 
 ## Tested by others
 
-We call a feature proven only when someone other than the maintainers has run it and reported the result. This table starts empty on purpose. It is filled in from reports on the [community testing issues](https://github.com/antonyrag/ragleap-core/issues/787), and nothing counts as tested until a report is listed here.
+We call a feature proven only when someone other than the maintainers has run it and reported the result. This table starts empty on purpose. It is filled in from reports on the [community testing issues](https://github.com/ragleap/ragleap-core/issues/787), and nothing counts as tested until a report is listed here.
 
 You do not need to write code to help: pick a test, run a few steps on sample files, and comment with what happened, even if everything worked. Please never share keys or real data.
 
