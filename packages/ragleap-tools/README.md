@@ -279,7 +279,7 @@ rushed inclusion here:
 
 ## Status
 
-v0.5.0. 362 tests, all passing, including real security verification
+v0.5.1. 362 tests, all passing, including real security verification
 for the two risk-sensitive tools (calculator's code-injection
 rejection, file ops' path-traversal and symlink-escape rejection) -
 not just documented as safe, actually tested against real attack

@@ -5,6 +5,19 @@ loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-10-19
+
+### Changed
+
+- Project links in the package metadata (Homepage, Repository, Issues) now
+  point at https://github.com/ragleap/ragleap-core, the repository's new home in
+  the ragleap organization. Metadata only, no code change. (The 0.5.0 project
+  page on PyPI still shows the old owner; GitHub redirects the old links.)
+
+### Verified
+
+- The same 362 tests as 0.5.0, passing on Python 3.10 and 3.12.
+
 ## [0.5.0] - 2026-10-18
 
 ### Added
