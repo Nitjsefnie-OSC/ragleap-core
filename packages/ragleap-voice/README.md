@@ -2,7 +2,7 @@
 
 Open-source (MIT), local-first speech tooling, with Indian languages as a priority.
 
-**Status: pre-alpha. Version 0.0.1 is the model-management layer only. There are no speech engines in this release: you cannot transcribe or synthesize audio with this package yet.**
+**Status: pre-alpha. Version 0.0.2 is the model-management layer only. There are no speech engines in this release: you cannot transcribe or synthesize audio with this package yet.**
 
 ## What works today
 
