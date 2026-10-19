@@ -194,6 +194,10 @@ echo "pod volume backups: $(tr '\n' ' ' <<< "$PVB")"
 if [ "$NPVB" -ge 2 ]; then record "PASS  $NPVB pod volume backups completed (volume data was backed up, not only objects)"
 else fail "only $NPVB pod volume backups completed; the PVC data may have been skipped (Velero's file-system backup does not support hostPath volumes, which kind's default storage uses)"; fi
 
+VOLS=$(kubectl -n velero get podvolumebackups -o jsonpath='{range .items[*]}{.spec.volume}{"="}{.status.phase}{"\n"}{end}' 2>/dev/null || true)
+echo "pod volume backups by volume: $(tr '\n' ' ' <<< "$VOLS")"
+if grep -q -x "db-data=Completed" <<< "$VOLS"; then record "PASS  the Postgres data volume (db-data) has a completed pod volume backup"; else fail "the db-data volume has no completed pod volume backup"; fi
+
 echo "== disaster: delete the namespace"
 kubectl delete namespace "$NS" --wait --timeout=300s
 if kubectl get namespace "$NS" >/dev/null 2>&1; then fail "namespace $NS still exists"; else record "PASS  namespace $NS is gone"; fi
@@ -206,11 +210,23 @@ if kubectl -n "$NS" wait --for=condition=Available deploy/ragleap-db --timeout=4
 if kubectl -n "$NS" wait --for=condition=Available deploy/ragleap-neo4j --timeout=420s >/dev/null 2>&1; then record "PASS  ragleap-neo4j is available after the restore"; else fail "ragleap-neo4j is not available after the restore"; fi
 
 echo "== verify the data"
-ROW=$(kubectl -n "$NS" exec deploy/ragleap-db -- psql -U ragleap -d ragleap_core -At -c "SELECT note FROM velero_probe WHERE id = 1;" 2>&1 || true)
-echo "postgres says: $ROW"
+ROW=""
+for i in 1 2 3 4 5 6; do
+  ROW=$(kubectl -n "$NS" exec deploy/ragleap-db -c db -- psql -U ragleap -d ragleap_core -At -c "SELECT note FROM velero_probe WHERE id = 1;" 2>/tmp/pg.err || true)
+  [ "$ROW" = "postgres-probe-row" ] && break
+  sleep 10
+done
+echo "postgres says: [$ROW]"
+if [ "$ROW" != "postgres-probe-row" ]; then echo "postgres stderr: $(cat /tmp/pg.err)"; fi
 if [ "$ROW" = "postgres-probe-row" ]; then record "PASS  the Postgres probe row came back after the restore"; else fail "the Postgres probe row did not come back (got: $ROW)"; fi
-NODE=$(kubectl -n "$NS" exec deploy/ragleap-neo4j -- cypher-shell -u neo4j -p ragleapgraph --format plain "MATCH (n:VeleroProbe) RETURN n.note;" 2>&1 || true)
-echo "neo4j says: $NODE"
+NODE=""
+for i in 1 2 3 4 5 6; do
+  NODE=$(kubectl -n "$NS" exec deploy/ragleap-neo4j -c neo4j -- cypher-shell -u neo4j -p ragleapgraph --format plain "MATCH (n:VeleroProbe) RETURN n.note;" 2>/tmp/n4.err || true)
+  grep -q "neo4j-probe-node" <<< "$NODE" && break
+  sleep 10
+done
+echo "neo4j says: [$NODE]"
+if ! grep -q "neo4j-probe-node" <<< "$NODE"; then echo "neo4j stderr: $(cat /tmp/n4.err)"; fi
 if grep -q "neo4j-probe-node" <<< "$NODE"; then record "PASS  the Neo4j probe node came back after the restore"; else fail "the Neo4j probe node did not come back (got: $NODE)"; fi
 
 echo
