@@ -4,6 +4,12 @@ All notable changes to `ragleap-voice` are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
+
+## [0.0.2] - 2026-10-19
+### Changed
+- Still the model-management layer only: there are no speech engines in this release.
+- Project URLs point at the ragleap organisation (the repository moved to ragleap/ragleap-core).
+- The `whisper-large-v3` manifest entry now names the repository we run (`Systran/faster-whisper-large-v3`) at a pinned revision; it named `openai/whisper-large-v3` with no revision. It stays unverified.
 ### Added
 - Language coverage matrix as data: `coverage/stt.csv` and `coverage/tts.csv` (one row per language and engine, with tier, interval, test set and evidence), a standard-library checker `ragleap_voice.coverage`, tests, and packaging of the files in the wheel. Rows come only from measurements already in `benchmarks/voice/README.md`; unmeasured languages are tier 1 rows that say so. No raw per-clip results are committed yet.
 - Benchmark JSON result metadata now records the normalizer version used for the run. Files from before this field was added are version "1".

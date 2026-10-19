@@ -54,7 +54,7 @@ we got what we reviewed, not that it is trustworthy); a parser bug in a native l
 | Item | State |
 |---|---|
 | MIT licence file, third-party notices | [verified] |
-| Zero runtime dependencies in 0.0.1 | [verified] |
+| Zero runtime dependencies in 0.0.1 and 0.0.2 | [verified] |
 | PyPI trusted publishing (no stored password), tag-only releases | [verified] |
 | CodeQL, dependency and image scanning, secret scan in CI | [verified for the repository] |
 | Private vulnerability reporting (SECURITY.md) | [verified at repository level] |
