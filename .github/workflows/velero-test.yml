@@ -16,7 +16,7 @@ on:
       s3_image:
         description: 'S3 stand-in image'
         required: false
-        default: 'rustfs/rustfs:latest'
+        default: 'rustfs/rustfs@sha256:9ca9559533b537d10482fe923288b676ad08f92a7069d9a17327fbae3cab688b'
   pull_request:
     branches: [main]
     paths:
@@ -41,5 +41,5 @@ jobs:
         env:
           VELERO_VERSION: ${{ inputs.velero_version || 'v1.18.3' }}
           AWS_PLUGIN_VERSION: ${{ inputs.aws_plugin_version || 'v1.14.0' }}
-          S3_IMAGE: ${{ inputs.s3_image || 'rustfs/rustfs:latest' }}
+          S3_IMAGE: ${{ inputs.s3_image || 'rustfs/rustfs@sha256:9ca9559533b537d10482fe923288b676ad08f92a7069d9a17327fbae3cab688b' }}
         run: bash .github/scripts/velero-test.sh
