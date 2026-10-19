@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ragleap-terraform"
-version = "0.1.0"
+version = "0.1.1"
 description = "Terraform module that creates a kind cluster and installs the RagLeap Helm charts, tested on a real cluster"
 readme = "README.md"
 keywords = ["terraform", "kind", "kubernetes", "helm", "devops", "infrastructure-as-code", "iac", "observability", "rag"]
