@@ -35,6 +35,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 from ragleap_tools import Tool, ToolResult
 
+from ragleap_agents.context import RunContext, current_run, enter_run, leave_run
 from ragleap_agents.state import InMemoryStateStore, StateStore
 
 logger = logging.getLogger(__name__)
@@ -317,6 +318,11 @@ class Agent:
             self._run_tool(state, tool, args, sig, False)
 
     def _run_tool(self, state: Dict[str, Any], tool: Tool, args: Dict[str, Any], sig: List[str], forced: bool) -> None:
+        parent = current_run()
+        shared = parent.delegation if parent is not None else state.setdefault(
+            "delegation", {"delegations": 0, "child_steps": 0})
+        token = enter_run(RunContext(run_id=state["run_id"], depth=0 if parent is None else parent.depth + 1,
+                                     tainted=bool(state["tainted"]), delegation=shared))
         try:
             res = tool.call(**args)
             if not isinstance(res, ToolResult):
@@ -329,6 +335,8 @@ class Agent:
         except Exception as e:  # the exception text may hold secrets: keep only its type
             logger.warning("tool %s raised %s", tool.name, type(e).__name__)
             obs, status = f"error: tool raised {type(e).__name__}", "error"
+        finally:
+            leave_run(token)
         state["steps"].append({"tool": tool.name, "arguments": args, "sig": sig, "status": status,
                                "forced_approval": forced, "observation": obs[: self.policy.obs_cap]})
         if self.policy.for_tool(tool.name).taints:
