@@ -421,6 +421,7 @@ RagLeap Core is bring-your-own-key only there is no system-provided key for any 
 | `openrouter` | `OPENROUTER_API_KEY`, `OPENROUTER_MODEL` | |
 | `ollama` | `OLLAMA_MODEL` (no API key needed) | Self-hosted; requires Ollama running locally |
 | `deepseek` | `DEEPSEEK_API_KEY`, `DEEPSEEK_MODEL` | |
+| `demonroute` | `DEMONROUTE_API_KEY`, `DEMONROUTE_MODEL` | Hosted open-weight models; prepaid, no-logs API — demonroute.com |
 | `xai` | `XAI_API_KEY`, `XAI_MODEL` | |
 | `cohere` | `COHERE_API_KEY`, `COHERE_MODEL` | |
 | `perplexity` | `PERPLEXITY_API_KEY`, `PERPLEXITY_MODEL` | |
