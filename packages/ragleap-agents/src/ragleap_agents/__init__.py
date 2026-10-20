@@ -20,7 +20,7 @@ from ragleap_agents.agent import (
 from ragleap_agents.providers import ProviderError, openai_compatible
 from ragleap_agents.state import AtomicStateStore, InMemoryStateStore, SQLiteStateStore, StateStore
 
-__version__ = "0.4.0"
+__version__ = "0.4.1"
 
 __all__ = [
     "Agent",

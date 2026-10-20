@@ -5,6 +5,22 @@ loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-10-20
+
+### Changed
+
+- Project links in the package metadata (Homepage, Repository, Issues) now point at
+  https://github.com/ragleap/ragleap-core, the repository's new home in the ragleap organization.
+  The OpenAI-compatible adapter's default `User-Agent` header now names the new address
+  (`ragleap-agents (+https://github.com/ragleap/ragleap-core)`); it named the old owner before.
+  Nothing else changed: this release is 0.4.0 plus those links and the version string. (The 0.4.0
+  project page on PyPI still shows the old owner; GitHub redirects the old links.)
+
+### Verified
+
+- The only differences from the 0.4.0 tag are the version string, the project links and the default
+  `User-Agent` constant (`git diff ragleap-agents-v0.4.0` over `packages/ragleap-agents`).
+
 ## [0.4.0] - 2026-10-17
 
 ### Changed (behaviour change: an empty run now stops)
