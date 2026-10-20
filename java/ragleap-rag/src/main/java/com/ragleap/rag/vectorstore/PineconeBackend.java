@@ -62,9 +62,9 @@ import java.util.logging.Logger;
  *   an independent walkthrough shows an orthogonal vector scoring 0.0 - i.e.
  *   raw cosine, not a [0, 1] score. Normalized here via {@code (x + 1) / 2},
  *   matching QdrantBackend/MilvusBackend. The Python PineconeBackend
- *   returns the raw score unnormalized, so it likely has the same
- *   inconsistency Qdrant and Milvus had; that is flagged, not changed,
- *   here. This specific claim was not verified on Pinecone's Query API
+ *   returned the raw score unnormalized until the fix for issue 577 (merged
+ *   to Python main, not yet released), the same inconsistency Qdrant and
+ *   Milvus had. This specific claim was not verified on Pinecone's Query API
  *   reference page or against a live index.</li>
  * </ul>
  *

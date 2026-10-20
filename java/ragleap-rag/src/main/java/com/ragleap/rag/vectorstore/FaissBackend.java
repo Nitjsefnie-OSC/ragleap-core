@@ -237,8 +237,9 @@ public class FaissBackend implements VectorBackend, AutoCloseable {
 
             // The inner product of two L2-normalized vectors is their cosine in [-1, 1]. Normalized to
             // [0, 1] with (x + 1) / 2 so scores share one scale with pgvector, Qdrant and Weaviate
-            // (identical 1.0, orthogonal 0.5, opposite 0.0). Python's FaissBackend returns the raw
-            // value; found by the cross-backend benchmark (issue 565).
+            // (identical 1.0, orthogonal 0.5, opposite 0.0). Python's FaissBackend returned the raw
+            // value until the fix for issue 577 (merged to Python main, not yet released); found by the
+            // cross-backend benchmark (issue 565).
             double normalizedScore = Math.max(0.0, Math.min(1.0, (score + 1.0) / 2.0));
             results.add(new SearchResult(String.valueOf(vid), text, round4(normalizedScore), documentId, documentName, chunkIndex));
         }
