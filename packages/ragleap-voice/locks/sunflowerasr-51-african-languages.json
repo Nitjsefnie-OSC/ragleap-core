@@ -1,0 +1,48 @@
+{
+  "files": [
+    {
+      "path": ".gitattributes",
+      "sha256": "11ad7efa24975ee4b0c3c3a38ed18737f0658a5f75a0a96787b576a78a023361",
+      "size": 1519
+    },
+    {
+      "path": "README.md",
+      "sha256": "8df4ce1174d820ab390f05a40a220e19b1357f1ddf639c033d1354ed9b3d1417",
+      "size": 28486
+    },
+    {
+      "path": "config.json",
+      "sha256": "91f1d75e053e075cb17b2af83124ce2aa99f8e603070df971ace6bb9f7bdd81b",
+      "size": 1225
+    },
+    {
+      "path": "generation_config.json",
+      "sha256": "55db9211990120bb9e17904dabd113759131cae85d5722845b55ed21451ef657",
+      "size": 3717
+    },
+    {
+      "path": "model.safetensors",
+      "sha256": "822e79fcb2325caf7440c215a4f106d7a7e6c70b29d4efa472570b5c6887abd4",
+      "size": 6174112552
+    },
+    {
+      "path": "processor_config.json",
+      "sha256": "8efb801da889b24fc64a28d0af16d376852508aefb97d497a4c6d2200b114a33",
+      "size": 410
+    },
+    {
+      "path": "tokenizer.json",
+      "sha256": "acb92e9128c1545b8d51f0a28aee8eb9f3f620bda7aaba586cd8312f491e8a7a",
+      "size": 3931033
+    },
+    {
+      "path": "tokenizer_config.json",
+      "sha256": "f874ac781e2679e85c9bf154e401dbfa4f7aef033486d5144da13b2c50164bd4",
+      "size": 2106
+    }
+  ],
+  "model": "sunflowerasr-51-african-languages",
+  "revision": "4583c9dd251c422a4325fb0a0a509a3828097be2",
+  "schema": 1,
+  "source_url": "https://huggingface.co/Sunbird/SunflowerASR-51-african-languages"
+}
