@@ -12,8 +12,8 @@
     <name>ragleap-vectorstores (Java port)</name>
     <description>
         Java port of ragleap-vectorstores: extra vector store backends for ragleap-rag, talking to
-        each store over its REST API with no vendor SDK. Work in progress: OpenSearch only so far
-        (not live-verified). Independently versioned from the Python package
+        each store over its REST API with no vendor SDK. Work in progress: OpenSearch and Upstash so far
+        (neither live-verified). Independently versioned from the Python package
         (see https://pypi.org/project/ragleap-vectorstores/).
     </description>
     <url>https://github.com/ragleap/ragleap-core</url>
