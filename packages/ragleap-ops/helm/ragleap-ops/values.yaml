@@ -18,7 +18,7 @@ db:
 
 app:
   replicaCount: 1
-  image: ghcr.io/antonyrag/ragleap-app:latest
+  image: ghcr.io/ragleap/ragleap-app:0.11.0
   imagePullSecret: ghcr-pull-secret
   port: 8000
   # Optional container resources. Empty by default (no behaviour change).
@@ -40,7 +40,7 @@ app:
 
 voice:
   replicaCount: 1
-  image: ghcr.io/antonyrag/ragleap-app:latest
+  image: ghcr.io/ragleap/ragleap-app:0.11.0
   imagePullSecret: ghcr-pull-secret
   port: 8765
   # Optional container resources. Empty by default (no behaviour change).
