@@ -1,0 +1,53 @@
+{
+  "files": [
+    {
+      "path": ".gitattributes",
+      "sha256": "a36be463e95c8ca666f20ceec6bc57dbb621f82236bb4b27958246570da6b29c",
+      "size": 2314
+    },
+    {
+      "path": "README.md",
+      "sha256": "7b639c63a8095e1a9c5dea4d8b586eb1c4de531f982ba721bf3c061908a58f3f",
+      "size": 17430
+    },
+    {
+      "path": "config.json",
+      "sha256": "c6ecf6d149df20719c225de27ce65288c086eaca241d2c13ff2844ee0ff4d421",
+      "size": 1225
+    },
+    {
+      "path": "generation_config.json",
+      "sha256": "af2405dab60b5cd6d567125d836663cf9bc5213b065606afe0f2556ca2b7606b",
+      "size": 203
+    },
+    {
+      "path": "model.safetensors",
+      "sha256": "7d026e7088605bf2cfa35c8e00985ab4284f6a02ef29e80c2d2465556a6309f7",
+      "size": 3087136096
+    },
+    {
+      "path": "preprocessor_config.json",
+      "sha256": "7ccc62c6f2765af1f3b46c00c9b5894426835a05021c8b9c01eecb6dfb542711",
+      "size": 340
+    },
+    {
+      "path": "processor_config.json",
+      "sha256": "8efb801da889b24fc64a28d0af16d376852508aefb97d497a4c6d2200b114a33",
+      "size": 410
+    },
+    {
+      "path": "tokenizer.json",
+      "sha256": "1c628988b6fa1e7a394a44bc15a0a8587b01e5ae63a15495f71cfb1bb841c6dd",
+      "size": 3931010
+    },
+    {
+      "path": "tokenizer_config.json",
+      "sha256": "adc074a2172a54df20de1a486c161f0b6f407a331d6551b47c59357345c0ac25",
+      "size": 2069
+    }
+  ],
+  "model": "naijavox-2",
+  "revision": "22b94de94e59419cc9d6e25e6eaeceb1f1c42d00",
+  "schema": 1,
+  "source_url": "https://huggingface.co/Axiveri/NaijaVox-2.0"
+}

@@ -5,6 +5,7 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 ### Added
+- Lock files for `naijavox-2` and `sunflowerasr-51-african-languages` and their digests in `models.toml`. Both entries stay `unverified`; the training-data licences of both models have not been reviewed. NaijaVox's sample audio and images are not part of its lock.
 - Manifest entries `naijavox-2` and `sunflowerasr-51-african-languages` (unverified candidates, no lock yet, not in the default path) and a notice listing their training datasets with licences not reviewed. The matching rows in `coverage/stt.csv` now use these names instead of the `candidate:` prefix.
 
 ## [0.0.2] - 2026-10-19
