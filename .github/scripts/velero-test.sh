@@ -77,6 +77,50 @@ echo "== creating kind cluster $CL"
 kind create cluster --name "$CL" --wait 180s
 kubectl get storageclass
 
+echo "== what does the default storage class create? (throwaway PVC and pod in the default namespace)"
+kubectl apply -f - <<EOF
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: probe-default
+  namespace: default
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: probe-default
+  namespace: default
+spec:
+  containers:
+    - name: c
+      image: busybox:1.36
+      command: ["sleep", "300"]
+      volumeMounts:
+        - name: v
+          mountPath: /v
+  volumes:
+    - name: v
+      persistentVolumeClaim:
+        claimName: probe-default
+EOF
+if kubectl -n default wait --for=condition=Ready pod/probe-default --timeout=180s >/dev/null 2>&1; then
+  PVN=$(kubectl -n default get pvc probe-default -o jsonpath='{.spec.volumeName}')
+  DSC=$(kubectl -n default get pvc probe-default -o jsonpath='{.spec.storageClassName}')
+  DPROV=$(kubectl get storageclass "$DSC" -o jsonpath='{.provisioner}')
+  HP=$(kubectl get pv "$PVN" -o jsonpath='{.spec.hostPath.path}' 2>/dev/null || true)
+  LP=$(kubectl get pv "$PVN" -o jsonpath='{.spec.local.path}' 2>/dev/null || true)
+  record "OBSERVED  default storage class '$DSC' (provisioner $DPROV) created PV $PVN with hostPath='$HP' local='$LP'"
+else
+  record "OBSERVED  the probe pod on the default storage class did not become ready"
+fi
+kubectl -n default delete pod probe-default --wait --timeout=60s || true
+kubectl -n default delete pvc probe-default --wait --timeout=60s || true
+
 echo "== storage Velero can back up: static PersistentVolumes of type local (not hostPath)"
 KNODE=$(kubectl get nodes -o jsonpath='{.items[0].metadata.name}')
 kubectl patch storageclass standard -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"false"}}}' || true
