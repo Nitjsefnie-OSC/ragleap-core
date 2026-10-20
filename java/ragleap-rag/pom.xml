@@ -34,7 +34,7 @@
         async variants are not ported. Every module here is genuinely tested;
         documented per-class where it is not live-verified.
     </description>
-    <url>https://github.com/antonyrag/ragleap-core</url>
+    <url>https://github.com/ragleap/ragleap-core</url>
 
     <licenses>
         <license>
@@ -52,9 +52,9 @@
     </developers>
 
     <scm>
-        <connection>scm:git:https://github.com/antonyrag/ragleap-core.git</connection>
-        <developerConnection>scm:git:https://github.com/antonyrag/ragleap-core.git</developerConnection>
-        <url>https://github.com/antonyrag/ragleap-core</url>
+        <connection>scm:git:https://github.com/ragleap/ragleap-core.git</connection>
+        <developerConnection>scm:git:https://github.com/ragleap/ragleap-core.git</developerConnection>
+        <url>https://github.com/ragleap/ragleap-core</url>
     </scm>
 
     <properties>

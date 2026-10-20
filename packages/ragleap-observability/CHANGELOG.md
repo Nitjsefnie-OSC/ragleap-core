@@ -5,6 +5,48 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.8.4] - 2026-10-19
+
+### Changed
+
+- The project URLs on the package page (Source, Changelog, Issues) now point to github.com/ragleap/ragleap-core, where the repository moved from antonyrag/ragleap-core. No code or chart changes.
+
+## [0.8.3] - 2026-10-17
+
+### Added
+
+- `tests/live/slo-live-test.sh`: a manual test (about 20-25 minutes, needs Docker, not run in CI) that runs the SLO rules on a real Prometheus with a stand-in target and removes what it creates.
+
+### Changed
+
+- The package description no longer says "live-tested against a real cluster"; it points to this changelog. README wording on what is verified is updated.
+
+### Verified
+
+- Ran `tests/live/slo-live-test.sh` on 2026-10-17 against Prometheus v3.13.4 (single container, no Kubernetes, 15 s scrape interval, rules from 0.8.2, which are unchanged): a healthy target fired nothing; a stopped target fired `RagleapAvailabilityFastBurn` (after 140 s) and `PostgresExporterDown` (191 s) and both cleared after recovery; a target removed from the scrape config fired `RagleapTargetAbsent` (342 s) while `PostgresExporterDown` stayed inactive, and it cleared when the target returned. 12 of 12 checks passed. This supersedes "not run on a live Prometheus" in the 0.8.0 and 0.8.2 entries below.
+- With defaults, `helm template` output is identical to 0.8.2.
+
+### Known limitations
+
+- Not exercised: `RagleapAvailabilitySlowBurn` firing (needs an outage of 15 minutes or more), delivery through AlertManager, and the Kubernetes wiring.
+- Timings come from a fresh Prometheus with little history, so the burn-rate windows averaged only the data that existed.
+
+## [0.8.2] - 2026-10-17
+
+### Added
+
+- `RagleapTargetAbsent` alert (with `slo.enabled`): one `absent(up{job="..."})` rule per job in `slo.availability.jobs`, critical after 5 minutes. It covers a target that vanishes entirely, which the burn-rate alerts could not see.
+
+### Verified
+
+- `promtool check rules` and `test rules` pass: present target (no alert), vanished target (fires), only another job present (fires), two-minute gap (no alert). Breaking the expression and the `for` duration each made the tests fail; the restored rules passed.
+- With defaults, `helm template` output is identical to 0.8.1.
+
+### Known limitations
+
+- Rule logic only, on simulated data. Not run on a live Prometheus; no alert reached AlertManager.
+- With `slo.enabled=true` and a listed job the chart does not scrape (for example `ragleap-postgres` with `postgresExporter.enabled=false`), `RagleapTargetAbsent` fires permanently. List only scraped jobs.
+
 ## [0.8.1] - 2026-10-17
 
 ### Fixed

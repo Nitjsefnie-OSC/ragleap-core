@@ -169,7 +169,7 @@ def main():
     o.append("| Weaviate raised a GraphQL error when searching an empty collection or filtering on a key no chunk had yet | #585 |")
     o.append("| Qdrant and Weaviate left a local row behind when the server write failed, so the chunk could not be retried | #585 |")
     o.append("")
-    o.append("The Python `FaissBackend` and `PineconeBackend` still return raw cosine scores (issue #577).")
+    o.append("The Python `FaissBackend` and `PineconeBackend` returned raw cosine scores when this benchmark ran; fixed on Python main (issue #577, PR #861), not yet in a PyPI release.")
     o.append("")
     o.append("## Limits")
     o.append("")

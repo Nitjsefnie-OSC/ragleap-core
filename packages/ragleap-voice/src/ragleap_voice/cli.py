@@ -162,15 +162,23 @@ def _cmd_lock(args):
         raise PullError(str(out) + " already exists (use --overwrite)")
     policy, base = _network()
     token = token_from_env(os.environ)
+    formats = {}
+    for item in args.format or ():
+        fpath, sep, ftag = item.partition("=")
+        if not sep or not fpath or not ftag:
+            raise PullError("--format expects PATH=NAME, for example model.bin=ctranslate2")
+        formats[fpath] = ftag
     plan = plan_lock(entry.source_url, args.revision, includes=tuple(args.include or ()),
                      excludes=tuple(args.exclude or ()), policy=policy, base_url=base, token=token)
+    from .pull import check_format_options
+    check_format_options(plan, formats)
     known = sum(s or 0 for _, s in plan)
     print("%d file(s), about %s according to the API:" % (len(plan), format_size(known)))
     for path, size in plan[:50]:
         print("  %s  %s" % (path, format_size(size) if size is not None else "?"))
     if len(plan) > 50:
         print("  ... and %d more" % (len(plan) - 50))
-    risky = [p for p, _ in plan if p.lower().endswith(UNSAFE_SUFFIXES)]
+    risky = [p for p, _ in plan if p.lower().endswith(UNSAFE_SUFFIXES) and p not in formats]
     if risky:
         print()
         print("NOTE: %d file(s) are in pickle-capable formats (for example %s). Loading such files can run code, "
@@ -180,7 +188,7 @@ def _cmd_lock(args):
               "(use a notebook or a laptop). Re-run with --yes to continue.")
         return 2
     lock = build_lock(entry.name, entry.source_url, args.revision, plan, policy=policy, base_url=base,
-                      token=token, say=print)
+                      token=token, say=print, formats=formats)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(lock, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print("wrote " + str(out))
@@ -237,6 +245,7 @@ def build_parser():
     lk.add_argument("--out", required=True, metavar="PATH", help="where to write the lock JSON")
     lk.add_argument("--include", action="append", metavar="PATTERN", help="only files matching this pattern (repeatable)")
     lk.add_argument("--exclude", action="append", metavar="PATTERN", help="skip files matching this pattern (repeatable)")
+    lk.add_argument("--format", action="append", metavar="PATH=NAME", help="tag a file with an allowed format, for example model.bin=ctranslate2 (repeatable)")
     lk.add_argument("--overwrite", action="store_true", help="replace an existing lock file")
     lk.add_argument("--yes", action="store_true", help="confirm the large download")
     return parser

@@ -30,6 +30,7 @@ from core.employees import memory as employee_memory
 from core import workflows
 from core import tasks as core_tasks
 from core import proactive_triggers as core_triggers
+from core import scheduler_leader
 from core import autonomy
 from core import agent_loop
 from core import auth_throttle
@@ -94,19 +95,21 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning("Vector size check skipped: %s", type(e).__name__)
     scheduler = AsyncIOScheduler()
-    scheduler.add_job(_sync_job, "interval", minutes=5)
-    scheduler.add_job(_run_due_triggers_job, "interval", minutes=1,
+    # Only the leader process (one per database) runs the jobs; see core/scheduler_leader.py
+    scheduler.add_job(scheduler_leader.leader_only(_sync_job), "interval", minutes=5)
+    scheduler.add_job(scheduler_leader.leader_only(_run_due_triggers_job), "interval", minutes=1,
                       max_instances=1, coalesce=True)
     scheduler.start()
     logger.info("Background sync scheduler started.")
     yield
     scheduler.shutdown()
+    scheduler_leader.release()
     logger.info("Background sync scheduler stopped.")
 
 app = FastAPI(
     title="RagLeap Core API",
     description="Minimal self-hosted RAG pipeline — BYOK, no platform fallback keys.",
-    version="0.10.1",
+    version="0.11.0",
     lifespan=lifespan,
 )
 

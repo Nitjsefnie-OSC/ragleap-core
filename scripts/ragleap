@@ -175,7 +175,7 @@ cmd_launch() {
     case "$a" in --ollama) want=1 ;; *) die "Unknown option: $a" ;; esac
   done
   need_compose
-  [ -f .env ] || die "No .env found. Run the installer first: curl -fsSL https://raw.githubusercontent.com/antonyrag/ragleap-core/main/install.sh | bash"
+  [ -f .env ] || die "No .env found. Run the installer first: curl -fsSL https://raw.githubusercontent.com/ragleap/ragleap-core/main/install.sh | bash"
   if [ "$want" = 1 ]; then : > .ragleap-ollama; fi
   use_ollama && prof="--profile ollama"
   if [ "$want" = 1 ]; then ollama_prepare; fi

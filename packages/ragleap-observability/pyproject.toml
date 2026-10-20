@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ragleap-observability"
-version = "0.8.1"
-description = "Prometheus/Grafana/Loki/AlertManager observability stack for RagLeap Core, live-tested against a real cluster"
+version = "0.8.4"
+description = "Prometheus/Grafana/Loki/AlertManager observability Helm chart for RagLeap Core; the changelog states exactly what each release verified"
 readme = "README.md"
 keywords = ["observability", "monitoring", "prometheus", "grafana", "loki", "promtail", "alloy", "alertmanager", "alerting", "logging", "kubernetes", "helm", "devops", "rag"]
 requires-python = ">=3.10"
@@ -27,9 +27,9 @@ dependencies = []
 [project.urls]
 Homepage = "https://packages.ragleap.com/docs/ragleap-observability.html"
 Documentation = "https://packages.ragleap.com/docs/ragleap-observability.html"
-Source = "https://github.com/antonyrag/ragleap-core/tree/main/packages/ragleap-observability"
-Changelog = "https://github.com/antonyrag/ragleap-core/blob/main/packages/ragleap-observability/CHANGELOG.md"
-Issues = "https://github.com/antonyrag/ragleap-core/issues"
+Source = "https://github.com/ragleap/ragleap-core/tree/main/packages/ragleap-observability"
+Changelog = "https://github.com/ragleap/ragleap-core/blob/main/packages/ragleap-observability/CHANGELOG.md"
+Issues = "https://github.com/ragleap/ragleap-core/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/ragleap_observability"]

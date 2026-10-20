@@ -197,7 +197,7 @@ def test_search_dense_returns_chunks_with_text_from_sqlite(tmp_path):
     assert len(results) == 1
     assert results[0]["text"] == "real chunk text"
     assert results[0]["chunk_id"] == "doc1:0"
-    assert results[0]["similarity_score"] == 0.95
+    assert results[0]["similarity_score"] == 0.975  # raw cosine 0.95 -> (0.95 + 1) / 2
     backend._index.query.assert_called_once()
     assert backend._index.query.call_args.kwargs["vector"] == [0.1, 0.2, 0.3]
 
@@ -265,3 +265,29 @@ def test_pinecone_backend_importable_from_vectorstores():
     just existing as an orphaned file."""
     from ragleap.vectorstores import PineconeBackend
     assert PineconeBackend is not None
+
+
+def test_search_dense_scores_are_on_the_zero_to_one_scale(tmp_path):
+    """Regression for #577: Pinecone's raw cosine score in [-1, 1] is
+    normalized with (x + 1) / 2 like the other backends."""
+    backend = _make_backend_with_mock_pinecone(tmp_path)
+    backend._dimensions = 3
+    backend._index = MagicMock()
+    for i in range(3):
+        backend._conn.execute(
+            "INSERT INTO chunks (vector_id, document_id, document_name, chunk_index, text, token_count, metadata) "
+            "VALUES (?, 'doc1', 'test.txt', ?, ?, 1, '{}')",
+            ("doc1:%d" % i, i, "chunk %d" % i),
+        )
+    backend._conn.commit()
+    matches = []
+    for i, raw in enumerate([1.0, 0.0, -1.0]):
+        m = MagicMock()
+        m.id = "doc1:%d" % i
+        m.score = raw
+        matches.append(m)
+    response = MagicMock()
+    response.matches = matches
+    backend._index.query.return_value = response
+    results = backend.search_dense(embedding=[0.1, 0.2, 0.3], top_k=5)
+    assert [r["similarity_score"] for r in results] == [1.0, 0.5, 0.0]

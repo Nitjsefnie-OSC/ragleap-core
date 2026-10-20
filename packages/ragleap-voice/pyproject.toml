@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ragleap-voice"
-version = "0.0.1"
+version = "0.0.2"
 description = "Pre-alpha model manager for open, local speech-to-text and text-to-speech: licence-checked manifest, hash-verified downloads. No speech engines yet."
 readme = "README.md"
 license = "MIT"
@@ -31,9 +31,9 @@ test = ["pytest>=8.0.0", "tomli>=2.0.0; python_version < '3.11'"]
 ragleap-voice = "ragleap_voice.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/antonyrag/ragleap-core"
-Repository = "https://github.com/antonyrag/ragleap-core"
-Issues = "https://github.com/antonyrag/ragleap-core/issues"
+Homepage = "https://github.com/ragleap/ragleap-core"
+Repository = "https://github.com/ragleap/ragleap-core"
+Issues = "https://github.com/ragleap/ragleap-core/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/ragleap_voice"]
@@ -42,3 +42,4 @@ packages = ["src/ragleap_voice"]
 "models.toml" = "ragleap_voice/data/models.toml"
 "THIRD_PARTY_NOTICES.md" = "ragleap_voice/data/THIRD_PARTY_NOTICES.md"
 "locks" = "ragleap_voice/data/locks"
+"coverage" = "ragleap_voice/data/coverage"

@@ -154,7 +154,7 @@ specs), not content filtering.
   It is shared with other packages' jobs; nothing else in it changes.
 - First-release prerequisite: the PyPI and TestPyPI projects do not exist
   yet (the name was free on 2026-10-03). The account owner must add a
-  pending trusted publisher on each (repository antonyrag/ragleap-core,
+  pending trusted publisher on each (repository ragleap/ragleap-core,
   workflow release.yml, environment pypi or testpypi).
 
 ## Verification status

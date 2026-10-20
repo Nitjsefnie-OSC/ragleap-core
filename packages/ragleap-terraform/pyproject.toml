@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ragleap-terraform"
-version = "0.1.0"
+version = "0.1.1"
 description = "Terraform module that creates a kind cluster and installs the RagLeap Helm charts, tested on a real cluster"
 readme = "README.md"
 keywords = ["terraform", "kind", "kubernetes", "helm", "devops", "infrastructure-as-code", "iac", "observability", "rag"]
@@ -26,9 +26,9 @@ dependencies = []
 [project.urls]
 Homepage = "https://packages.ragleap.com/docs/ragleap-terraform.html"
 Documentation = "https://packages.ragleap.com/docs/ragleap-terraform.html"
-Source = "https://github.com/antonyrag/ragleap-core/tree/main/packages/ragleap-terraform"
-Changelog = "https://github.com/antonyrag/ragleap-core/blob/main/packages/ragleap-terraform/CHANGELOG.md"
-Issues = "https://github.com/antonyrag/ragleap-core/issues"
+Source = "https://github.com/ragleap/ragleap-core/tree/main/packages/ragleap-terraform"
+Changelog = "https://github.com/ragleap/ragleap-core/blob/main/packages/ragleap-terraform/CHANGELOG.md"
+Issues = "https://github.com/ragleap/ragleap-core/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/ragleap_terraform"]

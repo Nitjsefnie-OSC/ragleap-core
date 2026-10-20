@@ -530,3 +530,52 @@ def test_cli_lock_warns_about_pickle_formats(hub, tmp_path, monkeypatch, capsys)
     args = ["models", "lock", "m1", "--manifest", mf, "--revision", REV, "--out", str(tmp_path / "o.json")]
     assert cli.main(args) == 2
     assert "pickle-capable" in capsys.readouterr().out
+
+
+# ---- format tags at lock time ----------------------------------------------------------------
+import struct as _struct  # noqa: E402
+
+
+def _ct2():
+    return _struct.pack("<IH", 6, 12) + b"WhisperSpec\x00" + b"\x00" * 40
+
+
+def test_build_lock_with_format_tag(hub):
+    hub.files["model.bin"] = _ct2()
+    plan = plan_lock(SRC_URL, REV, policy=POLICY, base_url=hub.base_url)
+    lock = build_lock("m1", SRC_URL, REV, plan, policy=POLICY, base_url=hub.base_url,
+                      say=lambda *a: None, formats={"model.bin": "ctranslate2"})
+    tagged = [f for f in lock["files"] if "format" in f]
+    assert [(f["path"], f["format"]) for f in tagged] == [("model.bin", "ctranslate2")]
+
+
+def test_build_lock_refuses_bad_header(hub):
+    hub.files["model.bin"] = _ct2()
+    hub.tamper["model.bin"] = b"\x80\x04" + b"x" * 60
+    plan = plan_lock(SRC_URL, REV, policy=POLICY, base_url=hub.base_url)
+    with pytest.raises(PullError, match="header"):
+        build_lock("m1", SRC_URL, REV, plan, policy=POLICY, base_url=hub.base_url,
+                   say=lambda *a: None, formats={"model.bin": "ctranslate2"})
+
+
+@pytest.mark.parametrize("formats", [{"nothing.bin": "ctranslate2"}, {"weights.safetensors": "ctranslate2"}, {"model.bin": "onnx"}])
+def test_build_lock_refuses_bad_format_options(hub, formats):
+    hub.files["model.bin"] = _ct2()
+    plan = plan_lock(SRC_URL, REV, policy=POLICY, base_url=hub.base_url)
+    with pytest.raises(PullError, match="format"):
+        build_lock("m1", SRC_URL, REV, plan, policy=POLICY, base_url=hub.base_url, say=lambda *a: None, formats=formats)
+    assert hub.downloads == 0
+
+
+def test_cli_lock_format(hub, tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(cli, "_network", lambda: (POLICY, hub.base_url))
+    hub.files["model.bin"] = _ct2()
+    mf = project(tmp_path, status="unverified", with_lock=False)
+    out = tmp_path / "new" / "m1.json"
+    base = ["models", "lock", "m1", "--manifest", mf, "--revision", REV, "--out", str(out)]
+    assert cli.main(base + ["--yes", "--format", "model.bin=ctranslate2"]) == 0
+    capsys.readouterr()
+    files = json.loads(out.read_text(encoding="utf-8"))["files"]
+    assert [f["format"] for f in files if "format" in f] == ["ctranslate2"]
+    assert cli.main(base + ["--yes", "--overwrite", "--format", "model.bin"]) == 1
+    assert "PATH=NAME" in capsys.readouterr().err

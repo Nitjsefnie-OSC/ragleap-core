@@ -61,7 +61,7 @@ def test_cohere_works_with_explicit_model_and_dimensions():
 
 
 def test_cohere_defaults_base_url_to_first_party_when_unset():
-    """Regression test for antonyrag/ragleap-core#360's CO1 finding:
+    """Regression test for ragleap/ragleap-core#360's CO1 finding:
     base_url was accepted by EmbeddingConfig but silently never read by
     _embed_cohere -- the wire request always went to the first-party
     URL regardless of what base_url was set to. Default behavior for

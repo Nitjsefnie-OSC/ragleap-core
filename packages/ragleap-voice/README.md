@@ -2,7 +2,7 @@
 
 Open-source (MIT), local-first speech tooling, with Indian languages as a priority.
 
-**Status: pre-alpha. Version 0.0.1 is the model-management layer only. There are no speech engines in this release: you cannot transcribe or synthesize audio with this package yet.**
+**Status: pre-alpha. Version 0.0.2 is the model-management layer only. There are no speech engines in this release: you cannot transcribe or synthesize audio with this package yet.**
 
 ## What works today
 
@@ -25,7 +25,7 @@ Nothing in the package uses the network unless you run `models pull` or `models 
 
 ## Measurements
 
-Reproducible benchmarks with their limits are published at https://github.com/antonyrag/ragleap-core/tree/main/benchmarks/voice. They use small samples of read speech on one GPU. The WER/CER helper can optionally normalize English (`numbers=True`) or Turkish (`numbers="tr"`) cardinal-number words; it is off by default and has not been applied to the published tables. Other language strings raise ValueError rather than falling back to English. In those tests an open Indian-language recogniser (IndicConformer) had clearly lower word error than Whisper large-v3 on Hindi, Tamil, Telugu, Malayalam and Kannada. Naturalness, emotion quality and comparisons with commercial services have not been measured, and this project makes no claim about them.
+Reproducible benchmarks with their limits are published at https://github.com/ragleap/ragleap-core/tree/main/benchmarks/voice. They use small samples of read speech on one GPU. The WER/CER helper can optionally normalize English (`numbers=True`) or Turkish (`numbers="tr"`) cardinal-number words; it is off by default and has not been applied to the published tables. Other language strings raise ValueError rather than falling back to English. In those tests an open Indian-language recogniser (IndicConformer) had clearly lower word error than Whisper large-v3 on Hindi, Tamil, Telugu, Malayalam and Kannada. Naturalness, emotion quality and comparisons with commercial services have not been measured, and this project makes no claim about them.
 
 ## Planned, not available
 
@@ -33,6 +33,6 @@ A speech-to-text and text-to-speech API with engines, streaming, voice profiles 
 
 ## Licence
 
-MIT. Models are separate downloads with their own licences, listed in the manifest and in https://github.com/antonyrag/ragleap-core/blob/main/packages/ragleap-voice/THIRD_PARTY_NOTICES.md
+MIT. Models are separate downloads with their own licences, listed in the manifest and in https://github.com/ragleap/ragleap-core/blob/main/packages/ragleap-voice/THIRD_PARTY_NOTICES.md
 
-Source and issues: https://github.com/antonyrag/ragleap-core/tree/main/packages/ragleap-voice
+Source and issues: https://github.com/ragleap/ragleap-core/tree/main/packages/ragleap-voice

@@ -149,6 +149,111 @@ Limits specific to this measurement:
 - Kokoro's Hindi path uses the GPLv3 espeak-ng package according to its model card; it was installed from the OS package manager for this measurement only.
 - `colab_tts_roundtrip.py` was assembled from three cells that were each run successfully. The combined script has not been run end to end as one piece.
 
+## Whisper large-v3 on 12 languages from several regions (pilot)
+
+First non-Indian measurement for the language coverage matrix. Scripts: `colab_pilot12.py` (measurement) and `colab_pilot12_analysis.py` (intervals and diagnostics, same Colab session).
+
+| Language (FLEURS config) | WER (95% interval) | CER (95% interval) |
+|---|---|---|
+| Spanish (es_419) | 3.0% (1.8 to 4.5) | 1.1% (0.5 to 1.9) |
+| Portuguese (pt_br) | 4.2% (2.9 to 5.7) | 1.4% (0.9 to 2.1) |
+| Russian (ru_ru) | 4.9% (3.5 to 6.8) | 1.2% (0.7 to 1.7) |
+| Turkish (tr_tr) | 5.1% (3.5 to 6.9) | 1.3% (0.8 to 2.0) |
+| Indonesian (id_id) | 5.6% (3.8 to 7.5) | 1.8% (1.1 to 2.5) |
+| French (fr_fr) | 6.1% (4.4 to 8.1) | 2.1% (1.4 to 3.0) |
+| Vietnamese (vi_vn) | 8.8% (6.8 to 10.7) | 3.9% (2.9 to 4.9) |
+| Arabic (ar_eg) | 14.0% (10.6 to 17.6) | 3.5% (2.6 to 4.6) |
+| Swahili (sw_ke) | 33.5% (29.7 to 37.2) | 7.7% (6.5 to 9.1) |
+| Japanese (ja_jp) | 70.6% (61.5 to 79.0): not meaningful, no word spaces | 6.5% (4.9 to 8.3) |
+| Yoruba (yo_ng) | 103.8% (99.4 to 108.9) | 48.0% (45.3 to 50.6) |
+| Amharic (am_et) | 162.1% (147.0 to 178.7) | 110.1% (103.8 to 117.4) |
+
+Setup: 60 clips per language (first 60 of the FLEURS `test` split, CC-BY-4.0), run on 2026-10-18 on a Tesla T4. Model: `Systran/faster-whisper-large-v3` at revision `edaa852ec7e145841d8ffdb056a99866b5f0a478` (MIT), pulled with `ragleap-voice models pull` (hash-checked, CTranslate2-tagged lock) and loaded from that folder; faster-whisper 1.1.1, fp16, beam 5, temperature 0, no conditioning on previous text, language given. Harness on main at `d441b746c8`; normalizer version `1` (no number step). Intervals: 2000 bootstrap resamples of clips, seed 1234.
+
+Findings:
+- Spanish, Portuguese, Russian, Turkish, Indonesian and French are between 3% and 6% WER. Their intervals overlap, so their order is not reliable.
+- Swahili (33.5%) is a real recognition problem.
+- Japanese: use CER. WER is not meaningful without word spaces.
+- Yoruba: scoring again with diacritics removed from both sides gives WER 87.2% and CER 26.7%. A large part of the character error is missing tone marks and dot-below letters, but the output is still not usable text. The stripped figures still include Whisper's own romanisation (for example "ishe" for "ise"), so they do not separate spelling convention from mishearing.
+- Amharic: with our settings 36 of 60 outputs collapsed into a repeated syllable or word. Library defaults gave WER 114.1% and CER 104.7%, and a repetition guard gave WER 102.5% and CER 101.5%. In none of the three settings did the outputs resemble the reference. These variants were diagnostics run on the test set, not tuning, and the pilot numbers above stay the reported result. We did not find a usable Whisper large-v3 setting for Amharic; this is not a statement about every possible setting.
+
+Limits (read before quoting any number):
+- Read speech only. No telephone or noisy audio, no accents or code-switching.
+- Consecutive clips: speakers and sentences repeat, so the intervals are probably too narrow.
+- Arabic uses the Egyptian dialect configuration, while Whisper's `ar` is standard Arabic, so part of that error may be dialect mismatch. Spanish is the Latin American configuration.
+- One system. This shows where Whisper large-v3 is weak, not which open model is best for those languages.
+- Numbers and digits are not unified (normalizer version 1), which slightly inflates WER where references contain digits.
+- The per-clip raw CSV is not committed yet; the tables come from the printed run output.
+
+## Fine-tuned candidates for Swahili, Yoruba and Amharic (first look, possibly contaminated)
+
+Whisper large-v3 was weak or failed in these three languages (pilot above). Two open fine-tunes of Whisper large-v3 were measured on the same 60 FLEURS `test` clips per language. Scripts: `colab_african_candidates_download.py`, `colab_african_candidates_measure.py`, `colab_african_candidates_unicode_check.py`.
+
+| Language | Whisper large-v3 (pilot) | NaijaVox-2.0 | SunflowerASR |
+|---|---|---|---|
+| Swahili (sw_ke), WER (95% interval) | 33.5% (29.7 to 37.2) | not a candidate | 8.9% (7.0 to 11.0) |
+| Swahili, CER | 7.7% | | 2.4% (1.8 to 3.0) |
+| Yoruba (yo_ng), WER | 103.8% (99.4 to 108.9) | 46.5% (40.5 to 53.1) | 41.8% (35.6 to 48.6) |
+| Yoruba, CER | 48.0% | 16.6% (13.9 to 19.5) | 15.1% (12.5 to 17.9) |
+| Yoruba, diacritics removed from both sides, WER / CER | 87.2% / 26.7% | 24.1% / 7.2% | 20.7% / 5.8% |
+| Amharic (am_et), WER | 162.1% (147.0 to 178.7) | not a candidate | 28.8% (24.6 to 33.2) |
+| Amharic, CER | 110.1% | | 14.0% (10.1 to 18.5) |
+
+Models (downloaded with `huggingface_hub` at these revisions; **not** hash-checked by ragleap-voice, no lock exists yet):
+- `Axiveri/NaijaVox-2.0` at `22b94de94e59419cc9d6e25e6eaeceb1f1c42d00`: Apache-2.0 per its card, Yoruba, Hausa, Igbo, Pidgin and Nigerian English, single safetensors file, no code files.
+- `Sunbird/asr-whisper-51-african-languages` (the Hub now reports `Sunbird/SunflowerASR-51-african-languages`) at `4583c9dd251c422a4325fb0a0a509a3828097be2`: Apache-2.0 per its card, 51 African languages, gated (access mode auto), single safetensors file, no code files. Language tokens come from its card: `swa` 50318, `yor` 50325, `amh` 50334.
+
+Read these first:
+- **Possibly contaminated.** Both cards list google/fleurs among their training data (NaijaVox: the yo_ng, ha_ng and ig_ng configurations; SunflowerASR: FLEURS among its sources). Which splits they used is not stated. We scored on FLEURS test clips, so these numbers show that a large gap exists, not how well the models do on unseen audio. A clean test set is still needed (issue #758).
+- **Licences are not cleared.** Apache-2.0 is the licence of the weights as stated on the card. Both cards say the training datasets keep their own licences, and we have not reviewed them. Neither model is in `models.toml`, and neither belongs in the default path until a person has reviewed the training-data licences.
+- **Not like-for-like with the Whisper pilot.** Different engine (`transformers` instead of faster-whisper), greedy decoding instead of beam 5, fp16, batch of 8, `max_new_tokens` 220. Decoding settings were fixed before scoring. One difference from the run: the committed measure script calls `model.train(False)` where the run used the equivalent evaluation-mode call, because the CI scanner flags that call name as dynamic code; nothing else was changed. The `transformers` version was not recorded in this run.
+- **Unexplained gap to a model card.** The NaijaVox card reports 22.3% WER on 50 FLEURS Yoruba test clips ("strict WER, no normalization"). We measure 46.5% with diacritics counted and 24.1% without them. We checked Unicode composition (references 0/60 and outputs 3/60 not in NFC; NFC on both sides changed WER by under 0.1 points), so that is not the cause. We do not know which clips, scorer or decoding the card used.
+- **Yoruba.** About half of the word error comes from tone marks and dot-below letters. Both models produce real Yoruba text, which Whisper large-v3 did not.
+- **Amharic.** SunflowerASR output resembles the reference where Whisper large-v3 produced repeated syllables.
+- Same limits as the other sections: read speech only, consecutive clips (speakers and sentences repeat, so the intervals are probably too narrow), 60 clips, one GPU (Tesla T4), normalizer version 1 (no number step), per-clip raw results not committed.
+
+## Noise, telephone audio and two denoisers in front of Whisper large-v3 (pilot)
+
+Question: does an open denoiser in front of Whisper large-v3 lower the word error rate under noise and over a telephone-style channel? Scripts, to be run in this order in one Colab session: `colab_noise_pilot.py` (first run), `colab_noise_pilot_diagnostics.py`, `colab_noise_pilot_levelfixed.py` (the run reported below). The scripts are the cells as they ran; the diagnostics file joins two cells and has not been run as one piece.
+
+Setup: FLEURS `test` clips (CC-BY-4.0) for English (en_us), Spanish (es_419) and Russian (ru_ru), the first 30 clips per language (a subset of the 12-language pilot clips), Whisper large-v3 as in the pilot above (pulled with `ragleap-voice models pull`, beam 5, language given), run on 2026-10-19 on a Tesla T4. Five conditions: clean; white noise at 10 dB SNR; babble at 10 dB (four other FLEURS speakers of the same language, clips 30 to 59, mixed at equal level); babble at 5 dB; telephone (babble at 10 dB, then 8 kHz mu-law, then back to 16 kHz). Every clip is scaled to -23 dBFS RMS (peak limit 0.95) before the denoisers, so all three variants see identical levels. Denoisers, default settings, no tuning: RNNoise v0.2 (commit `904a876dce1f9ab8860c0a5000ed151f9f6eef58`, model version `0b50c45`, built from source) and DeepFilterNet 0.5.6 (torch 2.0.1 on CPU, model DeepFilterNet3). Word error rate with a 95% bootstrap interval for no denoiser; for each denoiser the paired difference to no denoiser on the same clips (denoiser minus none, percentage points, 2000 resamples of clips, seed 1234). Harness on main at `ef018740b1`, normalizer version `1`.
+
+| Language | Condition | No denoiser WER (interval) | RNNoise WER, difference | DeepFilterNet3 WER, difference |
+|---|---|---|---|---|
+| English | clean | 5.5% (4.0 to 7.4) | 6.7%, +1.2 [-0.8, +3.8] | 6.3%, +0.7 [-0.5, +2.2] |
+| English | white noise 10 dB | 7.5% (5.2 to 10.3) | 13.0%, +5.5 [+2.6, +9.4] | 9.3%, +1.8 [-0.9, +4.4] |
+| English | babble 10 dB | 7.5% (5.3 to 10.1) | 12.9%, +5.4 [+1.6, +10.5] | 11.7%, +4.2 [+1.1, +7.8] |
+| English | babble 5 dB | 14.1% (8.2 to 22.3) | 23.7%, +9.6 [-1.0, +21.8] | 34.5%, +20.4 [+1.6, +45.0] |
+| English | telephone | 9.7% (7.2 to 12.4) | 16.3%, +6.6 [+3.2, +10.7] | 18.6%, +8.8 [+4.3, +14.6] |
+| Spanish | clean | 2.8% (0.9 to 5.3) | 2.5%, -0.3 [-1.2, +0.4] | 2.5%, -0.3 [-1.2, +0.4] |
+| Spanish | white noise 10 dB | 5.2% (2.9 to 8.5) | 6.0%, +0.8 [-0.3, +1.8] | 7.7%, +2.5 [+0.9, +4.5] |
+| Spanish | babble 10 dB | 3.9% (1.3 to 7.9) | 6.5%, +2.7 [+1.0, +4.8] | 5.7%, +1.9 [+0.5, +3.4] |
+| Spanish | babble 5 dB | 9.5% (4.7 to 16.9) | 21.8%, +12.3 [+7.0, +18.3] | 19.6%, +10.1 [+6.2, +15.4] |
+| Spanish | telephone | 4.9% (2.1 to 9.1) | 8.3%, +3.3 [+1.1, +6.1] | 9.3%, +4.4 [+2.2, +7.0] |
+| Russian | clean | 5.2% (2.9 to 8.1) | 13.5%, +8.3 [+0.3, +22.3] | 5.5%, +0.3 [+0.0, +0.8] |
+| Russian | white noise 10 dB | 10.4% (6.7 to 14.9) | 17.4%, +7.0 [+3.8, +11.0] | 15.6%, +5.2 [+2.6, +8.6] |
+| Russian | babble 10 dB | 9.3% (5.8 to 13.2) | 12.3%, +3.1 [+0.7, +5.5] | 15.1%, +5.8 [+1.8, +11.1] |
+| Russian | babble 5 dB | 18.2% (11.9 to 26.2) | 26.1%, +8.0 [+2.5, +13.7] | 46.6%, +28.4 [+11.4, +55.3] |
+| Russian | telephone | 12.0% (8.1 to 16.4) | 17.9%, +5.8 [+3.0, +8.8] | 35.9%, +23.9 [+16.4, +32.5] |
+
+What it shows:
+
+- In none of the 30 comparisons (2 denoisers, 3 languages, 5 conditions) did a denoiser lower the word error rate: no interval lies below zero. In 22 of 30 the denoiser made it worse, with the interval entirely above zero; the other 8 show no clear difference. The telephone condition was worse with both denoisers in all three languages.
+- This is a result for these conditions only: synthetic white noise and babble at 10 and 5 dB, default denoiser settings, one recogniser. It does not show that denoisers never help. Lower SNRs and real-world stationary noise were not tested. Babble is speech, which these denoisers are not built to separate.
+- Level matters for denoisers. More than half of the English clips in this subset are recorded very quietly (17 of 30 at or below -55.9 dBFS RMS; one more, at -50.7 dBFS, came out at 0.11 of its input level). In the first run, DeepFilterNet3 returned silence for those clips and English clean WER rose to 65.2% (RNNoise did not). That first-run DeepFilterNet figure is an artefact and is not reported above. After scaling every clip to -23 dBFS, no output was silent (0 of 900) and English clean WER was 6.3%. Batch versus single-file calls made no difference.
+- Whisper large-v3 wrote "Thank you." for silent audio. A telephone pipeline needs a voice-activity or silence gate in front of the recogniser.
+- The level fix also moved some no-denoiser baselines (Russian white noise 17.5% to 10.4%, Russian babble 5 dB 24.5% to 18.2%, English babble 5 dB 12.0% to 14.1%). The intervals overlap, so with 30 clips the absolute numbers are loose; read the comparisons within one table.
+
+Denoiser provenance and licences (both are candidates only, neither is in `models.toml`): RNNoise code is BSD-3-Clause according to GitHub and its licence file; its model data is fetched by a script that checks a SHA-256, and the licence of that data was not checked. DeepFilterNet code is MIT or Apache-2.0 according to its README; the pretrained model was fetched to the local cache at first use (DeepFilterNet3 checkpoint SHA-256 `23b92884f63ccf54bb026014604625ab231657b6480df65db4095c4c171e6003`) and no separate weights licence is stated. Neither was hash-checked by ragleap-voice.
+
+Limits (read before quoting any number):
+
+- One recogniser (Whisper large-v3), three languages, 30 clips per language: intervals are wide, and the Russian clean RNNoise cell shows how a few clips move a result.
+- Read speech with synthetic noise. Babble speakers come from the same corpus and may repeat the test speakers. The telephone path is a simulation (8 kHz mu-law), not a real call.
+- Default denoiser settings, no tuning. DeepFilterNet is designed for 48 kHz audio and received 16 kHz speech upsampled to 48 kHz.
+- Not measured: IndicConformer or any other engine under noise, spontaneous speech, real recordings, latency of the denoisers inside a call.
+- The per-clip results are in the Colab session only (`noise_pilot_levelfixed_clips.csv`) and are not committed.
+
 ## Reproduce
 
 Open Google Colab, choose a T4 GPU runtime, paste `colab_whisper_baseline.py` into one cell and run it. It stops if the dataset or model licence differs from the expected one.

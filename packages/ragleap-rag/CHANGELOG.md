@@ -5,6 +5,12 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- Behavior change: `FAISSBackend` and `PineconeBackend` now return `similarity_score` on the same [0, 1] scale as the other backends, `(x + 1) / 2` of the raw cosine (identical 1.0, orthogonal 0.5, opposite 0.0). Before, they returned the raw cosine in [-1, 1], so a caller filtering on `similarity_score` behaved differently per backend (issue 577). Scores of existing stored data are not affected; only the returned values change.
+
+### Fixed
+- `ingest_batch()` now keeps the `metadata` of `file` items (it was silently dropped; the url, image, audio and video items already kept it). `aingest()` accepts an optional `metadata` argument for this.
+
 ## [0.13.0] - 2026-10-03
 ### Security
 - `ingest_url()` / `fetch_url_text()` now download pages through a guarded fetcher (`ragleap/_net.py`) instead of `trafilatura.fetch_url`: http/https only, no credentials in the URL, every resolved address must be public (loopback, private, link-local, CGNAT and multicast ranges are refused, including IPv4-mapped IPv6), the connection goes to the validated address so a second DNS lookup cannot swap it, redirects are followed manually (max 3) with every hop re-validated, and size (10 MB) and time are capped. Before this, a page served on a loopback address was fetched. Refusals raise `UnsafeURLError` (a `ValueError`). Pass `allow_private_urls=True` to `ingest_url()` (or `allow_private=True` to `fetch_url_text()`) to reach private networks.

@@ -27,6 +27,7 @@ public final class ProviderConfig {
         m.put("openrouter", "https://openrouter.ai/api/v1");
         m.put("ollama", "http://localhost:11434/v1");
         m.put("deepseek", "https://api.deepseek.com/v1");
+        m.put("demonroute", "https://api.demonroute.com/v1");
         m.put("xai", "https://api.x.ai/v1");
         m.put("cohere", "https://api.cohere.ai/v1");
         m.put("perplexity", "https://api.perplexity.ai");

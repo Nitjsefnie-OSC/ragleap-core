@@ -5,6 +5,67 @@ loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-10-19
+
+### Changed
+
+- Project links in the package metadata (Homepage, Repository, Issues) now
+  point at https://github.com/ragleap/ragleap-core, the repository's new home in
+  the ragleap organization. Metadata only, no code change. (The 0.5.0 project
+  page on PyPI still shows the old owner; GitHub redirects the old links.)
+
+### Verified
+
+- The same 362 tests as 0.5.0, passing on Python 3.10 and 3.12.
+
+## [0.5.0] - 2026-10-18
+
+### Added
+
+- `@tool`: turns a type-annotated function into a `Tool`. The JSON Schema comes
+  from the annotations (`str`, `int`, `float`, `bool`, `Optional[X]` with a
+  default, `Literal[...]`, `list[X]`, `dict`, `Any`) and the Google-style
+  docstring; unsupported shapes raise `ToolDefinitionError` when the function
+  is decorated. The model's arguments are validated before the function runs
+  (missing, unknown and mistyped arguments return a failed `ToolResult` and the
+  function is not called); `null` for an optional argument means omitted.
+- `Toolkit`: a named collection of tools with `add`, `select(include, exclude,
+  where)`, `to_openai_schema()`, `to_gemini_schema()`, `to_anthropic_schema()`
+  and `call(name, arguments)`. `call` takes the provider's JSON string or a
+  dict, limits the JSON to 100,000 characters by default, validates against the
+  tool's schema and never raises: every failure is a failed `ToolResult`.
+- `default_toolkit()`: a new `Toolkit` of the 12 stateless tools.
+- `ToolError` for an expected failure whose message is safe to show the model.
+  Any other exception becomes "<name> failed (<ExceptionType>)" (detail goes to
+  the `ragleap_tools` logger; `expose_errors=True` opts in to the message).
+- `validate_arguments(schema, arguments)`, the checker behind both.
+- `Tool.metadata` (optional dict, default empty; never sent to a provider) and
+  `Tool.to_anthropic_schema()`.
+- See `docs/design/tool-authoring.md`.
+
+### Changed
+
+- Nothing that existed behaves differently: `Tool` gains a last optional field,
+  and the 12 stateless tools and every provider tool are untouched (calling a
+  built-in tool's own `.call` is not validated; `Toolkit.call` validates).
+
+### Verified
+
+- 162 new tests (362 in total) on Python 3.10 and 3.12, including each of the
+  12 built-in tools through the toolkit with a valid and an invalid call.
+  Mutation-tested: 89 deliberate breaks of the new code, all caught.
+
+### Not verified
+
+- That OpenAI, Gemini or Anthropic accept the generated schemas in a live
+  tool-calling request.
+
+### Known limitations
+
+- Sync functions only; `dict` values and JSON Schema keywords outside the
+  supported subset are not validated; only `Optional[X]` unions; `Toolkit.call`
+  does not bound a handler's run time or result size.
+
 ## [0.4.1] - 2026-10-10
 
 ### Added

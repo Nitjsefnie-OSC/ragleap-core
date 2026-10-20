@@ -6,7 +6,7 @@
 
 **Open-source AI employees that ask before they act.**
 
-[![license MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE) [![Core Release](https://img.shields.io/github/v/release/antonyrag/ragleap-core?filter=v*&label=ragleap-core&color=blue)](https://github.com/antonyrag/ragleap-core/releases) [![46 AI Employees](https://img.shields.io/badge/46-AI%20Employees-brightgreen)](https://github.com/antonyrag/ragleap-core) [![Autonomous](https://img.shields.io/badge/Autonomous-brightgreen)](https://github.com/antonyrag/ragleap-core) [![Self--Hosted](https://img.shields.io/badge/Self--Hosted-brightgreen)](https://github.com/antonyrag/ragleap-core)
+[![license MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE) [![Core Release](https://img.shields.io/github/v/release/ragleap/ragleap-core?filter=v*&label=ragleap-core&color=blue)](https://github.com/ragleap/ragleap-core/releases) [![46 AI Employees](https://img.shields.io/badge/46-AI%20Employees-brightgreen)](https://github.com/ragleap/ragleap-core) [![Autonomous](https://img.shields.io/badge/Autonomous-brightgreen)](https://github.com/ragleap/ragleap-core) [![Self--Hosted](https://img.shields.io/badge/Self--Hosted-brightgreen)](https://github.com/ragleap/ragleap-core)
 [![PyPI ragleap-rag](https://img.shields.io/pypi/v/ragleap-rag?label=ragleap-rag)](https://pypi.org/project/ragleap-rag/) [![Downloads](https://img.shields.io/pepy/dt/ragleap-rag?label=downloads)](https://pypi.org/project/ragleap-rag/)
 [![PyPI ragleap-graph](https://img.shields.io/pypi/v/ragleap-graph?label=ragleap-graph)](https://pypi.org/project/ragleap-graph/) [![Downloads](https://img.shields.io/pepy/dt/ragleap-graph?label=downloads)](https://pypi.org/project/ragleap-graph/)
 [![PyPI ragleap-vectorstores](https://img.shields.io/pypi/v/ragleap-vectorstores?label=ragleap-vectorstores)](https://pypi.org/project/ragleap-vectorstores/) [![Downloads](https://img.shields.io/pepy/dt/ragleap-vectorstores?label=downloads)](https://pypi.org/project/ragleap-vectorstores/)
@@ -18,9 +18,10 @@
 [![PyPI ragleap-observability](https://img.shields.io/pypi/v/ragleap-observability?label=ragleap-observability)](https://pypi.org/project/ragleap-observability/) [![Downloads](https://img.shields.io/pepy/dt/ragleap-observability?label=downloads)](https://pypi.org/project/ragleap-observability/)
 [![PyPI ragleap-terraform](https://img.shields.io/pypi/v/ragleap-terraform?label=ragleap-terraform)](https://pypi.org/project/ragleap-terraform/) [![Downloads](https://img.shields.io/pepy/dt/ragleap-terraform?label=downloads)](https://pypi.org/project/ragleap-terraform/)
 [![PyPI ragleap-ansible](https://img.shields.io/pypi/v/ragleap-ansible?label=ragleap-ansible)](https://pypi.org/project/ragleap-ansible/) [![Downloads](https://img.shields.io/pepy/dt/ragleap-ansible?label=downloads)](https://pypi.org/project/ragleap-ansible/)
+[![PyPI ragleap-voice](https://img.shields.io/pypi/v/ragleap-voice?label=ragleap-voice)](https://pypi.org/project/ragleap-voice/) [![Downloads](https://img.shields.io/pepy/dt/ragleap-voice?label=downloads)](https://pypi.org/project/ragleap-voice/)
 [![Maven Central ragleap-rag (Java)](https://img.shields.io/maven-central/v/io.github.antonyrag/ragleap-rag?label=ragleap-rag%20(Java))](https://central.sonatype.com/artifact/io.github.antonyrag/ragleap-rag)
 [![Maven Central ragleap-graph (Java)](https://img.shields.io/maven-central/v/io.github.antonyrag/ragleap-graph?label=ragleap-graph%20(Java))](https://central.sonatype.com/artifact/io.github.antonyrag/ragleap-graph)
-[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://github.com/antonyrag/ragleap-core) [![Discord](https://img.shields.io/badge/Discord-Join%20us-5865F2?logo=discord&logoColor=white)](https://discord.gg/mQwJuQDVrA) [![Repo clones](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/antonyrag/ragleap-core/main/.github/badges/clone-count.json)](https://github.com/antonyrag/ragleap-core/pulse)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://github.com/ragleap/ragleap-core) [![Discord](https://img.shields.io/badge/Discord-Join%20us-5865F2?logo=discord&logoColor=white)](https://discord.gg/mQwJuQDVrA) [![Repo clones](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ragleap/ragleap-core/main/.github/badges/clone-count.json)](https://github.com/ragleap/ragleap-core/pulse)
 
 English · [Afrikaans](readmes/README.af.md) · [العربية](readmes/README.ar.md) · [Български](readmes/README.bg.md) · [বাংলা](readmes/README.bn.md) · [Català](readmes/README.ca.md) · [Čeština](readmes/README.cs.md) · [Cymraeg](readmes/README.cy.md) · [Dansk](readmes/README.da.md) · [Deutsch](readmes/README.de.md) · [Ελληνικά](readmes/README.el.md) · [Español](readmes/README.es.md) · [Eesti](readmes/README.et.md) · [فارسی](readmes/README.fa.md) · [Suomi](readmes/README.fi.md) · [Français](readmes/README.fr.md) · [ગુજરાતી](readmes/README.gu.md) · [עברית](readmes/README.he.md) · [हिन्दी](readmes/README.hi.md) · [Hrvatski](readmes/README.hr.md) · [Magyar](readmes/README.hu.md) · [Bahasa Indonesia](readmes/README.id.md) · [Italiano](readmes/README.it.md) · [日本語](readmes/README.ja.md) · [ಕನ್ನಡ](readmes/README.kn.md) · [한국어](readmes/README.ko.md) · [Lietuvių](readmes/README.lt.md) · [Latviešu](readmes/README.lv.md) · [Македонски](readmes/README.mk.md) · [മലയാളം](readmes/README.ml.md) · [मराठी](readmes/README.mr.md) · [नेपाली](readmes/README.ne.md) · [Nederlands](readmes/README.nl.md) · [Norsk](readmes/README.no.md) · [ਪੰਜਾਬੀ](readmes/README.pa.md) · [Polski](readmes/README.pl.md) · [Português](readmes/README.pt.md) · [Română](readmes/README.ro.md) · [Русский](readmes/README.ru.md) · [Slovenčina](readmes/README.sk.md) · [Slovenščina](readmes/README.sl.md) · [Soomaali](readmes/README.so.md) · [Shqip](readmes/README.sq.md) · [Svenska](readmes/README.sv.md) · [Kiswahili](readmes/README.sw.md) · [தமிழ்](readmes/README.ta.md) · [తెలుగు](readmes/README.te.md) · [ไทย](readmes/README.th.md) · [Tagalog](readmes/README.tl.md) · [Türkçe](readmes/README.tr.md) · [Українська](readmes/README.uk.md) · [اردو](readmes/README.ur.md) · [Tiếng Việt](readmes/README.vi.md) · [简体中文](readmes/README.zh-cn.md) · [繁體中文](readmes/README.zh-tw.md)
 
@@ -44,7 +45,7 @@ RagLeap Core is the open-source engine behind RagLeap — a self-hosted, agentic
 **Install in one command** (needs Docker Desktop on macOS and Windows, or Docker Engine on Linux; the script asks which AI to use and never changes an existing `.env`):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/antonyrag/ragleap-core/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ragleap/ragleap-core/main/install.sh | bash
 ```
 
 Prefer to read it first? See [install.sh](install.sh). For a fully local setup with no API key, use `bash -s -- --ollama` at the end of that command.
@@ -52,7 +53,7 @@ Prefer to read it first? See [install.sh](install.sh). For a fully local setup w
 **Windows:** install [Docker Desktop](https://www.docker.com/products/docker-desktop) (it needs WSL 2 and CPU virtualization turned on) and [Git for Windows](https://git-scm.com/download/win), then type this in an open PowerShell window:
 
 ```powershell
-irm https://raw.githubusercontent.com/antonyrag/ragleap-core/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/ragleap/ragleap-core/main/install.ps1 | iex
 ```
 
 It asks which AI to use, builds and starts RagLeap, and opens the dashboard in your browser without printing your login key in the terminal. Type it directly in PowerShell: wrapped inside `powershell -c "..."`, Windows Defender stopped that form on the one machine we tested. To read the script first, run `$s = irm` with the same address, look at `$s`, then run `iex $s`. After the install, run RagLeap commands in Git Bash from the install folder, for example `bash scripts/ragleap key`.
@@ -168,6 +169,14 @@ Prefer Ansible for a fresh Ubuntu server? `ragleap-ansible` is a set of Ansible 
 pip install ragleap-ansible
 # or, with uv
 uv add ragleap-ansible
+```
+
+Looking at open, local speech models? `ragleap-voice` is a pre-alpha model manager: a licence-checked manifest of candidate speech-to-text and text-to-speech models, with hash-verified downloads from Hugging Face. It has no speech engines yet, so it cannot transcribe or synthesize audio, and every manifest entry is still unverified:
+
+```bash
+pip install ragleap-voice
+# or, with uv
+uv add ragleap-voice
 ```
 
 Or run the full self-hosted app (channels, the AI Office dashboard, Docker Compose) — see [Quickstart](#quickstart) below. Browse every package at [packages.ragleap.com](https://packages.ragleap.com). Try it hands-on with the runnable scripts in [examples/](examples/) — `01_ingest_and_query.py` (upload a document, ask a question via the API) and `02_test_channel_directly.py` (test channel answering logic without real bot credentials).
@@ -329,19 +338,19 @@ ragleap-core/
 **Fastest way to try it** — one command checks Docker, clones the repo, and sets up `.env` for you:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/antonyrag/ragleap-core/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ragleap/ragleap-core/main/install.sh | bash
 ```
 
 (Windows users: run this in Git Bash, not Command Prompt or PowerShell.)
 
-The installer asks which AI to use (Gemini, or fully local Ollama with no API key), generates your API key and secrets, starts everything and prints a one-click link to the dashboard. For local AI run `curl -fsSL https://raw.githubusercontent.com/antonyrag/ragleap-core/main/install.sh | bash -s -- --ollama` (small local models on a CPU are slower and less accurate than Gemini). For unattended installs set `RAGLEAP_PROVIDER` (`gemini`, `ollama` or `skip`) and `GEMINI_API_KEY`. An existing `.env` is never modified.
+The installer asks which AI to use (Gemini, or fully local Ollama with no API key), generates your API key and secrets, starts everything and prints a one-click link to the dashboard. For local AI run `curl -fsSL https://raw.githubusercontent.com/ragleap/ragleap-core/main/install.sh | bash -s -- --ollama` (small local models on a CPU are slower and less accurate than Gemini). For unattended installs set `RAGLEAP_PROVIDER` (`gemini`, `ollama` or `skip`) and `GEMINI_API_KEY`. An existing `.env` is never modified.
 
 After installing, control RagLeap with the `ragleap` command: `ragleap launch` (start; `--ollama` also runs the local AI service and switches to it), `ragleap stop`, `ragleap status`, `ragleap logs`, `ragleap update` (backs up the database first) and `ragleap key` (prints your one-click dashboard link).
 
 **Or, the manual way** — better if you want to read the code before running anything:
 
 ```bash
-git clone https://github.com/antonyrag/ragleap-core.git
+git clone https://github.com/ragleap/ragleap-core.git
 cd ragleap-core
 cp .env.example .env
 # add your Gemini API key to .env
@@ -365,15 +374,16 @@ pip install ragleap-rag
 - **`ragleap-rag`** — the chunking → embedding → retrieval → generation pipeline as a library. Pluggable embeddings (8 providers: Gemini, OpenAI, Mistral, Together, Ollama, Cohere, Voyage and a custom endpoint), 6 vector backends (FAISS, PgVector, Pinecone, Weaviate, Qdrant, Milvus), cross-encoder reranking, and more.
 - **`ragleap-graph`** — Neo4j-backed knowledge graph retrieval, usable standalone or alongside `ragleap-rag`.
 - **`ragleap-vectorstores`** — pluggable vector backends beyond `ragleap-rag` core's 6. Backends: Chroma and LanceDB (embedded/local), Redis (RediSearch/Redis Stack), Upstash Vector (managed serverless) and OpenSearch (k-NN). Install with `pip install ragleap-vectorstores[chroma]` or `uv add ragleap-vectorstores[chroma]`.
-- **`ragleap-tools`** — standalone, dependency-light tools for LLM tool-calling. 12 stateless tools (calculator, date/time, unit conversion, JSON/CSV parsing, text utilities), sandboxed file ops (symlink-escape protected), `search_documents` (hybrid vector+keyword search), `search_web` (pluggable BYOK providers such as Tavily and Serper), `search_github_repositories`, `describe_image` (BYOK vision providers for Gemini and Anthropic; only Gemini has been live-checked), and optional `ragleap-rag`-backed document ingestion. Every HTTP provider has a response-size cap and a hard total deadline. Does not own a tool-calling execution loop — provides `Tool` objects for your own loop or for `ragleap-agents`. Install with `pip install ragleap-tools` or `uv add ragleap-tools`.
+- **`ragleap-tools`** — standalone, dependency-light tools for LLM tool-calling. 12 stateless tools (calculator, date/time, unit conversion, JSON/CSV parsing, text utilities), sandboxed file ops (symlink-escape protected), `search_documents` (hybrid vector+keyword search), `search_web` (pluggable BYOK providers such as Tavily and Serper), `search_github_repositories`, `describe_image` (BYOK vision providers for Gemini and Anthropic; only Gemini has been live-checked), and optional `ragleap-rag`-backed document ingestion. Every HTTP provider has a response-size cap and a hard total deadline. Does not own a tool-calling execution loop — provides `Tool` objects for your own loop or for `ragleap-agents`. Write your own tools with the `@tool` decorator and dispatch a model's call safely with `Toolkit` (arguments are validated before your code runs). Install with `pip install ragleap-tools` or `uv add ragleap-tools`.
 - **`ragleap-integrations`** — MCP (Model Context Protocol) client over Streamable HTTP that returns `ragleap-tools` `Tool` objects. The owner configures the servers and an exact `server.tool` allowlist; the model only supplies arguments. HTTPS-only transport with DNS pinning and a hard wall-clock deadline. Live-checked against public servers: DeepWiki on the legacy protocol path, and Google Cloud's MCP endpoints on the newest revision (2026-07-28; discovery only, `tools/call` on that path is not yet live-verified). The default response cap is 1 MiB (256 KiB in 0.1.0, which Google Cloud's Pub/Sub MCP endpoint exceeded); raise `max_response_bytes` if discovery fails. No curated business connectors and no agent loop yet. Install with `pip install ragleap-integrations` or `uv add ragleap-integrations`.
 - **`ragleap-ops`** — Kubernetes deployment manifests for RagLeap Core, live-tested end-to-end on a real cluster. Install with `pip install ragleap-ops` or `uv add ragleap-ops`.
 - **`ragleap-app-chart`** — generic, reusable Helm chart for deploying arbitrary services to Kubernetes, not RagLeap-specific. Point it at your own app via a `services:` list. Install with `pip install ragleap-app-chart` or `uv add ragleap-app-chart`.
 - **`ragleap-observability`** — Prometheus, Grafana, Loki + Promtail for `ragleap-ops`, live-verified end-to-end against a real cluster (real connection confirmed, real non-zero metrics returned; 21+ real log streams with correct namespace/pod/container labels). AlertManager is wired to Prometheus with a first real alert rule, plus optional Slack/email receivers (off by default; delivery verified against a stand-in, real send not yet confirmed). Install with `pip install ragleap-observability` or `uv add ragleap-observability`.
 - **`ragleap-terraform`** — Terraform module that creates a local kind cluster and installs the RagLeap Helm charts, applied and destroyed on a real cluster (no cloud modules yet). Install with `pip install ragleap-terraform` or `uv add ragleap-terraform`.
 - **`ragleap-ansible`** — Ansible roles that prepare and harden a fresh Ubuntu server: deploy user, sudo, unattended upgrades, opt-in SSH hardening and an opt-in firewall (tested in a container; does not install k3s, Helm or the charts yet). Install with `pip install ragleap-ansible` or `uv add ragleap-ansible`.
+- **`ragleap-voice`** — pre-alpha model manager for open, local speech-to-text and text-to-speech models: licence-checked manifest, lock files with SHA-256 and hash-verified downloads from Hugging Face. No speech engines yet, so it cannot transcribe or synthesize audio. Install with `pip install ragleap-voice` or `uv add ragleap-voice`.
 
-All ten are MIT licensed. Browse the full package index at [packages.ragleap.com](https://packages.ragleap.com).
+All twelve are MIT licensed. Browse the full package index at [packages.ragleap.com](https://packages.ragleap.com).
 
 ## Use RagLeap from a coding agent (read-only plugin)
 
@@ -411,6 +421,7 @@ RagLeap Core is bring-your-own-key only there is no system-provided key for any 
 | `openrouter` | `OPENROUTER_API_KEY`, `OPENROUTER_MODEL` | |
 | `ollama` | `OLLAMA_MODEL` (no API key needed) | Self-hosted; requires Ollama running locally |
 | `deepseek` | `DEEPSEEK_API_KEY`, `DEEPSEEK_MODEL` | |
+| `demonroute` | `DEMONROUTE_API_KEY`, `DEMONROUTE_MODEL` | Hosted open-weight models; DemonRoute states that prompts are not retained — [privacy](https://demonroute.com/privacy) |
 | `xai` | `XAI_API_KEY`, `XAI_MODEL` | |
 | `cohere` | `COHERE_API_KEY`, `COHERE_MODEL` | |
 | `perplexity` | `PERPLEXITY_API_KEY`, `PERPLEXITY_MODEL` | |
@@ -689,7 +700,7 @@ same live API.
 - [x] Document ingestion in the app: 28 file types and web pages by address
 - [ ] Audio, video and image ingestion in the app (they exist in the `ragleap-rag` package; audio and video need a hosted transcription provider, because local speech-to-text is not supported yet)
 - [ ] Embeddable web chat widget (planned; not built yet)
-- [x] Bring-your-own-API-key support (19 providers)
+- [x] Bring-your-own-API-key support (20 providers)
 - [x] WhatsApp, Telegram, Discord, and Voice channel adapters (single-tenant)
 - [x] Knowledge Graph (Neo4j), language detection, database/CRM integrations
 - [x] Contribution guide and good-first-issue labels — 8+ issues labeled, with a real external contributor active on #134
@@ -707,7 +718,7 @@ See [ROADMAP.md](ROADMAP.md) for the full phase-by-phase history.
 
 ## Tested by others
 
-We call a feature proven only when someone other than the maintainers has run it and reported the result. This table starts empty on purpose. It is filled in from reports on the [community testing issues](https://github.com/antonyrag/ragleap-core/issues/787), and nothing counts as tested until a report is listed here.
+We call a feature proven only when someone other than the maintainers has run it and reported the result. This table starts empty on purpose. It is filled in from reports on the [community testing issues](https://github.com/ragleap/ragleap-core/issues/787), and nothing counts as tested until a report is listed here.
 
 You do not need to write code to help: pick a test, run a few steps on sample files, and comment with what happened, even if everything worked. Please never share keys or real data.
 

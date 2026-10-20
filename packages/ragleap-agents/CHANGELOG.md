@@ -5,6 +5,19 @@ loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `Agent.run(task, *, tainted=False)`: start a run already tainted, so every outbound tool needs
+  approval from the first step, as it does after a tainting tool has run. `tainted` must be a bool
+  (anything else raises `ValueError`). The flag is saved in the run state, so it survives a pause
+  and resume. Meant for runs whose task comes from an untrusted source (an incoming message, a
+  webhook payload) and for sub-agents started by a tainted parent (#827).
+- Building blocks for sub-agents (#827), not yet a feature on their own: `delegate_policy(children, *,
+  allow_outbound=False)` validates child agents and returns the `ToolPolicy` to declare for their
+  delegate tool (tainting if any child tool can taint, never outbound; a child tool with no declared
+  policy raises, and an outbound one raises unless `allow_outbound=True`), `Budget(max_delegations=4,
+  max_child_steps=16)`, and `MAX_DEPTH_CEILING = 3`. The delegate tool itself comes in a later change.
+
 ## [0.4.1] - 2026-10-20
 
 ### Changed
