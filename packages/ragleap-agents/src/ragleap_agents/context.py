@@ -27,9 +27,9 @@ def current_run() -> Optional[RunContext]:
     return _CURRENT.get()
 
 
-def enter_run(ctx: RunContext) -> "contextvars.Token":
+def enter_run(ctx: RunContext) -> contextvars.Token:
     return _CURRENT.set(ctx)
 
 
-def leave_run(token: "contextvars.Token") -> None:
+def leave_run(token: contextvars.Token) -> None:
     _CURRENT.reset(token)
