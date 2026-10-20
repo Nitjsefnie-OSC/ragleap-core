@@ -202,7 +202,7 @@ class PineconeBackend(VectorBackend):
                 continue
             document_id, document_name, chunk_index, text = row
             results.append({
-                "chunk_id": match.id, "text": text, "similarity_score": round(float(match.score), 4),
+                "chunk_id": match.id, "text": text, "similarity_score": round((float(match.score) + 1) / 2, 4),
                 "document_id": document_id, "document_name": document_name, "chunk_index": chunk_index,
             })
         return results

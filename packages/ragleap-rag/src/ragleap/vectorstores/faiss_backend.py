@@ -149,7 +149,7 @@ class FAISSBackend(VectorBackend):
             if not self._metadata_matches(metadata_json, metadata_filter):
                 continue
             results.append({
-                "chunk_id": str(vid), "text": text, "similarity_score": round(float(score), 4),
+                "chunk_id": str(vid), "text": text, "similarity_score": round(max(0.0, min(1.0, (float(score) + 1.0) / 2.0)), 4),
                 "document_id": document_id, "document_name": document_name, "chunk_index": chunk_index,
             })
             if len(results) >= top_k:
