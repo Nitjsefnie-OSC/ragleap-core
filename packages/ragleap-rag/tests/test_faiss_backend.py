@@ -134,3 +134,20 @@ def test_faiss_persistence_across_backend_instances(tmp_path, database_url):
     docs = rag2.list_documents()
     assert len(docs) == 1
     assert docs[0]["filename"] == "persisted.txt"
+
+
+def test_faiss_dense_scores_are_on_the_zero_to_one_scale(tmp_path):
+    """Regression for #577: scores share the [0, 1] scale of the other
+    backends (identical 1.0, orthogonal 0.5, opposite 0.0), not raw cosine."""
+    from ragleap.vectorstores import FAISSBackend
+
+    backend = FAISSBackend(persist_directory=str(tmp_path / "faiss_scale"))
+    backend.init_schema(3)
+    backend.insert_document("doc1", "scale.txt", {})
+    vectors = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0]]
+    for i, vec in enumerate(vectors):
+        backend.insert_chunk("doc1", "scale.txt", i, "chunk %d" % i, 1, vec, {})
+    results = backend.search_dense([1.0, 0.0, 0.0], top_k=3)
+    by_index = {r["chunk_index"]: r["similarity_score"] for r in results}
+    assert by_index == {0: 1.0, 1: 0.5, 2: 0.0}
+    assert all(0.0 <= r["similarity_score"] <= 1.0 for r in results)
