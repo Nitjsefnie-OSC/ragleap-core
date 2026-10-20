@@ -700,7 +700,7 @@ same live API.
 - [x] Document ingestion in the app: 28 file types and web pages by address
 - [ ] Audio, video and image ingestion in the app (they exist in the `ragleap-rag` package; audio and video need a hosted transcription provider, because local speech-to-text is not supported yet)
 - [ ] Embeddable web chat widget (planned; not built yet)
-- [x] Bring-your-own-API-key support (19 providers)
+- [x] Bring-your-own-API-key support (20 providers)
 - [x] WhatsApp, Telegram, Discord, and Voice channel adapters (single-tenant)
 - [x] Knowledge Graph (Neo4j), language detection, database/CRM integrations
 - [x] Contribution guide and good-first-issue labels — 8+ issues labeled, with a real external contributor active on #134
