@@ -5,6 +5,21 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-20
+
+### Changed
+
+- The `app` and `voice` image defaults, in the Helm values and in the raw `k8s/` manifests, now point to `ghcr.io/ragleap/ragleap-app:0.11.0`, the image that this repository's `publish-image` workflow builds and publishes. They pointed to `ghcr.io/antonyrag/ragleap-app:latest`, a package under a different account whose `latest` tag was last updated on 2026-08-30 and is not published by the workflow.
+- The default tag is `0.11.0` (a pinned version, so installs do not change when a new image is published).
+
+### Upgrade note
+
+- The `ragleap-app` package under `ragleap` was private when this was written (2026-10-20). The `ghcr-pull-secret` that the chart references must hold credentials with read access to that package, or the `app` and `voice` pods will stay in `ImagePullBackOff`. To keep the old image, set `app.image` and `voice.image` yourself.
+
+### Known limitations
+
+- CI scales `app` and `voice` to zero, so those pods were not run against the chart with the new image. What was checked: the Helm render differs from 0.5.2 only in the two image lines, `helm lint` passes, and the wheel contains the chart and the manifests.
+
 ## [0.5.2] - 2026-10-19
 
 ### Changed

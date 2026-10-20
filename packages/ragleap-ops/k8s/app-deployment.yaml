@@ -29,7 +29,7 @@ spec:
             allowPrivilegeEscalation: false
       containers:
         - name: app
-          image: ghcr.io/antonyrag/ragleap-app:latest
+          image: ghcr.io/ragleap/ragleap-app:0.11.0
           securityContext:
             runAsNonRoot: true
             allowPrivilegeEscalation: false
