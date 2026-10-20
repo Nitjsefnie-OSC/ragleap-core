@@ -32,3 +32,13 @@ to a temporary folder (free disk space for the whole file is needed) so its head
 A manifest entry can list other entries in `depends_on`. Each dependency has its own lock file and its own cache
 folder. `pull` fetches dependencies first and refuses to start if any lock is missing; a verified or default
 entry may only depend on verified entries.
+
+## Pull tests
+
+Run on Google Colab on 2026-10-19, from the locks on `main`, with `models pull NAME --allow-unverified`:
+
+- `naijavox-2` (9 files) and `sunflowerasr-51-african-languages` (8 files, gated; the token was passed only to that one subprocess) were downloaded, checked file by file for size and SHA-256 against the lock, and installed at the pinned revision. `models verify` then passed offline with no token in the environment.
+- Tamper test on `naijavox-2`: changing one bit of `config.json` made `models verify` fail with a SHA-256 mismatch for that file, and restoring it made the check pass again.
+- After the Colab runtime was recycled (the files were gone), `naijavox-2` was pulled and verified again from the lock on the clean runtime, then loaded with `transformers` 5.18.0 from the verified folder with `HF_HUB_OFFLINE=1`, `TRANSFORMERS_OFFLINE=1` and no token variable in the environment. One Yoruba FLEURS clip was transcribed; the first 110 characters of the transcript equal the first 110 characters of the first clip's output from the benchmark run in `benchmarks/voice/README.md` (only that prefix was compared).
+- Not tested: loading `sunflowerasr-51-african-languages` from its verified folder.
+- Both entries remain unverified. The training-data licences of both models are not reviewed, and no person has reviewed the lock files. A successful pull and load shows that the files are intact and usable; it says nothing about quality or licences.
