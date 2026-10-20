@@ -5,6 +5,9 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- `ingest_batch()` now keeps the `metadata` of `file` items (it was silently dropped; the url, image, audio and video items already kept it). `aingest()` accepts an optional `metadata` argument for this.
+
 ## [0.13.0] - 2026-10-03
 ### Security
 - `ingest_url()` / `fetch_url_text()` now download pages through a guarded fetcher (`ragleap/_net.py`) instead of `trafilatura.fetch_url`: http/https only, no credentials in the URL, every resolved address must be public (loopback, private, link-local, CGNAT and multicast ranges are refused, including IPv4-mapped IPv6), the connection goes to the validated address so a second DNS lookup cannot swap it, redirects are followed manually (max 3) with every hop re-validated, and size (10 MB) and time are capped. Before this, a page served on a loopback address was fetched. Refusals raise `UnsafeURLError` (a `ValueError`). Pass `allow_private_urls=True` to `ingest_url()` (or `allow_private=True` to `fetch_url_text()`) to reach private networks.

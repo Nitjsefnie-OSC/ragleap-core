@@ -667,7 +667,7 @@ class RagLeap:
         self.delete_document(document_id)
         return self.ingest_text(existing_filename, text)
 
-    async def aingest(self, filename: str, raw_bytes: bytes) -> IngestResult:
+    async def aingest(self, filename: str, raw_bytes: bytes, metadata: Optional[Dict] = None) -> IngestResult:
         """
         Async version of ingest(). Runs the existing sync implementation
         in a worker thread, so it does not block the event loop - the
@@ -677,7 +677,7 @@ class RagLeap:
         request.
         """
         import asyncio
-        return await asyncio.to_thread(self.ingest, filename, raw_bytes)
+        return await asyncio.to_thread(self.ingest, filename, raw_bytes, metadata)
 
     async def aingest_text(self, filename: str, text: str) -> IngestResult:
         """Async version of ingest_text(). See aingest() for details."""
@@ -756,7 +756,7 @@ class RagLeap:
                 metadata = item.get("metadata")
 
                 if item_type == "file":
-                    result = await self.aingest(item["filename"], item["raw_bytes"])
+                    result = await self.aingest(item["filename"], item["raw_bytes"], metadata=metadata)
                 elif item_type == "url":
                     result = await self.aingest_url(item["url"], metadata=metadata)
                 elif item_type == "image":

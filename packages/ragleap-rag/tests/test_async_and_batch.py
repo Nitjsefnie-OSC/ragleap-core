@@ -81,3 +81,34 @@ async def test_aask_stream_respects_rerank_and_metadata_filter(rag, monkeypatch)
 
     assert "".join(pieces) == "This is a fake streamed answer."
     assert len(call_log) == 1
+
+
+@pytest.mark.asyncio
+async def test_aingest_passes_metadata_to_ingest(rag):
+    seen = []
+    original = rag.ingest_text
+
+    def spy(filename, text, metadata=None):
+        seen.append((filename, metadata))
+        return original(filename, text, metadata=metadata)
+
+    rag.ingest_text = spy
+    await rag.aingest("m.txt", b"some content", metadata={"team": "x"})
+    assert seen == [("m.txt", {"team": "x"})]
+
+
+@pytest.mark.asyncio
+async def test_ingest_batch_file_item_keeps_metadata(rag):
+    seen = []
+    original = rag.ingest_text
+
+    def spy(filename, text, metadata=None):
+        seen.append((filename, metadata))
+        return original(filename, text, metadata=metadata)
+
+    rag.ingest_text = spy
+    results = await rag.ingest_batch([
+        {"type": "file", "filename": "m.txt", "raw_bytes": b"meta content", "metadata": {"team": "x"}},
+    ])
+    assert results[0]["success"] is True
+    assert seen == [("m.txt", {"team": "x"})]
