@@ -18,7 +18,7 @@ from ragleap_agents.agent import (
     validate_arguments,
 )
 from ragleap_agents.providers import ProviderError, openai_compatible
-from ragleap_agents.delegate import MAX_DEPTH_CEILING, Budget, delegate_policy
+from ragleap_agents.delegate import MAX_DEPTH_CEILING, Budget, delegate_policy, make_delegate_tool
 from ragleap_agents.state import AtomicStateStore, InMemoryStateStore, SQLiteStateStore, StateStore
 
 __version__ = "0.4.1"
@@ -30,6 +30,7 @@ __all__ = [
     "Budget",
     "MAX_DEPTH_CEILING",
     "delegate_policy",
+    "make_delegate_tool",
     "InMemoryStateStore",
     "SQLiteStateStore",
     "Policy",

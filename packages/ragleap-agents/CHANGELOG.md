@@ -16,7 +16,17 @@ loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   allow_outbound=False)` validates child agents and returns the `ToolPolicy` to declare for their
   delegate tool (tainting if any child tool can taint, never outbound; a child tool with no declared
   policy raises, and an outbound one raises unless `allow_outbound=True`), `Budget(max_delegations=4,
-  max_child_steps=16)`, and `MAX_DEPTH_CEILING = 3`. The delegate tool itself comes in a later change.
+  max_child_steps=16)`, and `MAX_DEPTH_CEILING = 3`.
+- `make_delegate_tool(children, *, max_depth=1, budget=None, allow_outbound=False, name="delegate")`: an
+  ordinary tool that hands one task to a named child agent and returns its short answer as an untrusted,
+  fenced observation. A child starts tainted if its parent was, and a child that reaches an action needing
+  approval is stopped with `stop_reason="approval_not_available"` and the action does not run (children
+  cannot pause for approval in this release). Depth, the number of delegations and the children's steps are
+  limited per root run; the counters are saved in the root run's state and survive a pause and resume. A
+  child's own step cap bounds how far its steps can overshoot the budget.
+- `ragleap_agents.context`: `current_run()` returns the `RunContext` (run id, depth, taint, counters) of
+  the run executing the current tool call, or `None` outside a run. It is a context variable, so threads
+  do not share it. Runs started inside a tool call are one level deeper than the run that called the tool.
 
 ## [0.4.1] - 2026-10-20
 
