@@ -345,6 +345,61 @@ path is confirmed broken, not as a routine fix.
 
 ---
 
+## Appendix A. Velero: optional cluster-level backup (not an incident scenario)
+
+**Status: tested in CI on a throwaway kind cluster only. Not tested on
+k3s, on a cloud cluster, or with real object storage.**
+
+The daily CronJobs in section 3 (`pg_dump` for Postgres, the
+`neo4j-admin` dump for Neo4j) stay the primary, application-consistent
+backups. Velero is an optional second layer: it backs up a whole
+namespace (objects and volume data) so it can be restored onto a fresh
+cluster or empty disks. Velero's file-system backup copies the files of
+running databases, so those copies are crash-consistent, not
+application-consistent. It does not replace the CronJobs.
+
+**The trap (observed in CI): a `Completed` backup can contain no
+database data.** In the CI test, Velero's file-system backup left out
+the `hostPath` volumes. This chart's PVCs use the cluster's default StorageClass. On kind that
+is `rancher.io/local-path`, and the CI test observed that it creates
+`hostPath` PersistentVolumes. With that storage, the backup reported
+`Completed`, contained only emptyDir volumes, and the restored
+databases were empty. K3s ships the same provisioner (per its
+documentation), so k3s's default storage very likely behaves the same
+way. That part is an inference and was not tested.
+
+**What was verified** (`.github/scripts/velero-test.sh`, workflow
+`velero-test`; four passing runs on GitHub runners, 2026-10-19 and
+2026-10-20): Velero v1.18.3 with the AWS plugin v1.14.0 and a RustFS
+S3-compatible stand-in, on kind, using static PersistentVolumes of type
+`local`. The test writes a row to Postgres and a node to Neo4j, backs up
+the namespace with file-system backup, deletes the namespace, replaces
+both volumes with fresh empty ones, restores, and checks that both
+records came back.
+
+**How to check that a backup really contains your data**
+
+```bash
+# every data volume must be listed and Completed (emptyDir volumes such as
+# tmp also appear and do not count)
+kubectl -n velero get podvolumebackups \
+  -o jsonpath='{range .items[*]}{.spec.volume}={.status.phase}{"\n"}{end}'
+# expect db-data=Completed and neo4j-data=Completed
+
+# what kind of volume backs your PVCs? hostPath volumes were left out in CI
+kubectl get pv <pv-name> -o jsonpath='{.spec.hostPath.path}'   # non-empty means hostPath
+```
+
+Then prove it by restoring: restore into an empty namespace on empty
+volumes and query the data, as the CI test does. A backup that has
+never been restored is not a backup.
+
+**Not covered:** application-consistent backups, CSI snapshots,
+scheduled backups, retention, restoring into a different cluster,
+real object storage, multi-node clusters, k3s.
+
+---
+
 ## Standing principle for all four scenarios
 
 Per this repo's own operating discipline: don't assume a fix worked
