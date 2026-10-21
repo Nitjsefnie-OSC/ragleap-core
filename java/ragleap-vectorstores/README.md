@@ -36,13 +36,13 @@ fake HTTP server that records every request; the Java backend runs the same 29 s
 server and must send identical requests (method, path, query, body, auth) and return identical results. Ten
 deliberate breaks of the Java code were each caught by the tests.
 
-**Not live-verified:** no real OpenSearch server was used. Python was pinned at commit `078ca87`.
+**Not live-verified:** no real OpenSearch server was used. Python was pinned at commit `bb4d2dc`.
 
 ```bash
 # regenerate fixtures (needs the pinned Python package and a venv with opensearch-py 3.2.0, upstash-vector 0.8.0, redis-py 8.0.1 and numpy)
-VS_PIN=078ca87 python parity/gen_fixtures_opensearch.py
-VS_PIN=078ca87 python parity/gen_fixtures_upstash.py
-VS_PIN=078ca87 python parity/gen_fixtures_redis.py
+VS_PIN=bb4d2dc python parity/gen_fixtures_opensearch.py
+VS_PIN=bb4d2dc python parity/gen_fixtures_upstash.py
+VS_PIN=bb4d2dc python parity/gen_fixtures_redis.py
 RAGLEAP_VS_PARITY_DIR=/root/fixtures-vs mvn -B test
 ```
 
@@ -68,20 +68,20 @@ search.
 - A namespace is sent percent-encoded; the SDK leaves a few characters raw that `java.net.URI` cannot send
   (invalid percent escapes, square brackets, `|`, `^`). Those two scenarios compare the decoded path.
 - A filter value that is a list or map throws; a missing or non-numeric `chunk_index` comes back as 0.
+- `listDocuments` follows the `range` cursor until the scan ends or the cursor repeats, like the fixed Python (before
+  that fix Python counted at most 1000 chunks per document); a `nextCursor` that is neither a string nor null throws.
 - Failures throw `SQLException`; a wrong dimension or a hybrid index throws `IllegalStateException`.
 
-Copied from Python on purpose (possible Python issues, not fixed here): the chunk count in `listDocuments` is capped
-at the first 1000 chunks of a document; `deleteDocument` deletes by the prefix `<id>:`, so a document id that
+Copied from Python on purpose (possible Python issues, not fixed here): `deleteDocument` deletes by the prefix `<id>:`, so a document id that
 contains a colon can collide with another document's chunks; caller metadata keys override the stored `text` and
 `document_id`.
 
 ### How it was verified
 
 Recorded-request parity against the real Python `UpstashBackend`, the real upstash-vector 0.8.0 SDK and a real SQLite
-registry: 33 scripted scenarios (60 requests). 31 are compared request by request and result by result (57
-requests); one (url with a trailing slash) is checked by a raw-socket test that reads the literal request line;
+registry: 41 scripted scenarios (85 requests). 39 are compared request by request and result by result (82 requests); one (url with a trailing slash) is checked by a raw-socket test that reads the literal request line;
 one is skipped because Python's own HTTP client rejects it (a tab in the namespace). Fifteen deliberate breaks of the
-Java code were each caught by the tests. **Not live-verified:** no real Upstash index was used.
+Java code were each caught by the tests. **Not live-verified:** no real Upstash index was used. Four more deliberate breaks cover the cursor paging, each caught by the tests.
 
 ## Redis
 
