@@ -125,3 +125,10 @@ Added by the current owner; the text above is unchanged. Evidence tags as in sec
 - [unverified] Whether the open repositories run without the key, whether the key is checked online, and whether mediajam (the media server since jambonz 11) is open. These decide whether jambonz can meet the project's independence goal.
 - [verified, https://docs.jambonz.org/self-hosting/overview/krisp-turn-taking] Krisp features need a separate Krisp API key and outbound HTTPS to a Krisp host for self-hosted jambonz; RNNoise is offered as the open option.
 - The RFC issue for section 2 is #814.
+
+### Further updates (2026-10-21)
+
+- [verified, GitHub, 2026-10-21] The public jambonz-feature-server repository is the 0.9.x line (package.json version 0.9.14, MIT, depends on drachtio-fsmrf; its README sets a FreeSWITCH address and lists no licence-key setting). The jambonz documentation describes a different 11.x line with a media server called mediajam and a licence key. No repository named mediajam exists in the jambonz GitHub organisation's public list.
+- [verified, GitHub, 2026-10-21] The jambonz organisation's python-sdk repository declares no licence, so the line in section 5 saying "a community Python SDK exists" should read: exists, licence not declared (not reusable until one is added).
+- [verified, GitHub, 2026-10-21] heplify-server (AGPL-3.0) and the rtpengine repository in the jambonz organisation (GPL-3.0; whether it is a fork was not checked) are copyleft; Asterisk, Kamailio and OpenSIPS are GPL-licensed (see the design note). None may be bundled without a licence review; running them as separate services is the plan.
+- [unverified] Whether the open 0.9.x line runs without any licence key or online check, and whether it is maintained to parity with the 11.x line. A hands-on test on a throwaway machine is needed.
