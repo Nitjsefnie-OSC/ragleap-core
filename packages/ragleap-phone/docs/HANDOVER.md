@@ -115,3 +115,13 @@ Proposed for this package (not repository rules yet; agree them in the first pul
 ## 13. Where this lives
 
 This file lives at `packages/ragleap-phone/docs/HANDOVER.md` in the repository, next to a short README that says the package is planned and has no code yet. It is public, so it must stay free of anything private. Private matters (access, accounts, numbers) are passed to you directly, never written in the repository.
+
+## Updates (2026-10-21)
+
+Added by the current owner; the text above is unchanged. Evidence tags as in section 0.
+
+- [verified] The jambonz repositories listed in the design note (api-server, feature-server, sbc-inbound, sbc-outbound, sbc-sip-sidecar, sbc-rtpengine-sidecar, webapp) and drachtio-server carry the MIT licence on GitHub; rtpengine is GPL-3.0; LiveKit server and LiveKit SIP are Apache-2.0.
+- [verified in jambonz documentation, https://docs.jambonz.org/self-hosting/licensing and https://docs.jambonz.org/self-hosting] A self-hosted jambonz system requires a software licence key tied to a domain name. A free trial key lasts 30 days; after that a paid licence is needed. Extended free licences are offered for non-commercial use and pre-revenue startups on request. The statement in section 5 that jambonz is "MIT licence, self-hosted, ... can run air-gapped" is therefore only partly right: it holds for the open repositories and for what the jambonz overview page says, not for the packaged self-hosted product.
+- [unverified] Whether the open repositories run without the key, whether the key is checked online, and whether mediajam (the media server since jambonz 11) is open. These decide whether jambonz can meet the project's independence goal.
+- [verified, https://docs.jambonz.org/self-hosting/overview/krisp-turn-taking] Krisp features need a separate Krisp API key and outbound HTTPS to a Krisp host for self-hosted jambonz; RNNoise is offered as the open option.
+- The RFC issue for section 2 is #814.

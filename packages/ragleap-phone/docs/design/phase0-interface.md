@@ -59,15 +59,18 @@ These are requirements for the Stage 3 streaming design in the 0.1.0 API draft (
 
 ## 6. Backends to compare (Phase 0 work)
 
-| | jambonz | LiveKit (SIP) | Asterisk or FreeSWITCH direct |
+| | jambonz | LiveKit (SIP) | Asterisk, FreeSWITCH, Kamailio, OpenSIPS (plain SIP servers) |
 |---|---|---|---|
-| Licence | MIT [verified in the handover] | Apache-2.0 [verified in the handover] | unverified |
-| Self-hosted, air-gapped | claimed [unverified here] | unverified | unverified |
-| Audio path to our process | to test | to test | to test |
-| Latency (measured) | to test | to test | to test |
-| Authentication and rate limits | to test | to test | to test |
-| Components with GPL licences | to review | to review | to review |
-| Operational effort | to test | to test | to test |
+| Licence of the code (GitHub licence field, 2026-10-21) | MIT for jambonz-api-server, jambonz-feature-server, sbc-inbound, sbc-outbound, sbc-sip-sidecar, sbc-rtpengine-sidecar and jambonz-webapp; drachtio-server MIT; rtpengine GPL-3.0 | Apache-2.0 for livekit/livekit and livekit/sip | GitHub reports no single licence (several licence files); not read yet |
+| Packaged self-hosted product | Requires a software licence key tied to a domain name; a free trial key lasts 30 days, then a paid licence; extended free licences for non-commercial use and pre-revenue startups on request (docs.jambonz.org/self-hosting/licensing and /self-hosting) | Self-hosting is documented (docs.livekit.io); no licence key mentioned in the READMEs read | Not applicable |
+| Do the open repositories run without the key | unverified: the READMEs of jambonz-feature-server and jambonz-api-server do not mention a key; as of jambonz 11 the media server is called mediajam and the feature server no longer supports FreeSWITCH, and mediajam's licence was not checked | not needed, as far as the READMEs show | not needed |
+| Works without internet (air-gapped) | claimed on the jambonz overview page; whether the licence key is checked online is unverified | unverified | unverified |
+| Parts that must run | drachtio, rtpengine (GPL-3.0), a media server, MySQL (feature-server README) | LiveKit server, LiveKit SIP service, Redis, a public IP and an RTP port range (default 10000-20000, SIP README) | the SIP server itself |
+| Audio path to our process | unverified how audio reaches an application (the verbs were not read); a jambonz release note says newer speech models are now sent 16 kHz audio instead of 8 kHz | through a LiveKit room to an agent (documented); how 8 kHz telephone audio is handled is unverified | to test |
+| Latency measured by us | to test | to test | to test |
+| Authentication, rate limits, spam handling | unverified for all candidates; to test | to test | to test |
+| Recent activity (last push) | 4 to 20 Oct 2026 across the repositories above | 20 Oct 2026 | all four pushed 9 to 20 Oct 2026 |
+| Noise handling offered | RNNoise option ("noiseIsolation") and a Krisp option that needs a separate paid key and outbound HTTPS to a Krisp host | not checked | not applicable |
 
 Rules: run candidates as separate services, study ideas and do not copy code, review every licence before bundling,
 record third-party components in THIRD_PARTY_NOTICES.md. Tests run on a throwaway machine, never production.
