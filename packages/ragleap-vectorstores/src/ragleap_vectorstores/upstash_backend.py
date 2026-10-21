@@ -238,10 +238,19 @@ class UpstashBackend(VectorBackend):
             if self._index is not None:
                 # Native prefix-scan via range() - no predeclared schema
                 # or manual key-listing needed, unlike Redis's approach.
-                range_result = self._index.range(
-                    prefix=f"{doc_id}:", limit=1000, namespace=self.namespace,
-                )
-                chunk_count = len(range_result.vectors)
+                # One range() call returns at most `limit` vectors, so follow
+                # next_cursor until the scan is finished - a single call used
+                # to under-count any document with more than 1000 chunks.
+                cursor = ""
+                while True:
+                    range_result = self._index.range(
+                        cursor=cursor, prefix=f"{doc_id}:", limit=1000, namespace=self.namespace,
+                    )
+                    chunk_count += len(range_result.vectors)
+                    next_cursor = range_result.next_cursor
+                    if not next_cursor or next_cursor == cursor:
+                        break
+                    cursor = next_cursor
             results.append({
                 "document_id": doc_id, "filename": filename, "uploaded_at": uploaded_at,
                 "metadata": json.loads(metadata_json), "chunk_count": chunk_count,

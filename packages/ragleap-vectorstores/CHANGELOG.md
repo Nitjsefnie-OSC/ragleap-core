@@ -5,6 +5,9 @@ loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- `UpstashBackend.list_documents()` now counts all chunks of a document: it follows the `range()` cursor until the prefix scan ends. Before, a single call capped `chunk_count` at 1000. Costs one extra `range()` request per further 1000 chunks of a listed document.
+
 ## [0.5.2] - 2026-10-19
 ### Changed
 - Project links in the package metadata (Homepage, Repository, Issues) and the roadmap link in the
