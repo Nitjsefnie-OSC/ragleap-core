@@ -5,6 +5,14 @@ loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-21
+
+### Behaviour changes
+
+None for existing code. Every addition is opt-in: a run behaves as in 0.4.1 unless you pass
+`tainted=True` or build a delegate tool. No existing public signature changed incompatibly (`Agent.run`
+gained a keyword-only `tainted=False`).
+
 ### Added
 
 - `Agent.run(task, *, tainted=False)`: start a run already tainted, so every outbound tool needs
@@ -12,7 +20,7 @@ loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   (anything else raises `ValueError`). The flag is saved in the run state, so it survives a pause
   and resume. Meant for runs whose task comes from an untrusted source (an incoming message, a
   webhook payload) and for sub-agents started by a tainted parent (#827).
-- Building blocks for sub-agents (#827), not yet a feature on their own: `delegate_policy(children, *,
+- Building blocks for sub-agents (#827), used by `make_delegate_tool` below: `delegate_policy(children, *,
   allow_outbound=False)` validates child agents and returns the `ToolPolicy` to declare for their
   delegate tool (tainting if any child tool can taint, never outbound; a child tool with no declared
   policy raises, and an outbound one raises unless `allow_outbound=True`), `Budget(max_delegations=4,
@@ -27,6 +35,31 @@ loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `ragleap_agents.context`: `current_run()` returns the `RunContext` (run id, depth, taint, counters) of
   the run executing the current tool call, or `None` outside a run. It is a context variable, so threads
   do not share it. Runs started inside a tool call are one level deeper than the run that called the tool.
+
+### Verified
+
+- All 208 tests pass on Python 3.10 on the VPS (main at c31ab4e), and CI is green on Python 3.10, 3.11
+  and 3.12 for the delegate-tool change (#849).
+- A live delegation check against a real model: `scripts/live_delegate.py` (#890), Groq
+  `openai/gpt-oss-20b` in native mode, 8 runs (4 tasks in 2 configurations, one run each, 44 requests).
+  The parent delegated in 8 of 8 runs, the parent was tainted in 8 of 8, and `send_message` never ran
+  (approvals were never granted). In 3 runs the parent proposed `send_message` after a child had read
+  the note, and the taint rule held it for approval.
+
+### Not verified
+
+- Resistance to prompt injection through a sub-agent. Only 2 of the 8 live runs read the injected note
+  without a prompt that asked for an action, and the model proposed no send in either. The 3 runs that
+  were held for approval followed prompts that asked for a send, so they show the gate working, not an
+  injected instruction being resisted. Two runs are too few to say anything about real attacks.
+- The child-side stop (`approval_not_available`) has only been exercised with scripted models. In the
+  live runs the child never proposed `send_message`.
+- 2 of the 8 live runs stopped on a model reply the loop could not use (`unparseable_reply`,
+  `invalid_plan`). This looks like the format intermittency already seen on this model, but two runs
+  cannot confirm that.
+- One provider (Groq), one model, native mode only. No speed numbers exist.
+- Resuming a run that was saved by 0.4.x with 0.5.0 (the saved state gained fields) has not been tested.
+- A published 0.5.0 wheel has not yet been run on Python 3.11.
 
 ## [0.4.1] - 2026-10-20
 
