@@ -259,6 +259,27 @@ case("trailing_slash_url", [
 ], INIT + [J(200, OK_UPSERT)], ctor={"url_suffix": "/", "raw": True})
 
 
+def rngc(cursor, *ids):
+    return {"result": {"nextCursor": cursor, "vectors": [{"id": i} for i in ids]}}
+
+
+def paging_case(name, pages, ctor=None, docs=("d1",)):
+    ops = [op("init_schema", 8)] + [op("insert_document", d, d + ".txt", {}) for d in docs] + [op("list_documents", 10, 0)]
+    case(name, ops, INIT + pages, ctor=ctor)
+
+
+paging_case("list_paging_three_pages", [
+    J(200, rngc("c1", "d2:0", "d2:1")), J(200, rngc("c2", "d2:2")), J(200, rngc("", "d2:3", "d2:4")),
+    J(200, rngc("", "d1:0"))], docs=("d1", "d2"))
+paging_case("list_paging_repeated_cursor", [J(200, rngc("c1", "d1:0", "d1:1")), J(200, rngc("c1", "d1:2"))])
+paging_case("list_paging_cursor_zero_string", [J(200, rngc("0", "d1:0")), J(200, rngc("", "d1:1"))])
+paging_case("list_paging_empty_page_then_data", [J(200, rngc("c1")), J(200, rngc("", "d1:0"))])
+paging_case("list_paging_second_page_error", [J(200, rngc("c1", "d1:0")), J(200, {"error": "boom"})])
+paging_case("list_paging_second_page_missing_vectors", [J(200, rngc("c1", "d1:0")), J(200, {"result": {"nextCursor": ""}})])
+paging_case("list_paging_null_cursor", [J(200, {"result": {"nextCursor": None, "vectors": [{"id": "d1:0"}]}})])
+paging_case("list_paging_namespace", [J(200, rngc("c1", "d1:0")), J(200, rngc("", "d1:1"))], ctor={"namespace": "ns1"})
+
+
 def classify(e):
     if isinstance(e, (UpstashError, KeyError, json.JSONDecodeError)):
         return {"error": "RemoteError"}

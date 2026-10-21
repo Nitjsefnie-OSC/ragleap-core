@@ -380,22 +380,38 @@ public final class UpstashBackend implements VectorBackend, AutoCloseable {
         for (Row r : rows) {
             long count = 0;
             if (initialized) {
-                ObjectNode b = MAPPER.createObjectNode();
-                b.put("cursor", "");
-                b.put("limit", 1000);
-                b.put("includeVectors", false);
-                b.put("includeMetadata", false);
-                b.put("includeData", false);
-                b.put("prefix", r.id() + ":");
-                JsonNode res = post(nsPath("/range"), b, false);
-                if (!res.isObject() || !res.has("nextCursor") || !res.has("vectors") || !res.get("vectors").isArray()) {
-                    throw new SQLException("Upstash range result without nextCursor or vectors");
-                }
-                for (JsonNode v : res.get("vectors")) {
-                    if (!v.isObject() || !v.has("id")) {
-                        throw new SQLException("Upstash range vector without id");
+                String cursor = "";
+                while (true) {
+                    ObjectNode b = MAPPER.createObjectNode();
+                    b.put("cursor", cursor);
+                    b.put("limit", 1000);
+                    b.put("includeVectors", false);
+                    b.put("includeMetadata", false);
+                    b.put("includeData", false);
+                    b.put("prefix", r.id() + ":");
+                    JsonNode res = post(nsPath("/range"), b, false);
+                    if (!res.isObject() || !res.has("nextCursor") || !res.has("vectors") || !res.get("vectors").isArray()) {
+                        throw new SQLException("Upstash range result without nextCursor or vectors");
                     }
-                    count++;
+                    for (JsonNode v : res.get("vectors")) {
+                        if (!v.isObject() || !v.has("id")) {
+                            throw new SQLException("Upstash range vector without id");
+                        }
+                        count++;
+                    }
+                    // Like the fixed Python: follow the cursor until it is empty or repeats
+                    JsonNode nc = res.get("nextCursor");
+                    if (nc.isNull()) {
+                        break;
+                    }
+                    if (!nc.isTextual()) {
+                        throw new SQLException("Upstash range nextCursor is not a string");
+                    }
+                    String next = nc.asText();
+                    if (next.isEmpty() || next.equals(cursor)) {
+                        break;
+                    }
+                    cursor = next;
                 }
             }
             OffsetDateTime uploaded;
