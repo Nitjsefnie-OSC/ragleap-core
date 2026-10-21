@@ -4,7 +4,7 @@ Java port of [ragleap-vectorstores](https://pypi.org/project/ragleap-vectorstore
 [ragleap-rag](../ragleap-rag). Every backend implements ragleap-rag's `VectorBackend` interface and talks to its store
 over REST with the JDK `HttpClient` and Jackson, with no vendor SDK.
 
-**Status: work in progress, not published to Maven Central yet.** OpenSearch and Upstash exist so far.
+**Status: work in progress, not published to Maven Central yet.** OpenSearch, Upstash and Redis exist so far.
 
 ## OpenSearch
 
@@ -39,9 +39,10 @@ deliberate breaks of the Java code were each caught by the tests.
 **Not live-verified:** no real OpenSearch server was used. Python was pinned at commit `078ca87`.
 
 ```bash
-# regenerate fixtures (needs the pinned Python package and a venv with opensearch-py 3.2.0 and upstash-vector 0.8.0)
+# regenerate fixtures (needs the pinned Python package and a venv with opensearch-py 3.2.0, upstash-vector 0.8.0, redis-py 8.0.1 and numpy)
 VS_PIN=078ca87 python parity/gen_fixtures_opensearch.py
 VS_PIN=078ca87 python parity/gen_fixtures_upstash.py
+VS_PIN=078ca87 python parity/gen_fixtures_redis.py
 RAGLEAP_VS_PARITY_DIR=/root/fixtures-vs mvn -B test
 ```
 
@@ -82,6 +83,40 @@ requests); one (url with a trailing slash) is checked by a raw-socket test that 
 one is skipped because Python's own HTTP client rejects it (a tab in the namespace). Fifteen deliberate breaks of the
 Java code were each caught by the tests. **Not live-verified:** no real Upstash index was used.
 
+## Redis
+
+```java
+RedisBackend backend = new RedisBackend("redis://localhost:6379/0");
+// optional: new RedisBackend(url, "my_index", "my:prefix:", "/path/to/registry.sqlite3")
+```
+
+(Snippet not compiled.) Needs Redis Stack, or Redis with the RediSearch module: `initSchema` checks `MODULE LIST` and
+creates an HNSW cosine index over hashes. Chunks are hashes (text, metadata, float32 vector, little-endian); the
+document registry (filename and upload time) is a local SQLite file, by default
+`~/.ragleap_vectorstores/redis_documents.sqlite3`. The default key prefix derives from the index name, so two indexes
+never share keys. Scores are `1 - cosine distance`; no sparse search. Commands go over a small built-in RESP2 client
+(no vendor SDK, no connection pool, one socket); urls are `redis://` or `rediss://` with optional user, password and
+database.
+
+### Differences from Python
+
+- No client library: the built-in client does not pool connections; authentication, database selection and TLS are
+  not covered by the Python parity tests (a small unit test checks the `AUTH` and `SELECT` commands).
+- A filter value that is a list or map throws; failures throw `SQLException`; a missing search module throws
+  `IllegalStateException` (Python: `RuntimeError`).
+
+Copied from Python on purpose (possible Python issues, not fixed here): only `document_id` can be filtered (other
+keys are accepted and ignored); an existing index is reused without checking its dimension; any failure of `FT.INFO`,
+even a connection failure, makes `initSchema` try to create the index; `deleteDocument` removes at most 10000 chunks
+of a document.
+
+### How it was verified
+
+Recorded-command parity against the real Python `RedisBackend`, the real redis-py 8.0.1 client (forced to RESP2) and
+a real SQLite registry: 24 scripted scenarios (72 commands, arguments compared byte for byte, including the float32
+vector bytes). Fifteen deliberate breaks of the Java code were each caught by the tests. **Not live-verified:** no real
+Redis Stack was used (the Python docstring says it was verified against redis-py 7.3.0; parity here ran against 8.0.1).
+
 ## Not ported yet
 
-Redis, Chroma and LanceDB.
+Chroma and LanceDB.
