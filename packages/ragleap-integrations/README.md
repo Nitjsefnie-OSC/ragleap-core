@@ -10,7 +10,7 @@ pip install ragleap-integrations
 
 ## What this is (and isn't)
 
-v0.1.1 is an MCP client over **Streamable HTTP only**. The *owner* configures
+v0.2.0 is an MCP client over **Streamable HTTP only**. The *owner* configures
 servers and an exact `server.tool` allowlist; the model only supplies a tool's
 JSON arguments, never a URL, a token or a tool outside the allowlist. It does
 not own a tool-calling loop (that is `ragleap-agents`' job).
@@ -54,6 +54,46 @@ spec = McpToolSpec(
 )
 tools = make_mcp_tools(config, specs=[spec])
 ```
+
+## Easy mode: connect()
+
+```python
+from ragleap_integrations import connect
+
+conn = connect("https://mcp.example.com/mcp", allow=["list_orders", "get_order"], token=MY_TOKEN)
+print(conn.report())   # which tools are ready, which were skipped and why (with the setting to change)
+
+provider_tools = conn.toolkit.to_openai_schema()    # also to_gemini_schema() / to_anthropic_schema()
+result = conn.toolkit.call(name_from_model, arguments_from_model)   # never raises
+```
+
+`allow` is an exact list of tool names (no wildcard). `name` (default `"mcp"`)
+prefixes the exposed names (`mcp__get_order`). The toolkit checks a model's
+arguments against the server's schema before anything is sent. For several
+servers, build an `McpConfig` and call `connect_config(config)`.
+
+## Governance: approval flags and audit events
+
+A server's tool annotations (`readOnlyHint`, `destructiveHint`, ...) are
+untrusted hints, so they can only make policy stricter. Every tool carries
+`tool.metadata["mcp"]` with `requires_approval`, true unless you list the tool
+in `pre_approved`, or trust a server's `readOnlyHint` for that server.
+
+```python
+def approve(server, tool, arguments):
+    return ask_a_person(f"Run {server}.{tool} with {arguments}?")   # must return exactly True
+
+conn = connect(URL, allow=["list_orders", "delete_order"], approve=approve,
+               pre_approved=["list_orders"], on_event=print)
+```
+
+Without `approve` the flag is advice for your own approval gate (for example in
+`ragleap-agents`). With it, a flagged call runs only if `approve` returns
+`True`; an exception or any other value denies the call, the server is not
+contacted, and the result is "MCP call was not approved". `on_event` receives
+one small dict per discovery and per call (server, tool, ok, error, approval,
+duration); arguments and results never appear in it. See
+`docs/design/mcp-governance.md`.
 
 ## Trust model
 
@@ -117,7 +157,9 @@ handshake with protocol version 2025-06-18 only (an explicit allowlist, not
 
 ## Verification status
 
-- 208 tests, including a real local TLS server with a throwaway certificate
+- 275 tests (67 of them new in 0.2.0: governance, events and `connect()`;
+  53 of 53 deliberate breaks of the new code caught), including a real local
+  TLS server with a throwaway certificate
   for the transport (hostname verification, IP pinning, size cap, truncated
   bodies, and the deadline against slow-drip bodies, slow-drip headers and a
   stalled handshake).

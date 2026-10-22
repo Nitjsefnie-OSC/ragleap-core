@@ -5,6 +5,49 @@ loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-22
+
+### Added
+
+- `connect(url, allow=[...])`: one call from a URL to ready tools. Returns a
+  `Connection` with `.tools`, `.toolkit` (a `ragleap_tools.Toolkit`, so a model
+  call is validated against the server's schema and dispatched without
+  raising), `.skipped` and `.report()` (what is ready, what was skipped and
+  why, with the setting that controls it). `allow` is an exact list, no
+  wildcard. `connect_config(config, specs=None)` does the same for any
+  `McpConfig`, including several servers.
+- Governance. Discovery keeps only the four boolean MCP tool hints
+  (untrusted per the specification) as `McpToolSpec.annotations`. Every tool
+  carries `Tool.metadata["mcp"]` with `server`, `tool`, `annotations` and
+  `requires_approval`. A tool is flagged unless the owner lists it in
+  `McpPolicy.pre_approved`, or sets `McpServerConfig.trust_annotations` and the
+  tool declares `readOnlyHint: true` without `destructiveHint: true`.
+- `McpPolicy.approve(server, tool, arguments)`: when set, a call to a flagged
+  tool runs only if it returns exactly `True`; otherwise the server is not
+  contacted and the result is "MCP call was not approved".
+- `McpConfig.on_event`: one small event per discovery and per call (server,
+  tool, ok, error, approval, duration). Arguments and results are never in
+  an event, and a failing hook cannot break a call.
+- See `docs/design/mcp-governance.md`.
+
+### Changed
+
+- Requires `ragleap-tools>=0.5.1` (for `Tool.metadata` and `Toolkit`). With no
+  policy and no hook, calls behave exactly as in 0.1.1; the only visible
+  difference is the new `Tool.metadata`.
+- The project links in the package metadata point at the ragleap
+  organization repository.
+
+### Verified
+
+- 67 new tests (275 in total) on Python 3.10 and 3.12. Mutation-tested: 53
+  deliberate breaks of the new code, all caught.
+
+### Not verified
+
+- `connect()`, the annotation handling and the events against a real MCP
+  server (the new tests use fake servers).
+
 ### Verified (after 0.1.1)
 
 - Live check on 2026-10-16 of the published 0.1.1 wheel (clean virtual
