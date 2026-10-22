@@ -17,7 +17,7 @@ First version (design: #899). Nothing existed before, so there are no behaviour 
 
 ### Verified
 
-- 101 tests pass on Python 3.10 (the VPS) and on Python 3.12 (the author's sandbox). All 30 mutations are killed on Python 3.12.
+- 101 tests pass on Python 3.10 (the VPS) and on Python 3.12 (the author's sandbox). All 30 mutations are killed on Python 3.10 and 3.12.
 
 ### Not verified
 
