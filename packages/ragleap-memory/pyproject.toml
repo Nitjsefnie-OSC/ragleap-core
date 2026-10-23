@@ -1,0 +1,40 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ragleap-memory"
+version = "0.1.0"
+description = "Durable, tenant-scoped long-term memory for LLM applications: typed entries with trust labels, SQLite full-text search, supersession of changed facts, per-scope export and erase, and an optional tamper-evident audit log. Standard library plus ragleap-security. Single-tenant is one fixed scope. Not independently audited."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "RagLeap" }
+]
+keywords = ["memory", "llm", "long-term-memory", "multi-tenant", "sqlite", "fts5", "self-hosted", "byok"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+dependencies = [
+    "ragleap-security>=0.1.0",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8.0.0"]
+
+[project.urls]
+Homepage = "https://github.com/ragleap/ragleap-core"
+Repository = "https://github.com/ragleap/ragleap-core"
+Issues = "https://github.com/ragleap/ragleap-core/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ragleap_memory"]
