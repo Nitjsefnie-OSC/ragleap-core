@@ -5,6 +5,9 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- Python 3.10 is no longer supported: `requires-python` is now `>=3.11` and the 3.10 classifier is gone. Pillow 13, which fixes the open Pillow security alerts, needs Python 3.11 or newer; keeping 3.10 kept a vulnerable Pillow 12.3.0 entry in `uv.lock`. Users on Python 3.10 keep working with ragleap-rag 0.14.0 (pip skips newer versions it cannot install). CI already tested this package on Python 3.11 only.
+
 ## [0.14.0] - 2026-10-22
 
 ### Upgrade note
