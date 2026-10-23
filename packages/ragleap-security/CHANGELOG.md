@@ -18,10 +18,11 @@ First version (design: #899). Nothing existed before, so there are no behaviour 
 ### Verified
 
 - 101 tests pass on Python 3.10 (the VPS) and on Python 3.12 (the author's sandbox). All 30 mutations are killed on Python 3.10 and 3.12.
+- The CI test job passes on Python 3.10, 3.11 and 3.12 (PR #907).
 
 ### Not verified
 
-- Python 3.11 (CI will run it), Windows, network filesystems.
+- Windows, network filesystems.
 - Tenant isolation end to end: no store uses `Scope` yet.
 - The cross-process and in-process locks under adversarial timing (the race tests are probabilistic).
 - No independent security review has been done.

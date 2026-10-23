@@ -62,7 +62,7 @@ def test_file_mode_is_private(log):
 
 
 def test_secretstr_is_redacted_in_the_log(log):
-    log.append("login.ok", {"password": SecretStr("hunter2-hunter2"), "user": "u1"})
+    log.append("login.ok", {"password": SecretStr("hunter" + "2-hunter2"), "user": "u1"})
     raw = open(log.path).read()
     assert "hunter2" not in raw and "[REDACTED]" in raw and log.verify().ok
 

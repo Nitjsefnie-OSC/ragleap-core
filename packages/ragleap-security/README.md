@@ -14,9 +14,10 @@ from ragleap_security import AuditLog, Scope, SecretStr, from_env, redact
 
 scope = Scope("acme", subject="alice")
 log = AuditLog("audit.jsonl")
-log.append("login.ok", {"user": "alice", "token": SecretStr("s3cr3t-token")}, scope)
+token = from_env("MY_SERVICE_TOKEN")
+log.append("login.ok", {"user": "alice", "token": token}, scope)
 assert log.verify().ok
-print(redact("Authorization: Bearer abcdef123456"))
+print(redact(f"request failed with {token.reveal()}", [token]))
 ```
 
 ## Verifying it yourself
