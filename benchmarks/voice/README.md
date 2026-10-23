@@ -282,6 +282,34 @@ Limits (read before quoting any number):
 - Default clean figures here (30 clips, level-fixed) differ slightly from the earlier 60-clip tables (for example SunflowerASR Amharic 32.9% here against 28.8% there): different clip counts and a level fix.
 - The per-clip results are in the Colab session only (`noise_engines_clips.csv`) and are not committed.
 
+## Audio helpers in pure Python: speed on 20 ms frames (prototype)
+
+Question: can the standard-library-only core do the audio conversions the phone contract needs (mu-law, level, gain, 8 to 16 kHz and back) in real time, now that `audioop` is gone from Python 3.13? Script: `audio_helpers_speed.py` (a prototype for `docs/design/audio-helpers.md`, not package code). Run on 2026-10-22 on the project VPS: Python 3.10.12, x86_64, 1 CPU, load average 0.14, `nice -n 19`, best of 3 rounds of 150 repetitions per helper. `audioop` (present on 3.10) is timed alongside for reference.
+
+| One 20 ms frame | Pure Python | audioop |
+|---|---|---|
+| mu-law decode, 160 samples | 16.0 us | 0.2 us |
+| mu-law encode, 160 samples | 11.9 us | 1.3 us |
+| RMS, 160 samples | 8.1 us | 0.6 us |
+| gain, 160 samples | 67.5 us | 1.1 us |
+| resample 16 to 8 kHz, 320 samples in | 325.1 us | 4.9 us |
+| resample 8 to 16 kHz, 160 samples in | 860.8 us | 4.0 us |
+
+Chains: inbound (decode, resample up, RMS, gain) 952 us per frame; outbound (resample down, encode) 337 us per frame. One call in both directions: 1289 us of CPU per 20000 us of audio, 6.4% of one core, so at most about 15 simultaneous calls on one core if nothing else ran.
+
+What it shows:
+
+- A pure-Python default is workable for a few simultaneous calls and not for many. The figure of about 15 is an upper bound for these helpers alone: it leaves out the network handling, speech recognition, speech synthesis and the rest of the application on the same core.
+- The 8 to 16 kHz resampler is about two thirds of the per-call cost: it filters a zero-stuffed signal, so half its multiplications are by zero. A polyphase version should be cheaper; this was not measured.
+- Mu-law decoding is identical to `audioop` for all 256 codes. The mu-law encoder differs from `audioop` on 381 of 65536 input samples (0.6%). All 381 are negative inputs; in the ten cases printed, `audioop` returns the code of the next larger magnitude, and in every one of the 381 cases the prototype's code decodes closer to the original sample. Which of the two matches a reference G.711 encoder was not checked, and `audioop`'s source was not read.
+
+Limits (read before quoting any number):
+
+- One machine, one Python version (3.10). Not run on 3.12 or 3.13, nor on other CPUs.
+- The resampler is a naive 31-tap windowed-sinc filter with zero history at frame edges. This script does not test its audio quality or its effect on recognition accuracy, and `audioop`'s sample-rate conversion is a different filter, so only the speed column is comparable.
+- Timings of sub-microsecond calls are near the timer's resolution.
+- Single-threaded; a multi-call server would share one core and the interpreter lock.
+
 ## Reproduce
 
 Open Google Colab, choose a T4 GPU runtime, paste `colab_whisper_baseline.py` into one cell and run it. It stops if the dataset or model licence differs from the expected one.

@@ -44,3 +44,9 @@ Status: draft for discussion. Nothing here is implemented; every item is **plann
 2. Should the core normalise level itself (as the pilot did), or only report level and leave the decision to the caller (API design section 13, item 2)?
 3. A-law: needed in 0.1.0, or only mu-law (what the Twilio channel uses) at first?
 4. The older voice channel: someone owns the fix for Python 3.13. Whoever it is can reuse these helpers once they exist, or install the third-party port in the meantime.
+
+## 7. First measurement (2026-10-22)
+
+[verified] A prototype in `benchmarks/voice/audio_helpers_speed.py` (results in `benchmarks/voice/README.md`) measured pure-Python helpers on 20 ms frames on the project VPS (Python 3.10.12, 1 CPU, quiet): one call in both directions used about 6.4% of one core, so at most about 15 simultaneous calls if nothing else ran. The 8 to 16 kHz resampler is the largest part. Pure Python was roughly 9 to 215 times slower than `audioop` on the individual helpers.
+
+This answers open question 1 for a pilot: a pure-Python default is workable for a few simultaneous calls. It does not show that it is acceptable at scale; an optional faster path (an extra) remains the plan for that. Not measured: Python 3.12 and 3.13, other CPUs, a polyphase resampler, resampling quality and its effect on recognition accuracy. The mu-law encoder in the prototype differs from `audioop` on 0.6% of input samples (381 of 65536, all negative inputs; in each case the prototype's code decodes closer to the original sample). Which of the two matches a reference G.711 encoder is unchecked: the helper must be tested against published G.711 test vectors before it is written.
