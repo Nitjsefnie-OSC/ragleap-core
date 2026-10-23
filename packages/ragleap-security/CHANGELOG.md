@@ -3,7 +3,7 @@
 All notable changes to `ragleap-security` are documented here. Format
 loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [0.1.0] - unreleased
+## [0.1.0] - 2026-10-23
 
 First version (design: #899). Nothing existed before, so there are no behaviour changes.
 
@@ -25,4 +25,5 @@ First version (design: #899). Nothing existed before, so there are no behaviour 
 - Windows, network filesystems.
 - Tenant isolation end to end: no store uses `Scope` yet.
 - The cross-process and in-process locks under adversarial timing (the race tests are probabilistic).
+- The published wheel and sdist had not been installed from PyPI when this was written (the GitHub Release records that check).
 - No independent security review has been done.
