@@ -335,14 +335,62 @@
       }
       await refreshDocuments();
     } } }, isArmed(d.id) ? "Click again to delete" : "Delete");
+    const folder = d.source && d.source.grant;
     return h("article", { class: "item" },
       h("div", { class: "row" }, h("strong", null, clip(d.filename, 120)), h("span", { class: "tag" }, d.chunks + " chunk(s)"),
-        h("span", { class: "sub" }, "added " + ago(d.uploaded_at)), del));
+        folder ? h("span", { class: "tag" }, "from folder " + clip(d.source.grant, 32)) : null,
+        h("span", { class: "sub" }, "added " + ago(d.uploaded_at)),
+        folder ? h("span", { class: "sub" }, "kept up to date by the folder") : del));
+  };
+  // ---- Folders granted for knowledge: read automatically; the owner approves the first read of each ----
+  let docFolderEl = null;
+  const mb = (b) => { const m = Number(b || 0) / 1048576; return (m >= 10 ? Math.round(m) : m.toFixed(1)) + " MB"; };
+  const folderCard = (g) => {
+    const name = clip(g.grant, 32);
+    if (g.state === "waiting_approval") {
+      const btn = h("button", { type: "button", on: { click: async () => {
+        btn.disabled = true;
+        try {
+          await api("POST", "/folder-ingest/approve", { grant: g.grant });
+          docMsgEl.textContent = "Started reading folder " + name + ". New documents appear in the list below.";
+        } catch (e) {
+          if (String(e.message) !== "unauthorized") docMsgEl.textContent = "Could not approve: " + clip(e.message, 160);
+        }
+        await refreshDocuments();
+      } } }, "Approve and start");
+      return h("article", { class: "item" },
+        h("div", { class: "row" }, h("strong", null, name), h("span", { class: "tag" }, "waiting for you")),
+        h("p", { class: "sub" }, num(g.new) + " file(s), " + mb(g.bytes_new) + ", will be read and embedded. With a hosted embedding provider this can cost money. Nothing is read until you approve."),
+        h("div", { class: "row" }, btn));
+    }
+    const notes = { no_manifest: "waiting for the first copy", stale_manifest: "copy is out of date", error: "could not be checked" };
+    const todo = Number(g.new || 0) + Number(g.changed || 0);
+    const bits = [num(g.staged) + " file(s) copied", num(g.ingested) + " document(s) indexed"];
+    if (todo > 0) bits.push(num(todo) + " waiting");
+    if (g.failed) bits.push(num(g.failed) + " failed");
+    if (g.unsupported) bits.push(num(g.unsupported) + " skipped (type not supported)");
+    if (g.truncated) bits.push("large folder, copied in parts");
+    return h("article", { class: "item" },
+      h("div", { class: "row" }, h("strong", null, name), h("span", { class: "tag" }, notes[g.state] || (todo > 0 ? "catching up" : "up to date"))),
+      notes[g.state] ? null : h("p", { class: "sub" }, bits.join(", ")));
+  };
+  const renderFolders = (fi) => {
+    if (!fi || !fi.enabled) return [];
+    const last = fi.last_run ? ago(new Date(fi.last_run * 1000).toISOString()) : "not yet";
+    return [h("section", { class: "card" }, h("h2", null, "Folders"),
+      h("p", { class: "sub" }, "Folders you granted for knowledge are read automatically every " + fi.interval_minutes + " min. Last check: " + last + "."),
+      fi.schema_ready === false ? h("p", { class: "err" }, "The database needs db/schema.sql applied before folders can be read.") : null,
+      fi.runner === "error" ? h("p", { class: "err" }, "The sandbox runner did not answer. Check that it is running with computer control on.") : null,
+      fi.grants && fi.grants.length ? h("div", { class: "list" }, fi.grants.map(folderCard))
+        : h("p", { class: "empty" }, "No folder copied yet. On the machine run: ragleap files add /path/to/folder --name docs --purpose knowledge"))];
   };
   const refreshDocuments = async () => {
-    if (!docFormEl) { docFormEl = buildDocForm(); docListEl = h("div", null); }
-    if (view.firstChild !== docFormEl) view.replaceChildren(docFormEl, docListEl);
+    if (!docFormEl) { docFormEl = buildDocForm(); docListEl = h("div", null); docFolderEl = h("div", null); }
+    if (view.firstChild !== docFormEl) view.replaceChildren(docFormEl, docFolderEl, docListEl);
     const info = await api("GET", "/documents");
+    let fi = null;
+    try { fi = await api("GET", "/folder-ingest"); } catch (e) { if (String(e.message) === "unauthorized") throw e; }
+    docFolderEl.replaceChildren(...renderFolders(fi));
     const docs = info.documents;
     if (info.formats && docInputEl) {
       docInputEl.setAttribute("accept", info.formats.join(","));
