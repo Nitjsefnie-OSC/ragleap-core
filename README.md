@@ -521,7 +521,10 @@ Twilio's real-time audio protocol needs a raw WebSocket server, not an
 HTTP route.
 
 **Setup:**
-1. Set `OPENAI_API_KEY` in `.env` (used for both Whisper STT and TTS in v1)
+1. Set `OPENAI_API_KEY` in `.env` (used for both Whisper STT and TTS by
+   default; `VOICE_STT_PROVIDER=deepgram` uses `DEEPGRAM_API_KEY` instead,
+   and `VOICE_TTS_PROVIDER=elevenlabs` uses `ELEVENLABS_API_KEY` with the
+   voice id from `ELEVENLABS_VOICE_ID`)
 2. Optionally set `VOICE_BOT_NAME`, `VOICE_GREETING`, `VOICE_TTS_VOICE`
 3. Point a Twilio phone number's `<Connect><Stream>` TwiML at
    `wss://your-domain.com:8765`
@@ -533,8 +536,9 @@ try it and hit issues, please open one — this is exactly the kind of
 real-world testing this project needs.
 
 **Known limitations, carried over from production and not yet fixed here:**
-- Only OpenAI Whisper (STT) and OpenAI TTS are supported in v1 — Deepgram
-  and ElevenLabs (multi-language support) are good-first-issue candidates
+- OpenAI Whisper (STT) and OpenAI TTS are the defaults — Deepgram STT and
+  ElevenLabs TTS (multi-language support) are now also supported via
+  `VOICE_STT_PROVIDER` / `VOICE_TTS_PROVIDER`, but have not been live-tested
 - Non-English TTS quality varies since OpenAI's TTS voices are English-tuned
 - Typical round-trip latency in production was 6-8 seconds
 
