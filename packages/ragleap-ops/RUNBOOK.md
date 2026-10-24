@@ -347,8 +347,9 @@ path is confirmed broken, not as a routine fix.
 
 ## Appendix A. Velero: optional cluster-level backup (not an incident scenario)
 
-**Status: tested in CI on a throwaway kind cluster only. Not tested on
-k3s, on a cloud cluster, or with real object storage.**
+**Status: tested in CI on throwaway kind and k3d (k3s in Docker) clusters.
+Not tested on a systemd k3s install, on a cloud cluster, or with real object
+storage.**
 
 The daily CronJobs in section 3 (`pg_dump` for Postgres, the
 `neo4j-admin` dump for Neo4j) stay the primary, application-consistent
@@ -364,9 +365,12 @@ the `hostPath` volumes. This chart's PVCs use the cluster's default StorageClass
 is `rancher.io/local-path`, and the CI test observed that it creates
 `hostPath` PersistentVolumes. With that storage, the backup reported
 `Completed`, contained only emptyDir volumes, and the restored
-databases were empty. K3s ships the same provisioner (per its
-documentation), so k3s's default storage very likely behaves the same
-way. That part is an inference and was not tested.
+databases were empty. K3s uses a provisioner with the same name, but the CI
+test on k3s v1.34.12 (in Docker, through k3d) observed that its default
+storage class `local-path` created `local` PersistentVolumes, not `hostPath`
+ones. So the trap was seen on kind's default storage only: check your own
+cluster with the command below. Whether Velero backs up and restores
+databases on k3s's default storage was not tested.
 
 **What was verified** (`.github/scripts/velero-test.sh`, workflow
 `velero-test`; four passing runs on GitHub runners, 2026-10-19 and
@@ -377,6 +381,9 @@ the namespace with file-system backup, deletes the namespace, replaces
 both volumes with fresh empty ones, restores, and checks that both
 records came back.
 
+The same test also passed once on k3s v1.34.12 in Docker (k3d v5.9.0, run
+40087055391, 2026-10-24), again with static `local` PersistentVolumes.
+
 **How to check that a backup really contains your data**
 
 ```bash
@@ -386,7 +393,7 @@ kubectl -n velero get podvolumebackups \
   -o jsonpath='{range .items[*]}{.spec.volume}={.status.phase}{"\n"}{end}'
 # expect db-data=Completed and neo4j-data=Completed
 
-# what kind of volume backs your PVCs? hostPath volumes were left out in CI
+# what kind of volume backs your PVCs? hostPath volumes were left out in CI on kind
 kubectl get pv <pv-name> -o jsonpath='{.spec.hostPath.path}'   # non-empty means hostPath
 ```
 
@@ -396,7 +403,8 @@ never been restored is not a backup.
 
 **Not covered:** application-consistent backups, CSI snapshots,
 scheduled backups, retention, restoring into a different cluster,
-real object storage, multi-node clusters, k3s.
+real object storage, multi-node clusters, a systemd k3s install, and
+Velero on k3s's default dynamic storage (the k3d run used static volumes).
 
 ---
 
