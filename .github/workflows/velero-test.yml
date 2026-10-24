@@ -17,6 +17,22 @@ on:
         description: 'S3 stand-in image'
         required: false
         default: 'rustfs/rustfs@sha256:9ca9559533b537d10482fe923288b676ad08f92a7069d9a17327fbae3cab688b'
+      cluster:
+        description: 'Cluster flavour: kind or k3d (k3s in Docker)'
+        required: false
+        type: choice
+        default: 'kind'
+        options:
+          - kind
+          - k3d
+      k3d_version:
+        description: 'k3d version (only used when cluster is k3d)'
+        required: false
+        default: 'v5.9.0'
+      k3s_image:
+        description: 'k3s image (only used when cluster is k3d)'
+        required: false
+        default: 'rancher/k3s:v1.34.12-k3s1'
   pull_request:
     branches: [main]
     paths:
@@ -42,4 +58,7 @@ jobs:
           VELERO_VERSION: ${{ inputs.velero_version || 'v1.18.3' }}
           AWS_PLUGIN_VERSION: ${{ inputs.aws_plugin_version || 'v1.14.0' }}
           S3_IMAGE: ${{ inputs.s3_image || 'rustfs/rustfs@sha256:9ca9559533b537d10482fe923288b676ad08f92a7069d9a17327fbae3cab688b' }}
+          CLUSTER: ${{ inputs.cluster || 'kind' }}
+          K3D_VERSION: ${{ inputs.k3d_version || 'v5.9.0' }}
+          K3S_IMAGE: ${{ inputs.k3s_image || 'rancher/k3s:v1.34.12-k3s1' }}
         run: bash .github/scripts/velero-test.sh

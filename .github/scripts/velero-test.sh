@@ -11,6 +11,9 @@ NS=ragleap-ops-test
 VELERO_VERSION="${VELERO_VERSION:-v1.18.3}"
 AWS_PLUGIN_VERSION="${AWS_PLUGIN_VERSION:-v1.14.0}"
 S3_IMAGE="${S3_IMAGE:-rustfs/rustfs@sha256:9ca9559533b537d10482fe923288b676ad08f92a7069d9a17327fbae3cab688b}"
+CLUSTER="${CLUSTER:-kind}"
+K3D_VERSION="${K3D_VERSION:-v5.9.0}"
+K3S_IMAGE="${K3S_IMAGE:-rancher/k3s:v1.34.12-k3s1}"
 HERE=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(cd "$HERE/../.." && pwd)
 OPS=$ROOT/packages/ragleap-ops/helm/ragleap-ops
@@ -42,21 +45,40 @@ cleanup() {
   local rc=$?
   if [ "$rc" -ne 0 ] || [ "$FAILS" -ne 0 ]; then diag; fi
   kill $(jobs -p) 2>/dev/null || true
-  kind delete cluster --name "$CL" >/dev/null 2>&1 || true
-  echo "cleanup done (kind cluster $CL deleted)"
+  if [ "$CLUSTER" = "k3d" ]; then
+    k3d cluster delete "$CL" >/dev/null 2>&1 || true
+  else
+    kind delete cluster --name "$CL" >/dev/null 2>&1 || true
+  fi
+  echo "cleanup done ($CLUSTER cluster $CL deleted)"
 }
 trap cleanup EXIT
 
 echo "== preflight (Velero $VELERO_VERSION, AWS plugin $AWS_PLUGIN_VERSION, S3 stand-in $S3_IMAGE)"
 for c in kubectl helm curl tar; do command -v "$c" >/dev/null || stop "$c not found"; done
-if ! command -v kind >/dev/null; then
+if [ "$CLUSTER" = "kind" ] && ! command -v kind >/dev/null; then
   echo "kind not preinstalled; downloading v0.24.0"
   curl -sLo /tmp/kind https://github.com/kubernetes-sigs/kind/releases/download/v0.24.0/kind-linux-amd64
   chmod +x /tmp/kind
   export PATH=/tmp:$PATH
 fi
-kind version
-CLUSTERS=$(kind get clusters 2>&1 || true)
+case "$CLUSTER" in
+  kind) kind version ;;
+  k3d)
+    mkdir -p /tmp/k3d-bin
+    curl -fsSL -o /tmp/k3d-bin/k3d "https://github.com/k3d-io/k3d/releases/download/$K3D_VERSION/k3d-linux-amd64" || stop "could not download k3d $K3D_VERSION"
+    chmod +x /tmp/k3d-bin/k3d
+    export PATH=/tmp/k3d-bin:$PATH
+    echo "k3d binary sha256 $(sha256sum /tmp/k3d-bin/k3d | cut -d' ' -f1)"
+    k3d version
+    echo "k3s image: $K3S_IMAGE" ;;
+  *) stop "CLUSTER must be kind or k3d (got '$CLUSTER')" ;;
+esac
+if [ "$CLUSTER" = "k3d" ]; then
+  CLUSTERS=$(k3d cluster list --no-headers 2>&1 | awk '{print $1}' || true)
+else
+  CLUSTERS=$(kind get clusters 2>&1 || true)
+fi
 if grep -q -x -e "$CL" <<< "$CLUSTERS"; then stop "kind cluster $CL already exists"; fi
 [ -f "$OPS/Chart.yaml" ] || stop "ops chart not found at $OPS"
 
@@ -74,7 +96,12 @@ export PATH=/tmp/velero-cli:$PATH
 velero version --client-only
 
 echo "== creating kind cluster $CL"
-kind create cluster --name "$CL" --wait 180s
+if [ "$CLUSTER" = "k3d" ]; then
+  k3d cluster create "$CL" --image "$K3S_IMAGE" --k3s-arg "--disable=traefik@server:0" --wait --timeout 180s
+else
+  kind create cluster --name "$CL" --wait 180s
+fi
+kubectl get nodes -o wide
 kubectl get storageclass
 
 echo "== what does the default storage class create? (throwaway PVC and pod in the default namespace)"
@@ -123,7 +150,10 @@ kubectl -n default delete pvc probe-default --wait --timeout=60s || true
 
 echo "== storage Velero can back up: static PersistentVolumes of type local (not hostPath)"
 KNODE=$(kubectl get nodes -o jsonpath='{.items[0].metadata.name}')
-kubectl patch storageclass standard -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"false"}}}' || true
+docker inspect "$KNODE" >/dev/null 2>&1 || stop "no docker container is named like the node ($KNODE); the volume setup needs it"
+for sc in $(kubectl get storageclass --no-headers | awk '/\(default\)/ {print $1}'); do
+  kubectl patch storageclass "$sc" -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"false"}}}' || true
+done
 kubectl apply -f - <<EOF
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
@@ -322,7 +352,7 @@ if grep -q "neo4j-probe-node" <<< "$NODE"; then record "PASS  the Neo4j probe no
 echo
 echo "== SUMMARY ($(date +%T))"
 for r in "${RESULTS[@]}"; do echo "$r"; done
-echo "Storage: static local PersistentVolumes. Velero file-system backup skips hostPath volumes, which kind and k3s default storage use."
+echo "Cluster: $CLUSTER. Storage: static local PersistentVolumes (the OBSERVED line above says what this cluster's default storage creates). Velero file-system backup skips hostPath volumes."
 echo "Not exercised: application-consistent backups (these are crash-consistent file copies of running databases; the runbook's pg_dump CronJob"
 echo "remains the stronger guarantee), CSI snapshots, scheduled backups, restore into a different cluster, TTL and retention, real object storage, multi-node."
 if [ "$FAILS" -eq 0 ]; then echo "ALL CHECKS PASSED"; else echo "$FAILS CHECK(S) FAILED"; exit 1; fi
