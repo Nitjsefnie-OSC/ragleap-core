@@ -747,3 +747,311 @@ def test_autonomy_crm_dispatch_without_config_fails_closed():
     assert "failed" in out
     http.assert_not_called()
     http.assert_no_forbidden_writes()
+
+
+# ---- calendar scheduling action ----------------------------------------
+# Every literal below is driven (hardcoded), never read back from the
+# subject module's constants; the fake HTTP layer fails on any request it
+# does not model.
+
+import json
+
+from core.employees import actions as actions_module
+
+CAL_ENV = {
+    "GOOGLE_CALENDAR_ID": "owner-cal@example.com",
+    "GOOGLE_CALENDAR_CLIENT_ID": "your-client-id.apps.googleusercontent.com",
+    "GOOGLE_CALENDAR_CLIENT_SECRET": "your-client-secret",
+    "GOOGLE_CALENDAR_REFRESH_TOKEN": "your-refresh-token",
+    "EMAIL_ALLOWED_RECIPIENTS": "boss@acme.com,@partner.com",
+}
+CAL_CONTENT = (
+    "Title: Quarterly review\n"
+    "Start: 2026-11-03T14:00:00+00:00\n"
+    "End: 2026-11-03T15:00:00+00:00\n"
+    "Attendees: boss@acme.com, team@partner.com\n"
+    "Description: Bring the Q4 plan"
+)
+# Distinct nonzero values on every side, so a swap in either direction is
+# visible: the model-supplied target ("attacker-calendar-id") differs from
+# the configured calendar id, and the access token the fake issues differs
+# from every configured credential.
+CAL_MODEL_TARGET = "attacker-calendar-id"
+ACCESS_TOKEN = "sample-access-token"
+
+
+class _FakeGoogleHTTP:
+    """Fake HTTP layer for the calendar sender. It models EXACTLY two requests
+    - the OAuth token exchange and the events.insert for the one configured
+    calendar - and FAILS the run on any other request: a stub that accepts an
+    unmodeled command agrees with anything, so it would prove nothing."""
+
+    TOKEN_URL = "https://oauth2.googleapis.com/token"
+    INSERT_URL = (
+        "https://www.googleapis.com/calendar/v3/calendars/"
+        "owner-cal%40example.com/events?sendUpdates=all"
+    )
+
+    def __init__(self, token_status=200, token_body='{"access_token": "%s"}' % ACCESS_TOKEN,
+                 insert_status=200):
+        self.token_status = token_status
+        self.token_body = token_body
+        self.insert_status = insert_status
+        self.calls = []
+
+    def __call__(self, url, json=None, data=None, timeout=None,
+                 allow_redirects=None, headers=None):
+        self.calls.append({"url": url, "json": json, "data": data,
+                           "headers": dict(headers or {})})
+        if allow_redirects is not False or timeout != 15:
+            # Mutation: dropping the no-redirect / timeout contract.
+            raise AssertionError(f"request without the sender contract: {url}")
+        if url == self.TOKEN_URL and json is None and isinstance(data, dict):
+            if data.get("grant_type") != "refresh_token":
+                raise AssertionError(f"unmodeled token request body: {sorted(data)}")
+            if (data.get("client_id") != CAL_ENV["GOOGLE_CALENDAR_CLIENT_ID"]
+                    or data.get("client_secret") != CAL_ENV["GOOGLE_CALENDAR_CLIENT_SECRET"]
+                    or data.get("refresh_token") != CAL_ENV["GOOGLE_CALENDAR_REFRESH_TOKEN"]):
+                # Mutation: credential values swapped or replaced.
+                raise AssertionError("token exchange did not use the configured credentials")
+            resp = MagicMock(status_code=self.token_status)
+            resp.json.return_value = json.loads(self.token_body)
+            return resp
+        if url == self.INSERT_URL and data is None and isinstance(json, dict):
+            if headers.get("Authorization") != f"Bearer {ACCESS_TOKEN}":
+                # Mutation: a token not issued by the fake being replayed.
+                raise AssertionError("insert did not carry the fake-issued access token")
+            return MagicMock(status_code=self.insert_status)
+        raise AssertionError(f"unmodeled request: {url}")
+
+
+def _send_calendar(target, content, env=None, http=None):
+    """One calendar send through the sender, with the HTTP layer replaced.
+    Env defaults to the full calendar configuration; pass {} for none."""
+    with patch.dict(os.environ, CAL_ENV if env is None else env), \
+         patch.object(a.requests, "post", http or _FakeGoogleHTTP()):
+        return a.send_calendar_event(target, content)
+
+
+def test_calendar_action_wired_into_the_action_surface():
+    # Mutation: the tool never mapping to the calendar channel would leave
+    # the action unplannable even with the sender present.
+    assert actions_module.ACTION_TOOLS.get("schedule_event", {}).get("channel") == "calendar"
+
+
+def test_calendar_is_an_outbound_tool_for_the_taint_rule():
+    from core import agent_loop
+    # Mutation: dropping schedule_event here would let a run that just read
+    # untrusted web/MCP content create a calendar event without owner
+    # approval even in full mode (agent_loop's force_semi taint rule).
+    assert "schedule_event" in agent_loop.OUTBOUND_TOOLS
+
+
+def test_calendar_unconfigured_refuses_without_request():
+    # Defaults byte-identical: with nothing configured nothing happens.
+    http = MagicMock()
+    ok = _send_calendar(CAL_MODEL_TARGET, CAL_CONTENT, env={}, http=http)
+    assert ok is False
+    http.assert_not_called()  # no write of any kind, not a checked subset
+
+
+def test_calendar_malformed_content_refused_before_any_request():
+    # Mutation: network before validation. Each case is refused with zero
+    # requests of any kind.
+    bad_contents = (
+        "",
+        "Title: X",
+        "Start: 2026-11-03T14:00:00+00:00\nEnd: 2026-11-03T15:00:00+00:00",
+        "Title: X\nStart: next tuesday\nEnd: 2026-11-03T15:00:00+00:00",
+        "Title: X\nStart: 2026-11-03T14:00:00\nEnd: 2026-11-03T15:00:00",  # naive: no offset
+        "Title: X\nStart: 2026-11-03T14:00:00+00:00\nEnd: 2026-11-03T14:00:00+00:00",
+        "Title: X\nStart: 2026-11-03T15:00:00+00:00\nEnd: 2026-11-03T14:00:00+00:00",
+        "Summary: X\nStart: 2026-11-03T14:00:00+00:00\nEnd: 2026-11-03T15:00:00+00:00",
+        "Title: X\nStart: 2026-11-03T14:00:00+00:00\nEnd: 2026-11-03T15:00:00+00:00\n"
+        "Attendees: stranger@evil.com",  # screening happens with no network too
+    )
+    for content in bad_contents:
+        http = MagicMock()
+        ok = _send_calendar("", content, http=http)
+        assert ok is False, content
+        http.assert_not_called(), content
+
+
+def test_calendar_sends_exact_modeled_requests():
+    http = _FakeGoogleHTTP()
+    ok = _send_calendar("", CAL_CONTENT, http=http)
+    assert ok is True
+    token_call, insert_call = http.calls[0], http.calls[1]
+    assert token_call["url"] == "https://oauth2.googleapis.com/token"
+    assert insert_call["url"] == (
+        "https://www.googleapis.com/calendar/v3/calendars/"
+        "owner-cal%40example.com/events?sendUpdates=all"
+    )
+    assert insert_call["headers"]["Authorization"] == f"Bearer {ACCESS_TOKEN}"
+    body = insert_call["json"]
+    assert body["summary"] == "Quarterly review"
+    assert body["start"] == {"dateTime": "2026-11-03T14:00:00+00:00"}
+    assert body["end"] == {"dateTime": "2026-11-03T15:00:00+00:00"}
+    assert body["attendees"] == [{"email": "boss@acme.com"}, {"email": "team@partner.com"}]
+    assert body["description"] == "Bring the Q4 plan"
+
+
+def test_calendar_model_target_never_chooses_the_destination():
+    # Mutation (a): the calendar id taken from the model's target. The fake
+    # only models the CONFIGURED calendar's URL, so a target-chosen calendar
+    # makes the send fail and this assertion go red.
+    http = _FakeGoogleHTTP()
+    ok = _send_calendar(CAL_MODEL_TARGET, CAL_CONTENT, http=http)
+    assert ok is True
+    assert http.calls[1]["url"] == _FakeGoogleHTTP.INSERT_URL
+    assert CAL_MODEL_TARGET not in http.calls[1]["url"]
+
+
+def test_calendar_no_attendees_still_schedules_without_attendee_field():
+    http = _FakeGoogleHTTP()
+    content = ("Title: Focus block\n"
+               "Start: 2026-11-04T09:00:00+00:00\n"
+               "End: 2026-11-04T10:00:00+00:00")
+    assert _send_calendar("", content, http=http) is True
+    assert "attendees" not in http.calls[1]["json"]
+
+
+def test_calendar_screening_passes_case_and_whitespace_variants():
+    # The agreement side of the screening table: near-miss lookalikes that
+    # MUST pass, so the check is not a refuser-of-everything.
+    http = _FakeGoogleHTTP()
+    content = ("Title: Sync\n"
+               "Start: 2026-11-05T10:00:00+00:00\n"
+               "End: 2026-11-05T11:00:00+00:00\n"
+               "Attendees: BOSS@ACME.COM , team@partner.com")
+    assert _send_calendar("", content, http=http) is True
+    assert http.calls[1]["json"]["attendees"] == [
+        {"email": "BOSS@ACME.COM"}, {"email": "team@partner.com"}]
+
+
+def test_calendar_disallowed_attendee_refuses_whole_event():
+    # Mutations (b) allowlist check skipped and (c) one bad attendee dropped:
+    # one allowed + one disallowed attendee must refuse the WHOLE event, with
+    # no write of any kind - nobody is dropped, nothing partially sends.
+    http = MagicMock()
+    content = ("Title: Leak\n"
+               "Start: 2026-11-03T14:00:00+00:00\n"
+               "End: 2026-11-03T15:00:00+00:00\n"
+               "Attendees: boss@acme.com, stranger@evil.com")
+    assert _send_calendar("", content, http=http) is False
+    http.assert_not_called()
+
+
+def test_calendar_attendee_screening_fixed_point_breakers():
+    # Members a naive checker would accept but that must each refuse the
+    # event: ; -smuggled second address, @domain suffix lookalikes against
+    # the @partner.com entry, comma smuggle, newline smuggling, angle
+    # brackets, trailing whitespace inside the address.
+    breakers = (
+        "boss@acme.com ;x@evil.com",
+        "x@notpartner.com",
+        "x@sub.partner.com",
+        "boss@acme.com,x@evil.com",
+        "boss@acme.com\nx@evil.com",
+        "<boss@acme.com>",
+        " stranger@evil.com ",
+    )
+    for attendee in breakers:
+        http = MagicMock()
+        content = (f"Title: T\nStart: 2026-11-03T14:00:00+00:00\n"
+                   f"End: 2026-11-03T15:00:00+00:00\nAttendees: {attendee}")
+        assert _send_calendar("", content, http=http) is False, attendee
+        http.assert_not_called()
+
+
+def test_calendar_google_errors_fail_closed_without_raising():
+    # Mutation (d): the sender raising on a network error. The direct call
+    # must return False, never raise.
+    token_401 = _FakeGoogleHTTP(
+        token_status=401, token_body='{"error": "example-invalid-grant-body"}')
+    assert _send_calendar("", CAL_CONTENT, http=token_401) is False
+    assert len(token_401.calls) == 1  # refused before any insert attempt
+
+    insert_500 = _FakeGoogleHTTP(insert_status=500)
+    assert _send_calendar("", CAL_CONTENT, http=insert_500) is False
+    assert len(insert_500.calls) == 2
+
+    with patch.dict(os.environ, CAL_ENV), \
+         patch.object(a.requests, "post", side_effect=Exception("connection reset")):
+        assert a.send_calendar_event("", CAL_CONTENT) is False
+
+
+def test_calendar_secrets_never_hit_the_log(caplog):
+    # Mutation (e): a token or response body in a log line. Distinct markers
+    # per surface; none may appear in any record under any failure.
+    import logging
+    with caplog.at_level(logging.DEBUG):
+        _send_calendar("", CAL_CONTENT, http=_FakeGoogleHTTP(
+            token_status=401, token_body='{"error": "example-token-endpoint-body"}'))
+        _send_calendar("", CAL_CONTENT, http=_FakeGoogleHTTP(insert_status=500))
+        _send_calendar("", CAL_CONTENT, http=_FakeGoogleHTTP(
+            token_body='{"warning": "example-no-token-body"}'))
+    text = "\n".join(r.getMessage() for r in caplog.records)
+    for secret in (ACCESS_TOKEN, "your-refresh-token", "your-client-secret",
+                   "example-token-endpoint-body", "example-no-token-body",
+                   "example-invalid-grant-body"):
+        assert secret not in text, secret
+
+
+def test_calendar_tool_offered_only_when_fully_configured():
+    from core.employees import actions as actions_mod
+    with patch.dict(os.environ, dict(CAL_ENV), clear=True):
+        assert "schedule_event" in actions_mod.available_tools()
+        for missing in ("GOOGLE_CALENDAR_ID", "GOOGLE_CALENDAR_CLIENT_ID",
+                        "GOOGLE_CALENDAR_CLIENT_SECRET", "GOOGLE_CALENDAR_REFRESH_TOKEN"):
+            env = dict(CAL_ENV)
+            env[missing] = ""
+            with patch.dict(os.environ, env, clear=True):
+                # Mutation: gating off would offer the tool to unconfigured
+                # deployments and change the default behaviour.
+                assert "schedule_event" not in actions_mod.available_tools(), missing
+
+
+def test_validate_plan_calendar_requires_valid_content_and_never_a_target():
+    tools = {"schedule_event": "desc"}
+    plan = actions_module._validate_plan(
+        {"tool": "schedule_event", "target": CAL_MODEL_TARGET, "content": CAL_CONTENT}, tools)
+    assert plan is not None
+    assert plan["target"] == ""  # the model's target never survives validation
+    assert plan["channel"] == "calendar"
+    for bad in ("", "Title: X",
+                "Title: X\nStart: 2026-11-03T14:00:00+00:00",
+                "Title: X\nStart: 2026-11-03T15:00:00+00:00\nEnd: 2026-11-03T14:00:00+00:00",
+                "Title: X\nStart: 2026-11-03T14:00:00+00:00\nEnd: 2026-11-03T15:00:00+00:00\n"
+                "Attendees: stranger@evil.com"):
+        assert actions_module._validate_plan(
+            {"tool": "schedule_event", "target": "", "content": bad}, tools) is None, bad
+
+
+def test_autonomy_dispatch_schedules_calendar_event_end_to_end():
+    # Route-level: the guard's input (env) is patched truthy so the dispatch
+    # reaches a fully modeled sender. RED on BASE: "Unsupported channel".
+    http = _FakeGoogleHTTP()
+    with patch.dict(os.environ, CAL_ENV), patch.object(a.requests, "post", http):
+        out = autonomy._send_via_channel("calendar", CAL_MODEL_TARGET, CAL_CONTENT)
+    assert out == "Calendar event: scheduled"
+    assert len(http.calls) == 2
+
+
+def test_autonomy_dispatch_reports_failed_for_calendar():
+    # The distinct failure side: a non-2xx insert reports failed, not sent.
+    http = _FakeGoogleHTTP(insert_status=500)
+    with patch.dict(os.environ, CAL_ENV), patch.object(a.requests, "post", http):
+        out = autonomy._send_via_channel("calendar", "", CAL_CONTENT)
+    assert out == "Calendar event: failed"
+    assert "scheduled" not in out and "sent" not in out
+
+
+def test_autonomy_calendar_dispatch_without_config_fails_closed():
+    # Route-level with the guard answering before the code under test:
+    # nothing configured means no write of any kind.
+    http = MagicMock()
+    with patch.dict(os.environ, {}, clear=True), patch.object(a.requests, "post", http):
+        out = autonomy._send_via_channel("calendar", "", CAL_CONTENT)
+    assert out == "Calendar event: failed"
+    http.assert_not_called()
