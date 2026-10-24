@@ -17,6 +17,13 @@ Trust model (the same as the app's core/mcp_client.py, made explicit):
 - Server-supplied error text is never put in a result; failures carry a
   constant message plus, at most, an HTTP status or a JSON-RPC error code.
 
+Governance (v0.2.0, see governance.py): a server's tool annotations are
+untrusted hints that can only make policy stricter. Every tool is flagged
+requires_approval in Tool.metadata["mcp"] unless the owner pre-approves it (or
+trusts a server's readOnlyHint); the flag is enforced only when the owner
+supplies McpPolicy.approve. An optional on_event hook receives small audit
+events (never arguments or results).
+
 Protocol: the current revision (2026-07-28) is tried first - every request is
 its own POST with MCP-Protocol-Version, Mcp-Method and Mcp-Name headers and
 the version/client info/capabilities in params._meta, with no handshake and
@@ -42,12 +49,15 @@ import itertools
 import json
 import logging
 import re
+import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from ragleap_tools import Tool, ToolResult
 
 from ragleap_integrations import _net
+from ragleap_integrations.governance import HINT_KEYS, McpPolicy, hints_from
+from ragleap_integrations.governance import requires_approval as _requires_approval
 
 logger = logging.getLogger("ragleap_integrations")
 
@@ -94,6 +104,7 @@ _FAILURES = {
     "no_common_version": "MCP server and client share no protocol version",
     "legacy_transport": "MCP server does not use a transport this client supports",
     "input_required": "MCP server asked for client input, which is not supported",
+    "not_approved": "MCP call was not approved",
 }
 
 
@@ -138,6 +149,7 @@ class McpServerConfig:
     name: str
     url: str
     token: Optional[str] = None
+    trust_annotations: bool = False  # True: this server's readOnlyHint: true may relax approval
 
     def __post_init__(self) -> None:
         if not isinstance(self.name, str) or not _SERVER_NAME_RE.match(self.name):
@@ -149,6 +161,8 @@ class McpServerConfig:
         if self.token is not None:
             if not isinstance(self.token, str) or not self.token or _has_control_chars(self.token):
                 raise McpConfigError(f"server {self.name!r}: token must be a non-empty string without control characters")
+        if not isinstance(self.trust_annotations, bool):
+            raise McpConfigError(f"server {self.name!r}: trust_annotations must be True or False")
 
 
 @dataclass
@@ -160,6 +174,7 @@ class McpToolSpec:
     name: str
     description: str
     parameters: Dict[str, Any]
+    annotations: Dict[str, bool] = field(default_factory=dict)  # the four boolean MCP hints; untrusted
 
 
 @dataclass
@@ -175,6 +190,8 @@ class McpConfig:
     total_timeout: float = _net.DEFAULT_TOTAL_TIMEOUT
     op_timeout: float = _net.DEFAULT_OP_TIMEOUT
     max_response_bytes: int = _net.DEFAULT_MAX_BYTES
+    policy: Optional[McpPolicy] = None
+    on_event: Optional[Callable[[Dict[str, Any]], None]] = None
 
     def __post_init__(self) -> None:
         if not self.servers:
@@ -201,6 +218,14 @@ class McpConfig:
             value = getattr(self, attr)
             if isinstance(value, bool) or not isinstance(value, (int, float)) or value <= 0:
                 raise McpConfigError(f"{attr} must be a positive number")
+        if self.policy is not None:
+            if not isinstance(self.policy, McpPolicy):
+                raise McpConfigError("policy must be an McpPolicy")
+            for entry in self.policy.pre_approved:
+                if entry not in self.allowed_tools:
+                    raise McpConfigError(f"pre_approved entry {entry!r} is not in allowed_tools")
+        if self.on_event is not None and not callable(self.on_event):
+            raise McpConfigError("on_event must be callable")
 
 
 @dataclass
@@ -555,11 +580,36 @@ class McpClient:
         self._eras[server] = "legacy"
         return result
 
+    # -- events --------------------------------------------------------------
+
+    def _emit(self, event: Dict[str, Any]) -> None:
+        """Hands a small event dict (never arguments or results) to the owner's
+        on_event hook. A failing hook can never break a call."""
+        hook = self.config.on_event
+        if hook is None:
+            return
+        try:
+            hook(dict(event))
+        except Exception:
+            logger.exception("on_event hook failed")
+
     # -- discovery -----------------------------------------------------------
 
     def discover(self) -> Discovery:
         """tools/list for the allowlisted tools only. Raises
         McpDiscoveryError if a server cannot be listed."""
+        started = time.monotonic()
+        try:
+            out = self._discover()
+        except McpDiscoveryError as e:
+            self._emit({"event": "discover", "ok": False, "error": str(e),
+                        "duration_ms": int((time.monotonic() - started) * 1000)})
+            raise
+        self._emit({"event": "discover", "ok": True, "tools": len(out.tools), "skipped": len(out.skipped),
+                    "duration_ms": int((time.monotonic() - started) * 1000)})
+        return out
+
+    def _discover(self) -> Discovery:
         out = Discovery()
         cfg = self.config
         wanted: Dict[str, List[str]] = {}
@@ -606,7 +656,8 @@ class McpClient:
                     continue
                 description = item.get("description")
                 description = description[: cfg.max_description_chars] if isinstance(description, str) else ""
-                out.tools.append(McpToolSpec(server=server, name=tool, description=description, parameters=schema))
+                out.tools.append(McpToolSpec(server=server, name=tool, description=description, parameters=schema,
+                                             annotations=hints_from(item.get("annotations"))))
         for key, reason in out.skipped:
             logger.warning("MCP tool %s skipped: %s", key, reason)
         return out
@@ -614,9 +665,46 @@ class McpClient:
     # -- calling -------------------------------------------------------------
 
     def call_tool(self, server: str, tool: str, arguments: Optional[Dict[str, Any]] = None,
-                  parameters: Optional[Dict[str, Any]] = None) -> ToolResult:
+                  parameters: Optional[Dict[str, Any]] = None,
+                  requires_approval: Optional[bool] = None) -> ToolResult:
         """Call one allowlisted tool. Never raises. parameters is the tool's
-        inputSchema, used only to mirror x-mcp-header parameters."""
+        inputSchema, used only to mirror x-mcp-header parameters. requires_approval
+        says whether policy.approve must agree first (None means unknown, which
+        is treated as True); it has an effect only when the owner set
+        McpPolicy.approve."""
+        started = time.monotonic()
+        info: Dict[str, Any] = {}
+        result = self._call_tool(server, tool, arguments, parameters, requires_approval, info)
+        error = None if result.success else ("tool reported an error" if info.get("tool_error") else result.error)
+        self._emit({"event": "call", "server": server, "tool": tool, "ok": result.success, "error": error,
+                    "approval": info.get("approval", "unchecked"),
+                    "duration_ms": int((time.monotonic() - started) * 1000)})
+        return result
+
+    def _check_approval(self, server: str, tool: str, arguments: Dict[str, Any],
+                        requires_approval: Optional[bool], info: Dict[str, Any]) -> None:
+        if requires_approval is None:
+            requires_approval = True  # unknown: fail closed
+        if not requires_approval:
+            info["approval"] = "not_required"
+            return
+        policy = self.config.policy
+        if policy is None or policy.approve is None:
+            info["approval"] = "not_enforced"
+            return
+        try:
+            answer = policy.approve(server, tool, json.loads(json.dumps(arguments)))
+        except Exception:
+            logger.exception("approve hook failed for %s.%s", server, tool)
+            answer = False
+        if answer is not True:
+            info["approval"] = "denied"
+            raise _Failure("not_approved")
+        info["approval"] = "approved"
+
+    def _call_tool(self, server: str, tool: str, arguments: Optional[Dict[str, Any]],
+                   parameters: Optional[Dict[str, Any]], requires_approval: Optional[bool],
+                   info: Dict[str, Any]) -> ToolResult:
         try:
             if f"{server}.{tool}" not in self._allowed:
                 raise _Failure("not_allowlisted")
@@ -635,9 +723,12 @@ class McpClient:
                 except _BadSchema:
                     raise _Failure("bad_arguments")
             param_headers = _header_values(header_params, arguments)
+            self._check_approval(server, tool, arguments, requires_approval, info)
             result = self._request(server, "tools/call", {"name": tool, "arguments": arguments},
                                    name=tool, param_headers=param_headers)
-            return _to_tool_result(result, self.config.max_result_chars)
+            converted = _to_tool_result(result, self.config.max_result_chars)
+            info["tool_error"] = not converted.success
+            return converted
         except _Failure as f:
             return ToolResult(success=False, error=f.message)
         except _net.TransportError as e:
@@ -655,11 +746,12 @@ def _tool_name(server: str, tool: str) -> str:
     return re.sub(r"[^A-Za-z0-9_-]", "_", f"{server}__{tool}")[:MAX_TOOL_NAME_CHARS]
 
 
-def _make_handler(client: McpClient, spec: McpToolSpec) -> Callable[..., ToolResult]:
+def _make_handler(client: McpClient, spec: McpToolSpec,
+                  requires_approval: bool = True) -> Callable[..., ToolResult]:
     # A closure, not a default argument: the model controls the keyword names
     # in **arguments, so no parameter name of ours may be shadowable by one.
     def handler(**arguments: Any) -> ToolResult:
-        return client.call_tool(spec.server, spec.name, arguments, spec.parameters)
+        return client.call_tool(spec.server, spec.name, arguments, spec.parameters, requires_approval)
 
     return handler
 
@@ -685,6 +777,9 @@ def make_mcp_tools(config: McpConfig, *, specs: Optional[List[McpToolSpec]] = No
                 raise McpConfigError(f"spec {spec.server}.{spec.name}: description must be a string")
             if not isinstance(spec.parameters, dict) or spec.parameters.get("type") != "object":
                 raise McpConfigError(f"spec {spec.server}.{spec.name}: parameters must be an object schema")
+            if not isinstance(spec.annotations, dict) or any(
+                    k not in HINT_KEYS or not isinstance(v, bool) for k, v in spec.annotations.items()):
+                raise McpConfigError(f"spec {spec.server}.{spec.name}: annotations must hold only the four boolean hints")
             try:
                 _header_params(spec.parameters)
             except _BadSchema:
@@ -697,6 +792,11 @@ def make_mcp_tools(config: McpConfig, *, specs: Optional[List[McpToolSpec]] = No
             raise McpConfigError(f"two tools would be exposed as {name!r}")
         names.add(name)
 
+        key = f"{spec.server}.{spec.name}"
+        server_cfg = next(s for s in config.servers if s.name == spec.server)
+        flag = _requires_approval(key, spec.annotations, server_cfg.trust_annotations, config.policy)
+        meta = {"mcp": {"server": spec.server, "tool": spec.name,
+                        "annotations": dict(spec.annotations), "requires_approval": flag}}
         tools.append(Tool(name=name, description=spec.description, parameters=spec.parameters,
-                          handler=_make_handler(client, spec)))
+                          handler=_make_handler(client, spec, flag), metadata=meta))
     return tools

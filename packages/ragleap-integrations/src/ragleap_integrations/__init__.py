@@ -6,10 +6,18 @@ v0.1.0: an MCP client over Streamable HTTP (see docs/design/mcp-client.md).
 v0.1.1: the default response-size cap is 1 MiB (it was 256 KiB, which a real
 15-tool server exceeded), and the "response too large" error names the
 max_response_bytes setting.
+
+v0.2.0: easy to use and governed. connect(url, allow=[...]) returns ready tools and a
+Toolkit in one call; McpPolicy and McpServerConfig.trust_annotations decide which tools
+are flagged requires_approval (server hints are untrusted and can only tighten policy);
+McpPolicy.approve enforces the flag; on_event receives small audit events. See
+docs/design/mcp-governance.md.
 """
 
-__version__ = "0.1.1"
+__version__ = "0.2.0"
 
+from ragleap_integrations.connect import Connection, connect, connect_config
+from ragleap_integrations.governance import McpPolicy
 from ragleap_integrations.mcp import (
     Discovery,
     McpClient,
@@ -30,5 +38,9 @@ __all__ = [
     "McpDiscoveryError",
     "McpServerConfig",
     "McpToolSpec",
+    "McpPolicy",
+    "Connection",
+    "connect",
+    "connect_config",
     "make_mcp_tools",
 ]
