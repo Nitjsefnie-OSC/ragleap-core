@@ -1,5 +1,8 @@
 """Approval sender check and webhook fail-closed behaviour. No network: settings, senders and signatures mocked."""
 import asyncio
+import base64
+import hashlib
+import hmac
 import os
 import sys
 from unittest.mock import patch
@@ -131,7 +134,8 @@ class _Req:
 
 
 def _wa_endpoint():
-    return next(r.endpoint for r in app.routes if getattr(r, "path", "") == "/webhook/whatsapp")
+    return next(r.endpoint for r in app.routes
+                if getattr(r, "path", "") == "/webhook/whatsapp" and "POST" in getattr(r, "methods", set()))
 
 
 def _call_wa(headers):
@@ -163,3 +167,75 @@ def test_whatsapp_invalid_signature_is_rejected_and_valid_is_accepted():
          patch.object(wa, "_verify_twilio_signature", return_value=True):
         _call_wa({"x-twilio-signature": "good"})
     h.assert_called_once()
+
+
+# Credentials carrying one character a str compare_digest refuses: a latin-1
+# byte, a non-latin-1 BMP character, an astral (emoji) character, a lone surrogate.
+NON_ASCII_CREDENTIALS = [
+    pytest.param("\xff", id="latin1"),
+    pytest.param("中", id="bmp"),
+    pytest.param("\U0001f600", id="astral"),
+    pytest.param("\udcff", id="surrogate"),
+]
+
+
+def _twilio_signature(token: str, url: str, params: dict) -> str:
+    """The documented Twilio signing: HMAC-SHA1 over url + sorted key+value, base64."""
+    full_url = url + "".join(k + params[k] for k in sorted(params))
+    return base64.b64encode(
+        hmac.new(token.encode("utf-8"), full_url.encode("utf-8"), hashlib.sha1).digest()
+    ).decode("utf-8")
+
+
+def test_whatsapp_valid_twilio_signature_is_processed():
+    """A correctly computed signature verifies through the real verifier and the handler runs."""
+    token = "example-twilio-auth-token"
+    params = {"Body": "hello", "From": "whatsapp:+919876543210"}
+    signature = _twilio_signature(token, _Req({}).url, params)
+    with _env(), patch.object(wa, "TWILIO_AUTH_TOKEN", token), \
+         patch.object(wa, "handle_incoming_message") as h:
+        _call_wa({"x-twilio-signature": signature})
+    h.assert_called_once_with("+919876543210", "hello")
+
+
+def test_twilio_signature_verifier_accepts_only_the_documented_signature():
+    """The right signature verifies; wrong, empty and missing signatures and an unset token all fail closed."""
+    token = "example-twilio-auth-token"
+    url = _Req({}).url
+    params = {"Body": "hello", "From": "whatsapp:+919876543210"}
+    signature = _twilio_signature(token, url, params)
+    with patch.object(wa, "TWILIO_AUTH_TOKEN", token):
+        assert wa._verify_twilio_signature(url, params, signature) is True
+        assert wa._verify_twilio_signature(url, params, signature[:-1] + "A") is False
+        assert wa._verify_twilio_signature(url, params, "") is False
+    with patch.object(wa, "TWILIO_AUTH_TOKEN", None):
+        assert wa._verify_twilio_signature(url, params, signature) is False
+
+
+@pytest.mark.parametrize("side", ["received", "configured"])
+@pytest.mark.parametrize("credential", NON_ASCII_CREDENTIALS)
+def test_twilio_signature_verifier_never_raises_on_non_ascii_credentials(credential, side):
+    """Any non-ASCII character on either side of the signature comparison is a failed verification (False -> 403), never a raised error."""
+    url = _Req({}).url
+    params = {"Body": "hello", "From": "whatsapp:+919876543210"}
+    if side == "received":
+        token, signature = "example-twilio-auth-token", "AAAA" + credential
+    else:
+        token, signature = "example-twilio-auth-token" + credential, "AAAA"
+    with patch.object(wa, "TWILIO_AUTH_TOKEN", token):
+        try:
+            result = wa._verify_twilio_signature(url, params, signature)
+        except Exception as exc:
+            pytest.fail(f"verifier raised {type(exc).__name__}: {exc}")
+    assert result is False
+
+
+def test_whatsapp_non_ascii_twilio_signature_is_rejected_before_processing():
+    """A non-ASCII X-Twilio-Signature is an invalid credential, not a server error: the real verifier fails it 403 and the handler never runs."""
+    with _env(), patch.object(wa, "TWILIO_AUTH_TOKEN", "example-twilio-auth-token"), \
+         patch.object(wa, "handle_incoming_message") as h:
+        with pytest.raises(Exception) as excinfo:
+            _call_wa({"x-twilio-signature": "\udcff"})
+    assert isinstance(excinfo.value, HTTPException)
+    assert excinfo.value.status_code == 403
+    h.assert_not_called()

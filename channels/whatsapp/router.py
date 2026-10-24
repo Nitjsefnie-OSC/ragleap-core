@@ -36,6 +36,15 @@ GUPSHUP_API_KEY = os.environ.get("GUPSHUP_API_KEY")
 GUPSHUP_APP_NAME = os.environ.get("GUPSHUP_APP_NAME")
 GUPSHUP_SOURCE_NUMBER = os.environ.get("GUPSHUP_SOURCE_NUMBER")
 
+# Meta WhatsApp Cloud API config
+META_ACCESS_TOKEN = os.environ.get("META_ACCESS_TOKEN")
+META_PHONE_NUMBER_ID = os.environ.get("META_PHONE_NUMBER_ID")
+META_VERIFY_TOKEN = os.environ.get("META_VERIFY_TOKEN")
+META_APP_SECRET = os.environ.get("META_APP_SECRET")
+
+# Graph API version prefix for the messages endpoint (developers.facebook.com/docs/whatsapp/cloud-api)
+META_API_VERSION = "v24.0"
+
 MAX_WHATSAPP_MESSAGE_LENGTH = 4096
 
 
@@ -49,24 +58,43 @@ def _verify_twilio_signature(url: str, params: dict, signature: str) -> bool:
         full_url += key + params[key]
 
     computed = base64.b64encode(
-        hmac.new(TWILIO_AUTH_TOKEN.encode("utf-8"), full_url.encode("utf-8"), hashlib.sha1).digest()
-    ).decode("utf-8")
+        hmac.new(TWILIO_AUTH_TOKEN.encode("utf-8", "surrogatepass"), full_url.encode("utf-8"), hashlib.sha1).digest()
+    )
 
-    return hmac.compare_digest(computed, signature)
+    return hmac.compare_digest(computed, signature.encode("utf-8", "surrogatepass"))
+
+
+def _verify_meta_webhook_token(mode: str, token: str) -> bool:
+    """Verify Meta's webhook-verification GET (hub.mode=subscribe + hub.verify_token)."""
+    if not mode or not token or not META_VERIFY_TOKEN:
+        return False
+    return mode == "subscribe" and hmac.compare_digest(
+        token.encode("utf-8", "surrogatepass"), META_VERIFY_TOKEN.encode("utf-8", "surrogatepass"))
+
+
+def _verify_meta_signature(signature: str, raw_body: bytes) -> bool:
+    """Verify a Meta webhook request's X-Hub-Signature-256: HMAC-SHA256 of the raw body with the app secret."""
+    if not signature or not META_APP_SECRET:
+        return False
+
+    expected = "sha256=" + hmac.new(META_APP_SECRET.encode("utf-8", "surrogatepass"), raw_body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected.encode("utf-8", "surrogatepass"), signature.encode("utf-8", "surrogatepass"))
 
 
 def unsigned_allowed() -> bool:
-    """Explicit local-testing opt-out: WHATSAPP_ALLOW_UNSIGNED=true accepts requests without a Twilio signature."""
+    """Explicit local-testing opt-out: WHATSAPP_ALLOW_UNSIGNED=true accepts webhook requests without a provider signature (Twilio or Meta)."""
     return os.environ.get("WHATSAPP_ALLOW_UNSIGNED", "").strip().lower() == "true"
 
 
 def send_whatsapp_message(to_phone: str, message_text: str) -> bool:
-    """Send a WhatsApp message via the configured provider (Twilio or Gupshup)."""
+    """Send a WhatsApp message via the configured provider (Twilio, Gupshup or Meta)."""
     if len(message_text) > MAX_WHATSAPP_MESSAGE_LENGTH:
         message_text = message_text[:MAX_WHATSAPP_MESSAGE_LENGTH - 20] + "...\n(truncated)"
 
     if WHATSAPP_PROVIDER == "gupshup":
         return _send_via_gupshup(to_phone, message_text)
+    if WHATSAPP_PROVIDER == "meta":
+        return _send_via_meta(to_phone, message_text)
     return _send_via_twilio(to_phone, message_text)
 
 
@@ -122,6 +150,34 @@ def _send_via_gupshup(to_phone: str, message_text: str) -> bool:
         return True
 
     logger.error(f"Gupshup send failed: {response.status_code} {response.text}")
+    return False
+
+
+def _send_via_meta(to_phone: str, message_text: str) -> bool:
+    """Send a WhatsApp message via the Meta WhatsApp Cloud API (Graph API)."""
+    if not all([META_ACCESS_TOKEN, META_PHONE_NUMBER_ID]):
+        logger.error("Meta credentials not configured — set META_ACCESS_TOKEN, META_PHONE_NUMBER_ID in .env")
+        return False
+
+    clean_to = to_phone.replace("whatsapp:", "").replace("+", "")
+
+    response = requests.post(
+        f"https://graph.facebook.com/{META_API_VERSION}/{META_PHONE_NUMBER_ID}/messages",
+        headers={"Authorization": f"Bearer {META_ACCESS_TOKEN}", "Content-Type": "application/json"},
+        json={
+            "messaging_product": "whatsapp",
+            "to": clean_to,
+            "type": "text",
+            "text": {"preview_url": False, "body": message_text},
+        },
+        timeout=30,
+    )
+
+    if response.status_code == 200:
+        logger.info(f"Meta: message sent to {to_phone}")
+        return True
+
+    logger.error(f"Meta send failed: {response.status_code} {response.reason}")
     return False
 
 
