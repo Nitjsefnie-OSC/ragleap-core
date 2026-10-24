@@ -2,7 +2,7 @@
 Phase 2 of "broad actionable": an LLM-driven action planner.
 
 For a TRUSTED caller only, the model may propose ONE action (webhook / Slack /
-email / CRM record update) after answering. It never runs anything itself: plan_action() validates
+email / CRM record update / calendar) after answering. It never runs anything itself: plan_action() validates
 the proposal against owner configuration, then run_action() hands it to
 core.autonomy.execute_or_request(), so off/semi/full modes, the actions and
 channels allowlists, the sensitive-role forcing to semi, approval and logging
@@ -34,6 +34,7 @@ ACTION_TOOLS = {
     "send_slack": {"channel": "slack"},
     "send_email": {"channel": "email"},
     "update_crm_record": {"channel": "crm"},
+    "schedule_event": {"channel": "calendar"},
     "create_task": {"channel": "task"},
     "notify_owner": {"channel": "notify_owner"},
     "mcp_call": {"channel": "mcp"},
@@ -114,6 +115,15 @@ def available_tools() -> Dict[str, str]:
             "lines (each property at most once). Every object type and property name must be on the owner's allowlists "
             "(HUBSPOT_CRM_UPDATE_OBJECTS / HUBSPOT_CRM_UPDATE_PROPERTIES); one name outside "
             "them refuses the whole update. Update only: the record must already exist."
+        )
+    if action_senders._calendar_config():
+        tools["schedule_event"] = (
+            "Create an event on the owner's configured Google Calendar. target is ignored "
+            "(leave empty). content lines: 'Title: ...', 'Start: ...', 'End: ...' (RFC 3339 "
+            "with a UTC offset, e.g. 2026-03-04T14:00:00+00:00; End must be after Start), "
+            "optional 'Attendees: a@example.com, b@example.com' (every address must be on "
+            "EMAIL_ALLOWED_RECIPIENTS; one bad address refuses the event) and optional "
+            "'Description: ...' for notes."
         )
     # Both opt-in, same "off unless the owner configured it" pattern as every
     # other tool above -- keeps available_tools() empty (and plan_action()'s
@@ -278,6 +288,11 @@ def _validate_plan(plan: Dict, tools: Dict[str, str]) -> Optional[Dict]:
         target = ""  # the account is owner configuration; the model never picks it
         update = action_senders._parse_crm_update(content)
         if update is None or not action_senders._crm_update_allowed(update):
+            return None
+    elif tool == "schedule_event":
+        target = ""  # the calendar is owner configuration; the model never picks it
+        event = action_senders._parse_event(content)
+        if event is None or not action_senders._attendees_allowed(event["attendees"]):
             return None
     elif tool == "create_task":
         if target:

@@ -170,6 +170,10 @@ def _send_via_channel(channel: str, target: str, content: str) -> str:
             from core.action_senders import send_crm_update
             ok = send_crm_update(target, content)
             return f"CRM record update: {'updated' if ok else 'failed'}"
+        elif channel == "calendar":
+            from core.action_senders import send_calendar_event
+            ok = send_calendar_event(target, content)
+            return f"Calendar event: {'scheduled' if ok else 'failed'}"
         elif channel == "task":
             from core import tasks as core_tasks
             title = (content.splitlines()[0] if content else "Untitled task")[:200]
