@@ -5,6 +5,14 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Documentation
+
+- RUNBOOK Appendix A: the statement that k3s's default storage very likely behaves like kind's was an untested inference and is wrong for k3s v1.34.12. A CI run on k3s in Docker (k3d v5.9.0, run 40087055391) observed that its default `local-path` storage creates `local` PersistentVolumes, not `hostPath`. The Velero test also passed on that cluster with static `local` volumes. Not tested: Velero on k3s's default dynamic storage, and a systemd k3s install.
+
+### Changed
+
+- The package description no longer says "live-tested against a real cluster". It takes effect on PyPI with the next release.
+
 ## [0.6.1] - 2026-10-21
 
 ### Fixed
