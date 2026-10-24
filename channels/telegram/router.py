@@ -38,7 +38,10 @@ def _verify_webhook_secret(received_secret: str) -> bool:
         return False
     if not received_secret:
         return False
-    return hmac.compare_digest(received_secret, TELEGRAM_WEBHOOK_SECRET)
+    return hmac.compare_digest(
+        received_secret.encode("utf-8", "surrogatepass"),
+        TELEGRAM_WEBHOOK_SECRET.encode("utf-8", "surrogatepass"),
+    )
 
 
 def send_telegram_message(chat_id, message_text: str) -> bool:
