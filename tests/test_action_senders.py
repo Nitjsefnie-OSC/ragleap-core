@@ -793,10 +793,11 @@ class _FakeGoogleHTTP:
     )
 
     def __init__(self, token_status=200, token_body='{"access_token": "%s"}' % ACCESS_TOKEN,
-                 insert_status=200):
+                 insert_status=200, insert_body="example-insert-error-body"):
         self.token_status = token_status
         self.token_body = token_body
         self.insert_status = insert_status
+        self.insert_body = insert_body
         self.calls = []
 
     def __call__(self, url, json=None, data=None, timeout=None,
@@ -821,7 +822,9 @@ class _FakeGoogleHTTP:
             if headers.get("Authorization") != f"Bearer {ACCESS_TOKEN}":
                 # Mutation: a token not issued by the fake being replayed.
                 raise AssertionError("insert did not carry the fake-issued access token")
-            return MagicMock(status_code=self.insert_status)
+            resp = MagicMock(status_code=self.insert_status)
+            resp.text = self.insert_body  # a distinctive body the log test can hunt for
+            return resp
         raise AssertionError(f"unmodeled request: {url}")
 
 
@@ -994,7 +997,7 @@ def test_calendar_secrets_never_hit_the_log(caplog):
     text = "\n".join(r.getMessage() for r in caplog.records)
     for secret in (ACCESS_TOKEN, "your-refresh-token", "your-client-secret",
                    "example-token-endpoint-body", "example-no-token-body",
-                   "example-invalid-grant-body"):
+                   "example-insert-error-body"):
         assert secret not in text, secret
 
 
