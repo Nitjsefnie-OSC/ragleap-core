@@ -259,7 +259,7 @@ class _FakeHubSpotHTTP:
             assert not trip.calls, f"unexpected {verb} request"
 
 
-def _send_crm(target, content, env="default", status=200, patch_side_effect=None):
+def _send_crm(target, content, env="default", status=200):
     """One CRM update through the sender with the whole HTTP layer replaced:
     requests.patch is answered by the fake modeling exactly the one allowlisted
     PATCH, and post/put/delete/request are tripwires. env="default" installs
@@ -270,12 +270,9 @@ def _send_crm(target, content, env="default", status=200, patch_side_effect=None
     sender = getattr(a, "send_crm_update", None)
     assert callable(sender), "send_crm_update missing from core.action_senders"
     http = _FakeHubSpotHTTP(patch_status=status)
-    patcher = patch.object(a.requests, "patch", http)
-    if patch_side_effect is not None:
-        patcher = patch.object(a.requests, "patch", side_effect=patch_side_effect)
     environment = CRM_ENV if env == "default" else env
     with patch.dict(os.environ, environment, clear=True), \
-         patcher, \
+         patch.object(a.requests, "patch", http), \
          patch.object(a.requests, "post", http.forbidden["post"]), \
          patch.object(a.requests, "put", http.forbidden["put"]), \
          patch.object(a.requests, "delete", http.forbidden["delete"]), \
@@ -383,6 +380,19 @@ def test_crm_allowlisted_unicode_name_agrees_exactly():
     ok, http = _send_crm("", "Object: contacts\nId: 715559271\nSet: prénom = Amélie")
     assert ok is True
     assert http.calls[0]["json"]["properties"]["prénom"] == "Amélie"
+
+
+def test_crm_allowlist_entries_may_carry_whitespace_in_config():
+    # Operator config is stripped at the boundary (", " between entries is
+    # normal writing); the model's input still matches verbatim. Kills the
+    # entry-strip-dropped mutant: without the strip, " lastname" never
+    # matches the parsed property name and the update would refuse.
+    env = dict(CRM_ENV)
+    env["HUBSPOT_CRM_UPDATE_OBJECTS"] = "contacts, companies"
+    env["HUBSPOT_CRM_UPDATE_PROPERTIES"] = "firstname, lastname"
+    ok, http = _send_crm("", CRM_CONTENT, env=env)
+    assert ok is True
+    assert http.calls[0]["json"]["properties"] == {"firstname": "Jane", "lastname": "Doe-Xq7"}
 
 
 def test_crm_success_sends_exact_modeled_patch():
