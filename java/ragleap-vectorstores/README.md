@@ -18,6 +18,7 @@ RagLeapConfig config = RagLeapConfig.builder(databaseUrl, provider, embeddingCon
 - Index with an HNSW k-NN field (engine lucene, cosine); the document registry is a second index named
   `<index>_documents`.
 - Scores are OpenSearch's own, already in [0, 1]; no sparse search (`supportsSparse()` is false).
+- A `metadataFilter` can only use indexed fields (`document_id`, `document_name`, `chunk_index`, `token_count`). A key from the chunk's own metadata matches nothing, because the metadata is stored as an unindexed string; an unknown field matches nothing either. The Python backend behaves the same (confirmed against a live OpenSearch 3.9.0 and copied on purpose).
 - Constructor options: index name, documents index name, `useSsl`, basic authentication, your own `HttpClient`.
 
 ### Differences from Python
@@ -36,7 +37,7 @@ fake HTTP server that records every request; the Java backend runs the same 29 s
 server and must send identical requests (method, path, query, body, auth) and return identical results. Ten
 deliberate breaks of the Java code were each caught by the tests.
 
-**Not live-verified:** no real OpenSearch server was used. Python was pinned at commit `de9d55b`.
+**Live check:** the gated `OpenSearchLiveTest` (env `RAGLEAP_VS_LIVE_OPENSEARCH_URL`, skipped in CI) was run once against a throwaway OpenSearch 3.9.0 container (index create and reuse, dimension mismatch, insert, search order and scores, `document_id` and `chunk_index` filters, listing, delete); no other OpenSearch version and no security plugin, TLS or authentication was tried. Python was pinned at commit `de9d55b`.
 
 ```bash
 # regenerate fixtures (needs the pinned Python package and a venv with opensearch-py 3.2.0, upstash-vector 0.8.0, redis-py 8.0.1 and numpy)
