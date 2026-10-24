@@ -58,17 +58,18 @@ def _verify_twilio_signature(url: str, params: dict, signature: str) -> bool:
         full_url += key + params[key]
 
     computed = base64.b64encode(
-        hmac.new(TWILIO_AUTH_TOKEN.encode("utf-8"), full_url.encode("utf-8"), hashlib.sha1).digest()
-    ).decode("utf-8")
+        hmac.new(TWILIO_AUTH_TOKEN.encode("utf-8", "surrogatepass"), full_url.encode("utf-8"), hashlib.sha1).digest()
+    )
 
-    return hmac.compare_digest(computed, signature)
+    return hmac.compare_digest(computed, signature.encode("utf-8", "surrogatepass"))
 
 
 def _verify_meta_webhook_token(mode: str, token: str) -> bool:
     """Verify Meta's webhook-verification GET (hub.mode=subscribe + hub.verify_token)."""
     if not mode or not token or not META_VERIFY_TOKEN:
         return False
-    return mode == "subscribe" and hmac.compare_digest(token, META_VERIFY_TOKEN)
+    return mode == "subscribe" and hmac.compare_digest(
+        token.encode("utf-8", "surrogatepass"), META_VERIFY_TOKEN.encode("utf-8", "surrogatepass"))
 
 
 def _verify_meta_signature(signature: str, raw_body: bytes) -> bool:
@@ -76,8 +77,8 @@ def _verify_meta_signature(signature: str, raw_body: bytes) -> bool:
     if not signature or not META_APP_SECRET:
         return False
 
-    expected = "sha256=" + hmac.new(META_APP_SECRET.encode("utf-8"), raw_body, hashlib.sha256).hexdigest()
-    return hmac.compare_digest(expected, signature)
+    expected = "sha256=" + hmac.new(META_APP_SECRET.encode("utf-8", "surrogatepass"), raw_body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected.encode("utf-8", "surrogatepass"), signature.encode("utf-8", "surrogatepass"))
 
 
 def unsigned_allowed() -> bool:
