@@ -2,7 +2,7 @@
 Phase 2 of "broad actionable": an LLM-driven action planner.
 
 For a TRUSTED caller only, the model may propose ONE action (webhook / Slack /
-email) after answering. It never runs anything itself: plan_action() validates
+email / CRM record update) after answering. It never runs anything itself: plan_action() validates
 the proposal against owner configuration, then run_action() hands it to
 core.autonomy.execute_or_request(), so off/semi/full modes, the actions and
 channels allowlists, the sensitive-role forcing to semi, approval and logging
@@ -33,6 +33,7 @@ ACTION_TOOLS = {
     "send_webhook": {"channel": "webhook"},
     "send_slack": {"channel": "slack"},
     "send_email": {"channel": "email"},
+    "update_crm_record": {"channel": "crm"},
     "create_task": {"channel": "task"},
     "notify_owner": {"channel": "notify_owner"},
     "mcp_call": {"channel": "mcp"},
@@ -102,6 +103,17 @@ def available_tools() -> Dict[str, str]:
         tools["send_email"] = (
             "Send an email. target must be one full address matching one of: " + allow +
             ". Optional subject."
+        )
+    # Same "off unless the owner configured it" pattern as email above.
+    if action_senders._crm_config():
+        tools["update_crm_record"] = (
+            "Update properties of ONE existing CRM record in the owner's configured "
+            "HubSpot account. target is ignored (leave empty). content lines: 'Object: ...' "
+            "(the record type, exactly one of: " + ", ".join(action_senders._crm_allowlist("HUBSPOT_CRM_UPDATE_OBJECTS")) +
+            "), 'Id: ...' (the record's numeric id) and one or more 'Set: <property> = <value>' "
+            "lines. Every object type and property name must be on the owner's allowlists "
+            "(HUBSPOT_CRM_UPDATE_OBJECTS / HUBSPOT_CRM_UPDATE_PROPERTIES); one name outside "
+            "them refuses the whole update. Update only: the record must already exist."
         )
     # Both opt-in, same "off unless the owner configured it" pattern as every
     # other tool above -- keeps available_tools() empty (and plan_action()'s
@@ -262,6 +274,11 @@ def _validate_plan(plan: Dict, tools: Dict[str, str]) -> Optional[Dict]:
             return None
         if subject:
             content = f"Subject: {subject}\n\n{content}"
+    elif tool == "update_crm_record":
+        target = ""  # the account is owner configuration; the model never picks it
+        update = action_senders._parse_crm_update(content)
+        if update is None or not action_senders._crm_update_allowed(update):
+            return None
     elif tool == "create_task":
         if target:
             from core.employees import roles as employee_roles

@@ -1,7 +1,7 @@
 """
 Outbound action senders for the autonomy gate (phase 1 of "broad actionable").
 
-send_webhook / send_slack / send_email are dispatched from
+send_webhook / send_slack / send_email / send_crm_update are dispatched from
 core.autonomy._send_via_channel(), so every mode, allowlist, sensitive-role
 rule, approval step and log in execute_or_request() applies to them unchanged.
 
@@ -14,6 +14,11 @@ choose the destination.
   - slack: posts only to SLACK_WEBHOOK_URL from .env (must be hooks.slack.com).
   - email: recipient must match EMAIL_ALLOWED_RECIPIENTS (addresses or
     @domain entries); the default is empty, so nothing sends until configured.
+  - crm: updates properties of ONE existing HubSpot CRM record (Private App
+    access token from HUBSPOT_ACCESS_TOKEN). `target` is ignored; the object
+    type and every property name must each be on an operator-configured
+    allowlist (HUBSPOT_CRM_UPDATE_OBJECTS / HUBSPOT_CRM_UPDATE_PROPERTIES),
+    and both default to EMPTY, so nothing is ever written until configured.
 Senders never raise and never log secret URLs; they return True/False.
 """
 import ipaddress
@@ -23,8 +28,8 @@ import re
 import smtplib
 import socket
 from email.message import EmailMessage
-from typing import Dict
-from urllib.parse import urlparse
+from typing import Dict, Optional
+from urllib.parse import quote, urlparse
 
 import requests
 
@@ -179,4 +184,118 @@ def send_email(target: str, content: str) -> bool:
         return True
     except Exception as e:
         logger.error(f"Email send error: {e}")
+        return False
+
+
+HUBSPOT_API_BASE = "https://api.hubapi.com"
+CRM_ENV_KEYS = (
+    "HUBSPOT_ACCESS_TOKEN",
+    "HUBSPOT_CRM_UPDATE_OBJECTS",
+    "HUBSPOT_CRM_UPDATE_PROPERTIES",
+)
+CRM_MAX_VALUE = 1000
+_CRM_ID_RE = re.compile(r"[0-9]{1,19}")
+
+
+def _crm_config() -> Optional[Dict[str, str]]:
+    """The three HUBSPOT_* settings, or None when any is unset/empty - the
+    allowlists default to EMPTY, so nothing is ever written until the owner
+    configured the token AND both allowlists."""
+    cfg = {k: os.environ.get(k, "").strip() for k in CRM_ENV_KEYS}
+    return cfg if all(cfg.values()) else None
+
+
+def _crm_allowlist(key: str) -> list:
+    """The operator's comma-separated allowlist entries, stripped; membership
+    itself is checked VERBATIM against these entries (see
+    _crm_update_allowed)."""
+    return [e.strip() for e in os.environ.get(key, "").split(",") if e.strip()]
+
+
+def _parse_crm_update(content: str) -> Optional[Dict]:
+    """Parse the documented update shape out of an action's `content`: leading
+    'Key: value' lines, case-insensitive key - 'Object:', 'Id:', one or more
+    'Set: <name> = <value>'. Object and Id must each appear exactly once, with
+    exactly one space after the colon and a non-empty value taken VERBATIM
+    (no trimming or normalization: ' contacts ' is not 'contacts'). Id is 1-19
+    digits (a HubSpot record id); every Set line's property name and value
+    must be non-empty with exactly one space around the '=', and a value is
+    at most CRM_MAX_VALUE characters. Anything malformed is None. No I/O."""
+    object_type = record_id = None
+    properties: Dict[str, str] = {}
+    for line in (content or "").replace("\r\n", "\n").split("\n"):
+        if not line:
+            continue
+        key, _, value = line.partition(":")
+        field = key.strip().lower()
+        if field not in ("object", "id", "set"):
+            return None
+        # exactly one space after the colon; the rest is verbatim
+        if not value.startswith(" ") or value.startswith("  "):
+            return None
+        value = value[1:]
+        if field == "object":
+            if object_type is not None or not value:
+                return None
+            object_type = value
+        elif field == "id":
+            if record_id is not None or not _CRM_ID_RE.fullmatch(value):
+                return None
+            record_id = value
+        else:
+            name, sep, prop_value = value.partition(" = ")
+            if not sep or not name or not prop_value:
+                return None
+            if len(prop_value) > CRM_MAX_VALUE:
+                return None
+            properties[name] = prop_value
+    if not object_type or record_id is None or not properties:
+        return None
+    return {"object": object_type, "id": record_id, "properties": properties}
+
+
+def _crm_update_allowed(update: Dict) -> bool:
+    """The parsed object type and EVERY property name must each sit VERBATIM
+    on the operator's allowlists - no case-folding, no trimming, no Unicode
+    normalization: a near-miss name is refused, never silently mapped onto an
+    allowlisted one."""
+    if update["object"] not in _crm_allowlist("HUBSPOT_CRM_UPDATE_OBJECTS"):
+        return False
+    allowed = _crm_allowlist("HUBSPOT_CRM_UPDATE_PROPERTIES")
+    return all(name in allowed for name in update["properties"])
+
+
+def send_crm_update(target: str, content: str) -> bool:
+    """Update properties of ONE existing HubSpot CRM record (CRM API v3
+    objects PATCH). `target` is ignored on purpose - the account comes from
+    HUBSPOT_ACCESS_TOKEN, never from the model; the object type and property
+    names must each be on the operator's allowlists. Update only: a not-found
+    record is a failure, never an upsert, and no create/merge/archive write
+    exists here. Returns True only on a 2xx response; never raises and never
+    logs the token, the request body or any response body."""
+    try:
+        cfg = _crm_config()
+        if not cfg:
+            logger.error("HUBSPOT_* settings incomplete - CRM update refused")
+            return False
+        update = _parse_crm_update(content)
+        if not update:
+            logger.error("CRM update content malformed - refused")
+            return False
+        if not _crm_update_allowed(update):
+            logger.error("CRM object/property outside the operator allowlists - refused")
+            return False
+        url = (f"{HUBSPOT_API_BASE}/crm/v3/objects/"
+               f"{quote(update['object'], safe='')}/{update['id']}")
+        resp = requests.patch(
+            url, json={"properties": update["properties"]},
+            timeout=HTTP_TIMEOUT, allow_redirects=False,
+            headers={"Authorization": f"Bearer {cfg['HUBSPOT_ACCESS_TOKEN']}"},
+        )
+        if not 200 <= resp.status_code < 300:
+            logger.error(f"CRM update failed with status {resp.status_code}")
+            return False
+        return True
+    except Exception as e:
+        logger.error(f"CRM update error: {e}")
         return False
