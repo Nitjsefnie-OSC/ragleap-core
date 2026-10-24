@@ -754,7 +754,7 @@ def test_autonomy_crm_dispatch_without_config_fails_closed():
 # subject module's constants; the fake HTTP layer fails on any request it
 # does not model.
 
-import json
+import json as _json
 
 from core.employees import actions as actions_module
 
@@ -815,7 +815,7 @@ class _FakeGoogleHTTP:
                 # Mutation: credential values swapped or replaced.
                 raise AssertionError("token exchange did not use the configured credentials")
             resp = MagicMock(status_code=self.token_status)
-            resp.json.return_value = json.loads(self.token_body)
+            resp.json.return_value = _json.loads(self.token_body)
             return resp
         if url == self.INSERT_URL and data is None and isinstance(json, dict):
             if headers.get("Authorization") != f"Bearer {ACCESS_TOKEN}":
@@ -1014,18 +1014,19 @@ def test_calendar_tool_offered_only_when_fully_configured():
 
 def test_validate_plan_calendar_requires_valid_content_and_never_a_target():
     tools = {"schedule_event": "desc"}
-    plan = actions_module._validate_plan(
-        {"tool": "schedule_event", "target": CAL_MODEL_TARGET, "content": CAL_CONTENT}, tools)
-    assert plan is not None
-    assert plan["target"] == ""  # the model's target never survives validation
-    assert plan["channel"] == "calendar"
-    for bad in ("", "Title: X",
-                "Title: X\nStart: 2026-11-03T14:00:00+00:00",
-                "Title: X\nStart: 2026-11-03T15:00:00+00:00\nEnd: 2026-11-03T14:00:00+00:00",
-                "Title: X\nStart: 2026-11-03T14:00:00+00:00\nEnd: 2026-11-03T15:00:00+00:00\n"
-                "Attendees: stranger@evil.com"):
-        assert actions_module._validate_plan(
-            {"tool": "schedule_event", "target": "", "content": bad}, tools) is None, bad
+    with patch.dict(os.environ, CAL_ENV):
+        plan = actions_module._validate_plan(
+            {"tool": "schedule_event", "target": CAL_MODEL_TARGET, "content": CAL_CONTENT}, tools)
+        assert plan is not None
+        assert plan["target"] == ""  # the model's target never survives validation
+        assert plan["channel"] == "calendar"
+        for bad in ("", "Title: X",
+                    "Title: X\nStart: 2026-11-03T14:00:00+00:00",
+                    "Title: X\nStart: 2026-11-03T15:00:00+00:00\nEnd: 2026-11-03T14:00:00+00:00",
+                    "Title: X\nStart: 2026-11-03T14:00:00+00:00\nEnd: 2026-11-03T15:00:00+00:00\n"
+                    "Attendees: stranger@evil.com"):
+            assert actions_module._validate_plan(
+                {"tool": "schedule_event", "target": "", "content": bad}, tools) is None, bad
 
 
 def test_autonomy_dispatch_schedules_calendar_event_end_to_end():
