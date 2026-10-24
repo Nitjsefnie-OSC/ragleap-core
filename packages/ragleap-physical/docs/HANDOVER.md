@@ -4,6 +4,50 @@ Written October 2026 for the colleague (and their Claude session) who will lead 
 
 Evidence tags: **[verified]** seen in the repo or in public project documentation; **[plan]** an intention, not built; **[unverified]** believed but not checked. Please keep using these tags in your own notes and pull requests.
 
+## Start here (read this first)
+
+**Your first reply** to the maintainer: one short paragraph saying you read this, then the one question you really need answered (if any). Do not ask what this file already answers.
+
+**Your role.** You are a robotics scientist, an engineer and the architect of `ragleap-physical`. Work like one: write down hypotheses, run experiments you can repeat, record the exact setup (versions, seeds, hardware), publish negative results too, keep interfaces small and versioned, and keep the safety layer separate from everything else. Every fact in your notes carries a tag: verified (with a source link), plan, or unverified.
+
+**Your first task is phase 0 (section 6): research and design, no code yet.** Three small docs-only pull requests:
+1. `packages/ragleap-physical/docs/design/phase0-interface.md`: the observation format, the command format, the four capability levels (observe, analyse, recommend, control), the safety envelope and a threat model. `packages/ragleap-phone/docs/design/phase0-interface.md` is an example of such a note.
+2. A comparison of 2 to 3 simulators or bridges, starting with MuJoCo: licence, install weight, Python 3.10 or newer, repeatability, API stability, runs without a GPU and without a display. Every fact verified (with a link) or marked unverified.
+3. The text of the public design issue (a call for contributors), for the maintainer to post. Issue #814 shows the shape.
+
+**How your code reaches the repository.** You write and test code in your own sandbox or computer. The maintainer (Antony) does the GitHub steps from his server, and he does not write code. So you deliver every change as one self-checking paste file, the same way the other leads do:
+- The file saves a script, checks its size and checksum, and runs it only if both match. Never ask him to paste a bare script that contains `exit`: it would close his terminal session.
+- The script first checks that nothing is in the way (a free worktree folder, a free branch name locally and on GitHub, enough disk). Then it makes its own worktree and branch, writes the files, and compares the SHA256 of every written file with the one you computed in your sandbox. It stops if one differs.
+- It adds the named files only (never `git add -A`), commits, pushes to the explicit repository address, and opens the pull request with a description in four parts: What, Limits, Tested, Not tested yet. Then it waits for the checks to finish.
+- It never touches the maintainer's shared checkout or other people's worktrees, containers or branches.
+- Merging, releases and posting issues need his explicit "go". Ask for one clear thing at a time.
+
+A minimal skeleton (fill in the names and checksums; keep the guards):
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+R=ragleap/ragleap-core; B=docs/physical-<topic>; W=<worktree folder agreed with the maintainer>/claude-physical-<topic>-<mmdd>
+cd <the maintainer's checkout>; git fetch -q origin
+[ -e "$W" ] && { echo "STOP: worktree exists"; exit 1; }
+git ls-remote --exit-code --heads https://github.com/$R.git "$B" >/dev/null 2>&1 && { echo "STOP: branch exists"; exit 1; }
+git worktree add -q -b "$B" "$W" origin/main; cd "$W"
+# write your files here, then compare each one with the checksum from your sandbox:
+# [ "$(sha256sum <file> | cut -c1-64)" = "<sha256 from your sandbox>" ] || { echo "STOP: mismatch"; exit 1; }
+git add <named files>; git commit -q -m "docs(physical): <message>"
+git push -q https://github.com/$R.git "$B:$B"
+gh pr create --repo $R --base main --head "$B" --title "<title>" --body-file <pr body file>
+```
+
+**How you test.**
+1. Unit tests run in your own sandbox. They never move real hardware and never need a network.
+2. Heavy runs (a simulator, a GPU, long experiments) go on Google Colab. Keep the notebook in `packages/ragleap-physical/examples/` and put the results, with screenshots, in the pull request. Never run simulators or experiments on the maintainer's production server: it is small and shared.
+3. Tests on other systems and robots: open a test issue like #926 (steps, what to report, screenshots). Contributors post real reports. Only real reports go into the "tested by others" table.
+
+**Your regular rhythm.** Small pull requests. Dated research notes under `packages/ragleap-physical/docs/research/` with source links and tags. Design decisions as short notes in `docs/design/`: what was decided, which alternatives were rejected, and why. A short report to the maintainer every week: done, blocked, needs a go. Simple words, short messages, at most one question per message.
+
+**Boundaries, once more.** You own `packages/ragleap-physical/` only. You may read and learn from everything else, but you never change other colleagues' work. If you need a change elsewhere, write it down for the maintainer.
+
 ## 1. The goal in one paragraph
 
 RagLeap is an open-source platform of AI employees that work beside people. For businesses with machines, the long-term plan includes observing, and one day controlling, supported physical systems such as robots, sensors and equipment. `ragleap-physical` is a new, separate library that bridges RagLeap to open-source simulators and robot software (for example MuJoCo and ROS 2), so that contributors can build and test safely. Simulation comes first and observing comes first. Nothing controls real hardware until the evidence and the safety rules in section 7 say so. The source of this work is the "universal platform" backlog (items on devices, local gateways, large fleets, a connector framework, outcome verification and acceptance tests). None of it is built. [plan]
