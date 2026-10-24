@@ -28,8 +28,8 @@ from core.api import app
 from channels.whatsapp import router as wa
 
 
-APP_SECRET = "test-meta-app-secret"
-VERIFY_TOKEN = "test-verify-token"
+APP_SECRET = "example-meta-app-secret"
+VERIFY_TOKEN = "example-verify-token"
 
 # A representative Meta `messages` webhook payload: one text message from
 # wa_id 15551234567. Kept byte-stable so the fixed signature vector below
@@ -55,7 +55,7 @@ TEST_BODY = json.dumps({
 # the raw request body with the Meta app secret. Computed once with the same
 # APP_SECRET/TEST_BODY pair above; if the implementation ever signs with
 # another algorithm, another input, or another secret, this fails.
-EXPECTED_SIGNATURE = "sha256=0060b47ca604812aad9bd298aef31a4312978e5ec29112eb86ae95ebeb7ae460"
+EXPECTED_SIGNATURE = "sha256=4006c2586cb92e27ca76904e5975f935e49b3f1d63331537cd14cbaeda6a78c1"
 
 
 def _sign(body: bytes, secret: str = APP_SECRET) -> str:
@@ -249,7 +249,7 @@ def test_meta_signature_matches_the_documented_hmac_shape():
 
 def test_meta_signature_rejects_a_wrong_or_malformed_signature():
     with _meta_config():
-        assert wa._verify_meta_signature(_sign(TEST_BODY, secret="other-secret"), TEST_BODY) is False
+        assert wa._verify_meta_signature(_sign(TEST_BODY, secret="example-other-secret"), TEST_BODY) is False
         assert wa._verify_meta_signature("sha256=" + "0" * 64, TEST_BODY) is False
         assert wa._verify_meta_signature("", TEST_BODY) is False
         assert wa._verify_meta_signature(EXPECTED_SIGNATURE + "ff", TEST_BODY) is False
@@ -270,7 +270,7 @@ def test_webhook_post_with_valid_signature_is_processed():
 def test_webhook_post_with_invalid_signature_is_rejected_before_processing():
     with _meta_config(), patch.object(wa, "handle_incoming_message") as handle:
         with pytest.raises(HTTPException) as exc:
-            _call_post({"x-hub-signature-256": _sign(TEST_BODY, secret="wrong-secret")})
+            _call_post({"x-hub-signature-256": _sign(TEST_BODY, secret="example-wrong-secret")})
     assert exc.value.status_code == 403
     handle.assert_not_called()
 
@@ -301,7 +301,7 @@ def test_webhook_post_with_invalid_signature_stays_rejected_under_the_opt_out():
     with _meta_config(), patch.dict(os.environ, clean, clear=True), \
          patch.object(wa, "handle_incoming_message") as handle:
         with pytest.raises(HTTPException) as exc:
-            _call_post({"x-hub-signature-256": _sign(TEST_BODY, secret="wrong-secret")})
+            _call_post({"x-hub-signature-256": _sign(TEST_BODY, secret="example-wrong-secret")})
     assert exc.value.status_code == 403
     handle.assert_not_called()
 
