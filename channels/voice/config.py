@@ -9,14 +9,26 @@ VOICE_CONFIG = {
     "custom_greeting": os.environ.get("VOICE_GREETING", ""),
     "language": os.environ.get("VOICE_LANGUAGE", "en-US"),
 
-    # STT provider: currently only "whisper" (OpenAI) supported in v1
+    # STT provider: "whisper" (OpenAI, default) or "deepgram"
     "stt_provider": os.environ.get("VOICE_STT_PROVIDER", "whisper"),
-    "stt_api_key": os.environ.get("OPENAI_API_KEY", ""),
+    "stt_api_key": (
+        os.environ.get("DEEPGRAM_API_KEY", "")
+        if os.environ.get("VOICE_STT_PROVIDER") == "deepgram"
+        else os.environ.get("OPENAI_API_KEY", "")
+    ),
 
-    # TTS provider: currently only "openai" supported in v1
+    # TTS provider: "openai" (default) or "elevenlabs"
     "tts_provider": os.environ.get("VOICE_TTS_PROVIDER", "openai"),
-    "tts_api_key": os.environ.get("OPENAI_API_KEY", ""),
-    "tts_voice": os.environ.get("VOICE_TTS_VOICE", "nova"),
+    "tts_api_key": (
+        os.environ.get("ELEVENLABS_API_KEY", "")
+        if os.environ.get("VOICE_TTS_PROVIDER") == "elevenlabs"
+        else os.environ.get("OPENAI_API_KEY", "")
+    ),
+    "tts_voice": (
+        os.environ.get("ELEVENLABS_VOICE_ID", "")
+        if os.environ.get("VOICE_TTS_PROVIDER") == "elevenlabs"
+        else os.environ.get("VOICE_TTS_VOICE", "nova")
+    ),
 }
 
 

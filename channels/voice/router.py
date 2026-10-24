@@ -21,7 +21,7 @@ from core.employees.feedback import record_last_reply, get_last_reply, detect_fe
 from core.employees.learning import record_role_memory_outcome
 from core.employees.channel_roles import resolve_role
 from core.employees.tools import TOOL_REGISTRY
-from channels.voice.audio import transcribe_audio, text_to_speech
+from channels.voice import audio as voice_audio
 from channels.voice.config import get_voice_config
 
 logger = logging.getLogger(__name__)
@@ -61,13 +61,17 @@ async def send_mark(ws, stream_sid: str, name: str = "reply-done"):
 
 
 async def speak_reply(ws, stream_sid: str, text: str, cfg: dict):
-    """Convert text to speech and stream it to the caller, then mark completion."""
+    """Convert text to speech (dispatching on the configured TTS provider) and stream it to the caller, then mark completion."""
     loop = asyncio.get_running_loop()
-    audio = await loop.run_in_executor(None, text_to_speech, text, cfg["tts_api_key"], cfg["tts_voice"])
-    if audio:
-        await send_audio(ws, stream_sid, audio)
+    if cfg["tts_provider"] == "elevenlabs":
+        tts_fn = voice_audio.text_to_speech_elevenlabs
+    else:
+        tts_fn = voice_audio.text_to_speech
+    audio_bytes = await loop.run_in_executor(None, tts_fn, text, cfg["tts_api_key"], cfg["tts_voice"])
+    if audio_bytes:
+        await send_audio(ws, stream_sid, audio_bytes)
         await send_mark(ws, stream_sid)
-        logger.info(f"Voice: streamed reply ({len(audio)} bytes)")
+        logger.info(f"Voice: streamed reply ({len(audio_bytes)} bytes)")
     else:
         logger.error("Voice: TTS returned no audio, skipping playback")
 
@@ -81,6 +85,11 @@ async def handle_call(ws):
     stream_sid = None
     cfg = get_voice_config()
     loop = asyncio.get_running_loop()
+
+    if cfg["stt_provider"] == "deepgram":
+        stt_fn = voice_audio.transcribe_with_deepgram
+    else:
+        stt_fn = voice_audio.transcribe_audio
 
     collecting_buffer = bytearray()
     processing = False
@@ -159,7 +168,7 @@ async def handle_call(ws):
                     logger.info(f"Voice: transcribing {len(speech_data)} bytes...")
                     try:
                         transcript = await asyncio.wait_for(
-                            loop.run_in_executor(None, transcribe_audio, speech_data, cfg["stt_api_key"]),
+                            loop.run_in_executor(None, stt_fn, speech_data, cfg["stt_api_key"]),
                             timeout=15.0,
                         )
                     except asyncio.TimeoutError:

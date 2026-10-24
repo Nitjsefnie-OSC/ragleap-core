@@ -1,7 +1,8 @@
 """
 Speech-to-text and text-to-speech for the RagLeap Core voice channel.
-v1 supports OpenAI Whisper (STT) and OpenAI TTS only — Deepgram and
-ElevenLabs are documented as good-first-issue additions, not yet implemented.
+STT: OpenAI Whisper (default) or Deepgram. TTS: OpenAI TTS (default) or
+ElevenLabs. The provider is selected per deployment via VOICE_STT_PROVIDER
+and VOICE_TTS_PROVIDER (see config.py).
 """
 import io
 import logging
@@ -12,6 +13,8 @@ logger = logging.getLogger(__name__)
 
 OPENAI_STT_URL = "https://api.openai.com/v1/audio/transcriptions"
 OPENAI_TTS_URL = "https://api.openai.com/v1/audio/speech"
+DEEPGRAM_STT_URL = "https://api.deepgram.com/v1/listen"
+ELEVENLABS_TTS_URL = "https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
 
 
 def transcribe_audio(pcm_audio: bytes, api_key: str, sample_rate: int = 8000) -> str:
@@ -52,4 +55,50 @@ def text_to_speech(text: str, api_key: str, voice: str = "nova") -> bytes:
         return response.content
     except Exception as e:
         logger.error(f"OpenAI TTS failed: {e}")
+        return b""
+
+
+def transcribe_with_deepgram(pcm_audio: bytes, api_key: str, sample_rate: int = 8000) -> str:
+    """
+    Transcribe raw PCM audio using Deepgram (nova-2 with smart formatting).
+    Accepts the same WAV/PCM bytes as the Whisper path; `sample_rate` is kept
+    for signature parity with transcribe_audio. Returns the transcript, or ""
+    when no key is configured or the request/parse fails.
+    """
+    if not api_key:
+        logger.error("No Deepgram API key configured for STT — set DEEPGRAM_API_KEY in .env")
+        return ""
+
+    headers = {"Authorization": f"Token {api_key}", "Content-Type": "audio/wav"}
+    params = {"model": "nova-2", "smart_format": "true"}
+
+    try:
+        response = requests.post(
+            DEEPGRAM_STT_URL, headers=headers, params=params, data=pcm_audio, timeout=15
+        )
+        response.raise_for_status()
+        transcript = response.json()["results"]["channels"][0]["alternatives"][0]["transcript"]
+        return (transcript or "").strip()
+    except Exception as e:
+        logger.error(f"Deepgram transcription failed: {e}")
+        return ""
+
+
+def text_to_speech_elevenlabs(text: str, api_key: str, voice: str) -> bytes:
+    """Generate speech audio from text using ElevenLabs. Returns raw audio bytes (mp3)."""
+    if not api_key:
+        logger.error("No ElevenLabs API key configured for TTS — set ELEVENLABS_API_KEY in .env")
+        return b""
+
+    headers = {"xi-api-key": api_key, "Content-Type": "application/json"}
+    payload = {"text": text, "model_id": "eleven_multilingual_v2"}
+
+    try:
+        response = requests.post(
+            ELEVENLABS_TTS_URL.format(voice_id=voice), headers=headers, json=payload, timeout=30
+        )
+        response.raise_for_status()
+        return response.content
+    except Exception as e:
+        logger.error(f"ElevenLabs TTS failed: {e}")
         return b""
