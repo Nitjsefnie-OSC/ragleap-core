@@ -349,8 +349,10 @@ def _parse_event(content: str) -> Optional[Dict]:
     'Key: value' lines, case-insensitive - 'Title:', 'Start:', 'End:',
     'Attendees:' (comma-separated), 'Description:' (the rest of the content).
     Title/Start/End are required; Start/End must be RFC 3339 with an offset,
-    End strictly after Start. Anything malformed is None. No I/O."""
+    End strictly after Start; every field except Description may appear once.
+    Anything malformed is None. No I/O."""
     title = start_s = end_s = None
+    have_attendees = False
     attendees: list = []
     desc_parts: list = []
     in_desc = False
@@ -369,7 +371,8 @@ def _parse_event(content: str) -> Optional[Dict]:
             start_s = value
         elif field == "end" and end_s is None:
             end_s = value
-        elif field == "attendees" and not attendees:
+        elif field == "attendees" and not have_attendees:
+            have_attendees = True
             attendees = [a.strip() for a in value.split(",") if a.strip()]
         elif field == "description":
             in_desc = True

@@ -872,12 +872,16 @@ def test_calendar_malformed_content_refused_before_any_request():
         "Summary: X\nStart: 2026-11-03T14:00:00+00:00\nEnd: 2026-11-03T15:00:00+00:00",
         "Title: X\nStart: 2026-11-03T14:00:00+00:00\nEnd: 2026-11-03T15:00:00+00:00\n"
         "Attendees: stranger@evil.com",  # screening happens with no network too
+        "Title: X\nStart: 2026-11-03T14:00:00+00:00\nEnd: 2026-11-03T15:00:00+00:00\n"
+        "Attendees: boss@acme.com\nAttendees: team@acme.com",  # duplicate field: refused
+        "Title: X\nStart: 2026-11-03T14:00:00+00:00\nEnd: 2026-11-03T15:00:00+00:00\n"
+        "Attendees:\nAttendees: boss@acme.com",  # duplicate after an empty first value: refused too
     )
     for content in bad_contents:
         http = MagicMock()
         ok = _send_calendar("", content, http=http)
         assert ok is False, content
-        http.assert_not_called(), content
+        http.assert_not_called()
 
 
 def test_calendar_sends_exact_modeled_requests():
