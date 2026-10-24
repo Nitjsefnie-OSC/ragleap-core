@@ -10,8 +10,8 @@ from ragleap_integrations.governance import HINT_KEYS, hints_from, requires_appr
 from ragleap_integrations.mcp import McpClient, McpConfig, McpConfigError, McpDiscoveryError, McpServerConfig, McpToolSpec
 
 URL = "https://mcp.example.com/mcp"
-SECRET_ARG = "customer-4417-secret"
-SECRET_RESULT = "result-text-that-must-not-reach-events"
+ARG_TEXT = "example-customer-argument"
+RESULT_TEXT = "result-text-that-must-not-reach-events"
 SCHEMA = {"type": "object", "properties": {"id": {"type": "string"}}}
 
 
@@ -32,7 +32,7 @@ class Fake:
         if req["method"] == "tools/list":
             result = {"tools": self.tools}
         else:
-            result = self.call_result or {"content": [{"type": "text", "text": SECRET_RESULT}]}
+            result = self.call_result or {"content": [{"type": "text", "text": RESULT_TEXT}]}
         body = json.dumps({"jsonrpc": "2.0", "id": req["id"], "result": result}).encode()
         return HttpResponse(200, {}, body, "application/json")
 
@@ -219,12 +219,12 @@ def test_anything_but_exactly_true_denies_and_the_server_is_never_called(answer)
 
 def test_a_raising_hook_denies_and_is_logged(caplog):
     def boom(server, tool, arguments):
-        raise RuntimeError("secret detail")
+        raise RuntimeError("internal detail")
 
     tool, _, fake = tool_for(boom)
     with caplog.at_level(logging.ERROR, logger="ragleap_integrations"):
         result = tool.call(id="1")
-    assert result.error == "MCP call was not approved" and "secret detail" not in result.error
+    assert result.error == "MCP call was not approved" and "internal detail" not in result.error
     assert fake.calls == [] and any(r.exc_info for r in caplog.records)
 
 
@@ -300,11 +300,11 @@ def test_a_call_event_has_no_arguments_and_no_result_text():
     config, client, _ = build([tool_item("write")], allowed=["srv.write"], on_event=events.append,
                               policy=McpPolicy(approve=lambda s, t, a: True))
     tool = make_mcp_tools(config, client=client)[0]
-    tool.call(id=SECRET_ARG)
+    tool.call(id=ARG_TEXT)
     call = [e for e in events if e["event"] == "call"][0]
     assert call == {"event": "call", "server": "srv", "tool": "write", "ok": True, "error": None,
                     "approval": "approved", "duration_ms": call["duration_ms"]}
-    assert SECRET_ARG not in str(events) and SECRET_RESULT not in str(events)
+    assert ARG_TEXT not in str(events) and RESULT_TEXT not in str(events)
 
 
 def test_a_denied_call_event():
@@ -318,12 +318,12 @@ def test_a_denied_call_event():
 
 def test_a_tool_reported_error_never_puts_the_tool_text_in_the_event():
     events = []
-    fake = Fake([tool_item("write")], call_result={"isError": True, "content": [{"type": "text", "text": SECRET_RESULT}]})
+    fake = Fake([tool_item("write")], call_result={"isError": True, "content": [{"type": "text", "text": RESULT_TEXT}]})
     config, client, _ = build([], allowed=["srv.write"], on_event=events.append, fake=fake)
     result = make_mcp_tools(config, specs=[McpToolSpec("srv", "write", "d", SCHEMA)], client=client)[0].call(id="1")
-    assert result.success is False and result.error == SECRET_RESULT
+    assert result.success is False and result.error == RESULT_TEXT
     call = [e for e in events if e["event"] == "call"][0]
-    assert call["error"] == "tool reported an error" and SECRET_RESULT not in str(call)
+    assert call["error"] == "tool reported an error" and RESULT_TEXT not in str(call)
 
 
 def test_a_transport_failure_event_carries_the_constant_message():

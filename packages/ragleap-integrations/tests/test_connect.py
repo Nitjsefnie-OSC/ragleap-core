@@ -161,9 +161,9 @@ def test_the_token_is_sent_and_never_appears_in_the_report():
         headers_seen.append(dict(headers))
         return Fake(items("get_order"))(url, headers, body, stop)
 
-    conn = connect(URL, allow=["get_order"], token="s3cret-token-value", transport=spy)
-    assert any("s3cret-token-value" in str(h) for h in headers_seen)
-    assert "s3cret-token-value" not in conn.report() and "s3cret-token-value" not in repr(conn.tools)
+    conn = connect(URL, allow=["get_order"], token="example-token-value", transport=spy)
+    assert any("example-token-value" in str(h) for h in headers_seen)
+    assert "example-token-value" not in conn.report() and "example-token-value" not in repr(conn.tools)
 
 
 def test_pre_approved_alone_builds_a_policy_without_an_approve_hook():
