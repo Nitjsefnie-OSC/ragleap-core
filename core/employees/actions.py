@@ -111,7 +111,7 @@ def available_tools() -> Dict[str, str]:
             "HubSpot account. target is ignored (leave empty). content lines: 'Object: ...' "
             "(the record type, exactly one of: " + ", ".join(action_senders._crm_allowlist("HUBSPOT_CRM_UPDATE_OBJECTS")) +
             "), 'Id: ...' (the record's numeric id) and one or more 'Set: <property> = <value>' "
-            "lines. Every object type and property name must be on the owner's allowlists "
+            "lines (each property at most once). Every object type and property name must be on the owner's allowlists "
             "(HUBSPOT_CRM_UPDATE_OBJECTS / HUBSPOT_CRM_UPDATE_PROPERTIES); one name outside "
             "them refuses the whole update. Update only: the record must already exist."
         )

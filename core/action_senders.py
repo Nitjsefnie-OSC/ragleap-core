@@ -219,8 +219,10 @@ def _parse_crm_update(content: str) -> Optional[Dict]:
     exactly one space after the colon and a non-empty value taken VERBATIM
     (no trimming or normalization: ' contacts ' is not 'contacts'). Id is 1-19
     digits (a HubSpot record id); every Set line's property name and value
-    must be non-empty with exactly one space around the '=', and a value is
-    at most CRM_MAX_VALUE characters. Anything malformed is None. No I/O."""
+    must be non-empty with exactly one space around the '=', a value is
+    at most CRM_MAX_VALUE characters, and a property name may appear at most
+    once - a repeated one refuses the whole update, never last-value-wins.
+    Anything malformed is None. No I/O."""
     object_type = record_id = None
     properties: Dict[str, str] = {}
     for line in (content or "").replace("\r\n", "\n").split("\n"):
@@ -247,6 +249,8 @@ def _parse_crm_update(content: str) -> Optional[Dict]:
             if not sep or not name or not prop_value:
                 return None
             if len(prop_value) > CRM_MAX_VALUE:
+                return None
+            if name in properties:
                 return None
             properties[name] = prop_value
     if not object_type or record_id is None or not properties:

@@ -327,6 +327,7 @@ def test_crm_malformed_content_refused_before_any_request():
         "Summary: x\nObject: contacts\nId: 715559271\nSet: firstname = Jane",
         "Object: contacts\nObject: companies\nId: 715559271\nSet: firstname = Jane",
         "Object: contacts\nId: 715559271\nId: 715559272\nSet: firstname = Jane",
+        "Object: contacts\nId: 715559271\nSet: firstname = A\nSet: firstname = B",  # duplicate Set property: refused, never last-value-wins
         "Object: contacts\nId: 715559271\nSet: firstname = " + "x" * 1001,
     )
     for content in bad_contents:
