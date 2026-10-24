@@ -366,7 +366,8 @@ def _parse_event(content: str) -> Optional[Dict]:
         field = key.strip().lower()
         value = value.strip()
         if field == "title" and title is None:
-            title = value.replace("\r", " ")[:200] or None
+            # empty value consumes the field, like Start/End below
+            title = value.replace("\r", " ")[:200]
         elif field == "start" and start_s is None:
             start_s = value
         elif field == "end" and end_s is None:

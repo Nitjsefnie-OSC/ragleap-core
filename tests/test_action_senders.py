@@ -876,6 +876,8 @@ def test_calendar_malformed_content_refused_before_any_request():
         "Attendees: boss@acme.com\nAttendees: team@acme.com",  # duplicate field: refused
         "Title: X\nStart: 2026-11-03T14:00:00+00:00\nEnd: 2026-11-03T15:00:00+00:00\n"
         "Attendees:\nAttendees: boss@acme.com",  # duplicate after an empty first value: refused too
+        "Title:\nTitle: Real\nStart: 2026-11-03T14:00:00+00:00\nEnd: 2026-11-03T15:00:00+00:00",
+        # duplicate Title after an empty first value: refused too
     )
     for content in bad_contents:
         http = MagicMock()
