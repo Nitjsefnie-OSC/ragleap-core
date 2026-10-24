@@ -232,7 +232,8 @@ def test_twilio_signature_verifier_never_raises_on_non_ascii_credentials(credent
 
 def test_whatsapp_non_ascii_twilio_signature_is_rejected_before_processing():
     """A non-ASCII X-Twilio-Signature is an invalid credential, not a server error: the real verifier fails it 403 and the handler never runs."""
-    with _env(), patch.object(wa, "handle_incoming_message") as h:
+    with _env(), patch.object(wa, "TWILIO_AUTH_TOKEN", "example-twilio-auth-token"), \
+         patch.object(wa, "handle_incoming_message") as h:
         with pytest.raises(Exception) as excinfo:
             _call_wa({"x-twilio-signature": "\udcff"})
     assert isinstance(excinfo.value, HTTPException)
