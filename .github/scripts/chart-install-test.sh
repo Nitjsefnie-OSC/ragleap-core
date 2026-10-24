@@ -96,7 +96,11 @@ post_install() { # label namespace
   case "$1" in
     ragleap-ops)
       need_deploy "$1" "$2" ragleap-db
-      need_deploy "$1" "$2" ragleap-neo4j ;;
+      need_deploy "$1" "$2" ragleap-neo4j
+      if [ "$APPS_ON" = "1" ]; then
+        need_deploy "$1" "$2" ragleap-app
+        need_deploy "$1" "$2" ragleap-voice
+      fi ;;
     ragleap-app-chart)
       need_deploy "$1" "$2" app-api
       need_deploy "$1" "$2" app-cache ;;
@@ -148,9 +152,27 @@ kubectl create namespace ops-test
 kubectl create namespace app-test
 kubectl create namespace obs-test
 
-# ragleap-ops: app and voice use a private image, so they are scaled to zero; db and neo4j use public images.
-chart_test "ragleap-ops" "$OPS" ops-test ops "none-to-keep" -- \
-  --set app.replicaCount=0 --set voice.replicaCount=0
+# ragleap-ops: the app and voice pods use the private ghcr.io/ragleap/ragleap-app image. With GHCR_TOKEN they run for real
+# (pull secret built from the Docker config file, placeholder ragleap-app-env Secret); without it they are scaled to zero
+# and the summary says so. Readiness of these pods is a TCP check: it shows the image starts and listens, not that the app works.
+APPS_ON=0
+OPS_ARGS=(--set app.replicaCount=0 --set voice.replicaCount=0)
+if [ -n "${GHCR_TOKEN:-}" ]; then
+  [ -n "${GITHUB_ACTOR:-}" ] || stop "GHCR_TOKEN is set but GITHUB_ACTOR is not"
+  command -v docker >/dev/null || stop "GHCR_TOKEN is set but docker was not found"
+  echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
+  DOCKER_CFG="$HOME/.docker/config.json"
+  [ -f "$DOCKER_CFG" ] || stop "docker login did not write $DOCKER_CFG"
+  grep -q '"auth"' "$DOCKER_CFG" || stop "the Docker config has no inline auth, so a pull secret cannot be built from it"
+  kubectl -n ops-test create secret generic ghcr-pull-secret --type=kubernetes.io/dockerconfigjson \
+    --from-file=.dockerconfigjson="$DOCKER_CFG"
+  kubectl -n ops-test create secret generic ragleap-app-env --from-literal=EXPERIMENT_PLACEHOLDER=1
+  APPS_ON=1
+  OPS_ARGS=()
+else
+  record "NOT EXERCISED  ragleap-ops: app and voice pods (GHCR_TOKEN not set, so they are scaled to zero)"
+fi
+chart_test "ragleap-ops" "$OPS" ops-test ops "none-to-keep" -- ${OPS_ARGS[@]+"${OPS_ARGS[@]}"}
 
 # ragleap-app-chart: its own worked example (public images: hashicorp/http-echo and redis).
 chart_test "ragleap-app-chart" "$APP" app-test app "none-to-keep" -- \
@@ -202,6 +224,11 @@ chart_test "ragleap-observability" "$OBS" obs-test obs "deployment.apps/ragleap-
 echo
 echo "== SUMMARY ($(date +%T))"
 for r in "${RESULTS[@]}"; do echo "$r"; done
-echo "Not exercised: ct install itself (values from ci/ folders), the ragleap-ops app and voice pods (private image),"
+if [ "$APPS_ON" = "1" ]; then
+  APPNOTE="what the app and voice pods do beyond starting (TCP readiness, placeholder config only)"
+else
+  APPNOTE="the ragleap-ops app and voice pods (no GHCR_TOKEN)"
+fi
+echo "Not exercised: ct install itself (values from ci/ folders), $APPNOTE,"
 echo "ingress and TLS, other values files (dev, staging, prod), upgrades that change values, multi-node behaviour."
 if [ "$FAILS" -eq 0 ]; then echo "ALL CHECKS PASSED"; else echo "$FAILS CHECK(S) FAILED"; exit 1; fi

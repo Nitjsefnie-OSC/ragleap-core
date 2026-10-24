@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 jobs:
   chart-install-test:
@@ -25,4 +26,6 @@ jobs:
           helm version --short
           kind version || echo "kind is not preinstalled; the test script downloads v0.24.0"
       - name: Install, upgrade and uninstall the three charts on kind
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bash .github/scripts/chart-install-test.sh
