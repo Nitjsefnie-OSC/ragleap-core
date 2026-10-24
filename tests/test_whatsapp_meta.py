@@ -292,6 +292,20 @@ def test_webhook_post_without_a_signature_needs_the_explicit_opt_out():
     handle.assert_called_once_with("15551234567", "hello from Meta")
 
 
+def test_webhook_post_with_invalid_signature_stays_rejected_under_the_opt_out():
+    """WHATSAPP_ALLOW_UNSIGNED covers missing signatures only: a present but
+    invalid signature is still a forgery and stays a 403 -- the same property
+    the Twilio path's tests pin in tests/test_approval_sender.py."""
+    clean = {k: v for k, v in os.environ.items() if k != "WHATSAPP_ALLOW_UNSIGNED"}
+    clean["WHATSAPP_ALLOW_UNSIGNED"] = "true"
+    with _meta_config(), patch.dict(os.environ, clean, clear=True), \
+         patch.object(wa, "handle_incoming_message") as handle:
+        with pytest.raises(HTTPException) as exc:
+            _call_post({"x-hub-signature-256": _sign(TEST_BODY, secret="wrong-secret")})
+    assert exc.value.status_code == 403
+    handle.assert_not_called()
+
+
 def test_webhook_post_ignores_non_text_and_status_only_payloads():
     with _meta_config(), patch.object(wa, "handle_incoming_message") as handle:
         image_then_text = TEST_BODY.replace(
@@ -299,6 +313,7 @@ def test_webhook_post_ignores_non_text_and_status_only_payloads():
             b'"messages": [{"from": "15550001234", "id": "wamid.IMG", "timestamp": "1", '
             b'"type": "image", "image": {"id": "1", "mime_type": "image/jpeg"}}, {"from"'
         )
+        assert image_then_text != TEST_BODY  # bytes.replace no-ops silently if the fixture drifts
         _call_post({"x-hub-signature-256": _sign(image_then_text)}, body=image_then_text)
         status_only = json.dumps({
             "object": "whatsapp_business_account",
