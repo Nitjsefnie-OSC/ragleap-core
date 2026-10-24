@@ -150,6 +150,16 @@ def _call_get(query):
     return asyncio.run(_route("GET")(_MetaVerifyRequest(query)))
 
 
+# Credentials carrying one character a str compare_digest refuses: a latin-1
+# byte, a non-latin-1 BMP character, an astral (emoji) character, a lone surrogate.
+NON_ASCII_CREDENTIALS = [
+    pytest.param("\xff", id="latin1"),
+    pytest.param("中", id="bmp"),
+    pytest.param("\U0001f600", id="astral"),
+    pytest.param("\udcff", id="surrogate"),
+]
+
+
 # --- sending path -----------------------------------------------------------
 
 def test_send_whatsapp_message_dispatches_by_provider():
@@ -250,6 +260,32 @@ def test_meta_webhook_verification_fails_closed_without_a_configured_token():
     assert exc.value.status_code == 403
 
 
+def test_meta_webhook_verification_rejects_a_non_ascii_verify_token():
+    """A non-ASCII hub.verify_token is a failed verification (403), never a server error, so the challenge is not echoed."""
+    with _meta_config():
+        with pytest.raises(Exception) as excinfo:
+            _call_get({"hub.mode": "subscribe", "hub.verify_token": VERIFY_TOKEN + "中",
+                       "hub.challenge": "1158201444"})
+    assert isinstance(excinfo.value, HTTPException)
+    assert excinfo.value.status_code == 403
+
+
+@pytest.mark.parametrize("side", ["received", "configured"])
+@pytest.mark.parametrize("credential", NON_ASCII_CREDENTIALS)
+def test_meta_token_verifier_never_raises_on_non_ascii_credentials(credential, side):
+    """Any non-ASCII character on either side of the verify-token comparison is a failed verification (False -> 403), never a raised error."""
+    if side == "received":
+        token, configured = VERIFY_TOKEN + credential, VERIFY_TOKEN
+    else:
+        token, configured = VERIFY_TOKEN, VERIFY_TOKEN + credential
+    with _meta_config(META_VERIFY_TOKEN=configured):
+        try:
+            result = wa._verify_meta_webhook_token("subscribe", token)
+        except Exception as exc:
+            pytest.fail(f"verifier raised {type(exc).__name__}: {exc}")
+    assert result is False
+
+
 # --- webhook signature verification (POST) ----------------------------------
 
 def test_meta_signature_matches_the_documented_hmac_shape():
@@ -268,6 +304,25 @@ def test_meta_signature_rejects_a_wrong_or_malformed_signature():
 def test_meta_signature_fails_closed_without_a_configured_secret():
     with _meta_config(META_APP_SECRET=None):
         assert wa._verify_meta_signature(EXPECTED_SIGNATURE, TEST_BODY) is False
+
+
+@pytest.mark.parametrize("side", ["received", "configured"])
+@pytest.mark.parametrize("credential", NON_ASCII_CREDENTIALS)
+def test_meta_signature_verifier_never_raises_on_non_ascii_credentials(credential, side):
+    """Any non-ASCII character on either side of the signature comparison is a failed verification (False -> 403), never a raised error."""
+    if side == "received":
+        with _meta_config():
+            try:
+                result = wa._verify_meta_signature("sha256=" + credential, TEST_BODY)
+            except Exception as exc:
+                pytest.fail(f"verifier raised {type(exc).__name__}: {exc}")
+    else:
+        with _meta_config(META_APP_SECRET=APP_SECRET + credential):
+            try:
+                result = wa._verify_meta_signature(EXPECTED_SIGNATURE, TEST_BODY)
+            except Exception as exc:
+                pytest.fail(f"verifier raised {type(exc).__name__}: {exc}")
+    assert result is False
 
 
 def test_webhook_post_with_valid_signature_is_processed():
@@ -290,6 +345,29 @@ def test_webhook_post_without_a_signature_is_rejected_before_processing():
         with pytest.raises(HTTPException) as exc:
             _call_post({})
     assert exc.value.status_code == 403
+    handle.assert_not_called()
+
+
+def test_webhook_post_with_non_ascii_signature_is_rejected_before_processing():
+    """A non-ASCII X-Hub-Signature-256 is an invalid credential, not a server error: 403 before any processing."""
+    with _meta_config(), patch.object(wa, "handle_incoming_message") as handle:
+        with pytest.raises(Exception) as excinfo:
+            _call_post({"x-hub-signature-256": "sha256=\udcff"})
+    assert isinstance(excinfo.value, HTTPException)
+    assert excinfo.value.status_code == 403
+    handle.assert_not_called()
+
+
+def test_webhook_post_with_non_ascii_signature_stays_rejected_under_the_opt_out():
+    """WHATSAPP_ALLOW_UNSIGNED covers missing signatures only: a non-ASCII signature is still a forgery and stays a 403."""
+    clean = {k: v for k, v in os.environ.items() if k != "WHATSAPP_ALLOW_UNSIGNED"}
+    clean["WHATSAPP_ALLOW_UNSIGNED"] = "true"
+    with _meta_config(), patch.dict(os.environ, clean, clear=True), \
+         patch.object(wa, "handle_incoming_message") as handle:
+        with pytest.raises(Exception) as excinfo:
+            _call_post({"x-hub-signature-256": "sha256=\udcff"})
+    assert isinstance(excinfo.value, HTTPException)
+    assert excinfo.value.status_code == 403
     handle.assert_not_called()
 
 
