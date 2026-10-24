@@ -16,6 +16,7 @@ import hmac
 import json
 import os
 import sys
+from contextlib import ExitStack
 from unittest.mock import patch
 
 import pytest
@@ -65,9 +66,8 @@ def _meta_config(**overrides):
     """
     Nested patch context for the router's module-level Meta config, mirroring
     how tests/test_approval_sender.py and tests/test_api_key_auth.py patch
-    module attributes that were read from os.environ at import time.
+    module attributes that re-read the environment at import time.
     """
-    from contextlib import ExitStack
     stack = ExitStack()
     stack.enter_context(patch.object(wa, "WHATSAPP_PROVIDER", "meta"))
     stack.enter_context(patch.object(wa, "META_APP_SECRET", overrides.get("META_APP_SECRET", APP_SECRET)))
@@ -284,7 +284,6 @@ def test_webhook_post_without_a_signature_is_rejected_before_processing():
 
 
 def test_webhook_post_without_a_signature_needs_the_explicit_opt_out():
-    import os
     clean = {k: v for k, v in os.environ.items() if k != "WHATSAPP_ALLOW_UNSIGNED"}
     clean["WHATSAPP_ALLOW_UNSIGNED"] = "true"
     with _meta_config(), patch.dict(os.environ, clean, clear=True), \
