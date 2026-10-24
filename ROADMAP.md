@@ -98,7 +98,8 @@ The longer-term package roadmap beyond `ragleap-rag` and `ragleap-graph`. Some p
 - [ ] `ragleap-observability` (DECISION NEEDED) — tracing, hallucination detection, and a full LLM-as-judge evaluation framework; this is new engineering, not extraction, since nothing like the eval-framework half exists internally today
 - [ ] `ragleap-ops` (ONGOING) — Docker/K8s templates, Helm charts, CI/CD, IaC; grows alongside every phase above rather than shipping as one release
 - [ ] `ragleap-studio` (LATER) — visual low-code builder UI
-- [ ] `ragleap-memory` (LATER) — shared long-term memory layer across agents/employees; an untracked `packages/ragleap-memory/` directory already exists from concurrent automation, not yet a scoped, owned package
+- [x] `ragleap-memory` — SHIPPED (v0.1.0, alpha). Durable, tenant-scoped long-term memory in one SQLite file: FTS5 keyword search, typed entries with trust labels (new entries default to untrusted), supersede, forget, export, erase (removes the text from the file), optional audit log. Needs `ragleap-security`. Not verified: Windows, several processes writing one file, retrieval quality (no benchmark yet), multilingual precision. Embeddings, consolidation and the `ragleap-agents` adapter are planned (issue #900).
+- [x] `ragleap-security` — SHIPPED (v0.1.0, alpha). Small, auditable security primitives: immutable tenant scopes, a hash-chained audit log (tamper-evident, not tamper-proof), secrets that do not print themselves plus a heuristic redactor, and hard input limits. Standard library only. No independent security review yet; more modules are planned (issue #899).
 - [ ] `ragleap-intelligence` (VISION / EARLY DISCUSSION ONLY) — see below
 
 ### Vision: AI Employee Twins (concept, not yet designed or built)
@@ -178,11 +179,13 @@ These remain part of the commercial hosted product at [ragleap.com](https://ragl
 - Multi-tenant channel routing (this repo's channel adapters are single-tenant, one bot/config per deployment)
 - Multi-tenant AI Employees orchestration — per-workspace seeding at scale (single-tenant AI Employees runtime is open in this repo, see Phase 4)
 - Manager AI (executive-assistant layer with cross-channel reach) — the assistant persona itself is a real candidate to open eventually, but it's entangled with locked features (analytics, team permissions, database connections) that genuinely are SaaS-only; needs its own scoping pass before any code starts, not committed to a timeline yet
-- Persistent memory that spans sessions and channels (this repo's memory is per-conversation)
+- Persistent memory that spans sessions and channels as a hosted service (cross-channel routing and the hosted memory layer). The open-source `ragleap-memory` library is memory you run yourself; it does not route across channels
 - Multi-tenant n8n workflow routing (per-workspace) and Voice channel coverage (single-tenant text-channel automation is open in this repo, see Phase 4)
 - Multi-tenant billing and subscription management
 - Observability & hallucination detection dashboard
 - Managed hosting, support, and SLAs
+
+Note (2026-10-24): `ragleap-security` and `ragleap-memory` give tenant scoping as an isolation guarantee inside a library you run yourself. Hosted multi-tenant operation (routing, billing, managed hosting, SLAs) stays commercial. Both libraries state their limits in `docs/threat-model.md`.
 
 ---
 
