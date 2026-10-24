@@ -3,7 +3,9 @@
 All notable changes to `ragleap-memory` are documented here. Format
 loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [0.1.0] - 2026-10-23
+## [0.1.0] - 2026-10-24
+
+Note: the CHANGELOG inside the published 0.1.0 files says 2026-10-23, the day it was prepared. The tag was pushed on 2026-10-24 and the date was corrected here afterwards.
 
 First version (design: #900). It replaces an untracked prototype that was never committed, so there are no behaviour changes.
 
