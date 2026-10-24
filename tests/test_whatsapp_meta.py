@@ -14,6 +14,7 @@ import asyncio
 import hashlib
 import hmac
 import json
+import logging
 import os
 import sys
 from contextlib import ExitStack
@@ -121,9 +122,10 @@ class _GraphPost:
     keywords -- and fails loudly on anything else, so an unmodelled call can
     never pass silently.
     """
-    def __init__(self, status_code=200, text='{"error": {"message": "boom"}}'):
+    def __init__(self, status_code=200, text='{"error": {"message": "boom"}}', reason="Bad Request"):
         self.status_code = status_code
         self.text = text
+        self.reason = reason
         self.calls = []
 
     def __call__(self, url, **kwargs):
@@ -200,10 +202,18 @@ def test_send_via_meta_without_credentials_fails_without_a_request():
     assert post2.calls == []
 
 
-def test_send_via_meta_non_200_response_is_a_failure():
+def test_send_via_meta_non_200_response_is_a_failure(caplog):
+    """A non-200 Graph response fails the send, and the error log never carries the response body."""
     post = _GraphPost(status_code=400, text='{"error": {"message": "access token invalid"}}')
-    with _meta_config(), patch.object(wa.requests, "post", post):
+    with _meta_config(), patch.object(wa.requests, "post", post), \
+            caplog.at_level(logging.ERROR, logger="channels.whatsapp.router"):
         assert wa._send_via_meta("+15551234567", "hello") is False
+
+    records = [record for record in caplog.records
+               if record.name == "channels.whatsapp.router" and record.levelno == logging.ERROR]
+    assert records, "expected an ERROR record on the router logger"
+    assert any("400" in record.getMessage() for record in records)
+    assert all("access token invalid" not in record.getMessage() for record in records)
 
 
 # --- webhook verification (GET) ---------------------------------------------

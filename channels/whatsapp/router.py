@@ -176,7 +176,7 @@ def _send_via_meta(to_phone: str, message_text: str) -> bool:
         logger.info(f"Meta: message sent to {to_phone}")
         return True
 
-    logger.error(f"Meta send failed: {response.status_code} {response.text}")
+    logger.error(f"Meta send failed: {response.status_code} {response.reason}")
     return False
 
 
