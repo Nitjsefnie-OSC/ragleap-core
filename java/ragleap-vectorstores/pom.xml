@@ -11,11 +11,14 @@
 
     <name>ragleap-vectorstores (Java port)</name>
     <description>
-        Java port of ragleap-vectorstores: extra vector store backends for ragleap-rag, talking to
-        each store over its REST API with no vendor SDK. Work in progress: OpenSearch, Upstash and Redis so far
-        (Redis and OpenSearch were each live-checked once, against Redis Stack 7.4.7 and OpenSearch 3.9.0;
-        Upstash is not live-verified). Independently versioned from the Python package
-        (see https://pypi.org/project/ragleap-vectorstores/).
+        Java port of ragleap-vectorstores: extra vector store backends for the VectorBackend interface of
+        ragleap-rag, with no vendor SDK. Included: OpenSearch (k-NN search over its REST API), Upstash Vector
+        (REST API, with a local SQLite document registry) and Redis Stack (RediSearch, over a small built-in
+        RESP2 client, with a local SQLite document registry). Checked against the real Python backends by
+        recorded request parity; the Redis and OpenSearch backends were each live-checked once (Redis Stack
+        7.4.7, OpenSearch 3.9.0); Upstash is not live-verified. Not ported: Chroma and LanceDB (no practical
+        pure-Java path). Independently versioned from the Python package (see
+        https://pypi.org/project/ragleap-vectorstores/).
     </description>
     <url>https://github.com/ragleap/ragleap-core</url>
 
