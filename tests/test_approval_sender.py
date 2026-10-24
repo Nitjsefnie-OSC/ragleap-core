@@ -131,7 +131,8 @@ class _Req:
 
 
 def _wa_endpoint():
-    return next(r.endpoint for r in app.routes if getattr(r, "path", "") == "/webhook/whatsapp")
+    return next(r.endpoint for r in app.routes
+                if getattr(r, "path", "") == "/webhook/whatsapp" and "POST" in getattr(r, "methods", set()))
 
 
 def _call_wa(headers):

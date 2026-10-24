@@ -313,7 +313,7 @@ ragleap-core/
 │   ├── workflows.py       # n8n workflow automation — webhook triggers
 │   └── api.py             # FastAPI app — /health, /upload, /chat, /profile, /employees, /n8n-workflows, /webhook/*
 ├── channels/              # Messaging + voice channel adapters
-│   ├── whatsapp/          # Twilio + Gupshup
+│   ├── whatsapp/          # Twilio + Gupshup + Meta Cloud API
 │   ├── telegram/
 │   ├── discord/
 │   └── voice/             # Twilio Media Streams, WebSocket server
@@ -469,6 +469,44 @@ just setting `OLLAMA_MODEL`:
    `INPUT` chain, not `FORWARD`/`DOCKER-USER`. Allow it explicitly:
    `ufw allow from 172.18.0.0/16 to any port 11434 proto tcp` (adjust the
    subnet to match your actual Docker network).
+
+## WhatsApp Channel (Twilio, Gupshup or Meta)
+
+The WhatsApp adapter answers incoming messages through one of three providers,
+picked with `WHATSAPP_PROVIDER` in `.env`: `twilio` (the default), `gupshup`,
+or `meta` (Meta's WhatsApp Cloud API — any business with a verified Meta
+Business Account can connect directly, no reseller in between). Replies go out
+through the configured provider's send API; incoming messages arrive at the
+same `/webhook/whatsapp` route for all three.
+
+**Setup (Meta Cloud API):**
+1. Create an app at [developers.facebook.com](https://developers.facebook.com)
+   and add the **WhatsApp** product. **WhatsApp > API Setup** gives you a
+   temporary access token and your phone number's ID; for a token that
+   outlives the test window, create a system user token in
+   [Business settings](https://business.facebook.com/settings).
+2. Set in `.env`:
+   - `WHATSAPP_PROVIDER=meta`
+   - `META_ACCESS_TOKEN` — the access token from step 1
+   - `META_PHONE_NUMBER_ID` — the ID of the phone number you send from
+3. In **WhatsApp > Configuration**, set the webhook callback URL to
+   `https://your-domain.com/webhook/whatsapp` and enter the same string in the
+   "Verify token" field that you set as `META_VERIFY_TOKEN` in `.env`. Meta
+   checks it once with a GET during setup (the handler echoes `hub.challenge`).
+4. Set `META_APP_SECRET` from **App settings > Basic**. Every incoming webhook
+   request must then carry a valid `X-Hub-Signature-256` (HMAC-SHA256 of the
+   raw body with that secret) or it is rejected with 403.
+
+For Twilio the credentials are `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` and
+`TWILIO_WHATSAPP_NUMBER`; for Gupshup `GUPSHUP_API_KEY`, `GUPSHUP_APP_NAME`
+and `GUPSHUP_SOURCE_NUMBER`. `WHATSAPP_ALLOW_UNSIGNED=true` accepts webhook
+requests without a signature, for local testing only (logs a warning each
+time).
+
+**Honest status:** the Meta send path and webhook verification are covered by
+offline tests (`tests/test_whatsapp_meta.py`); they have not yet been
+live-tested against a real Meta app. Twilio and Gupshup are the long-standing,
+verified paths.
 
 ## Voice Channel (Twilio)
 

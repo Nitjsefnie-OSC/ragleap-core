@@ -508,14 +508,66 @@ def chat_feedback(req: MemoryFeedbackRequest):
     return {"updated": updated}
 
 
+@app.get("/webhook/whatsapp")
+async def whatsapp_webhook_verification(request: Request):
+    """
+    Meta WhatsApp Cloud API webhook verification. During setup Meta sends a GET
+    with hub.mode=subscribe, hub.verify_token and hub.challenge; when the verify
+    token matches META_VERIFY_TOKEN, echo hub.challenge back.
+    """
+    from channels.whatsapp.router import _verify_meta_webhook_token
+
+    mode = request.query_params.get("hub.mode", "")
+    token = request.query_params.get("hub.verify_token", "")
+    challenge = request.query_params.get("hub.challenge", "")
+
+    if not _verify_meta_webhook_token(mode, token):
+        logger.warning("WhatsApp webhook: Meta webhook verification failed (hub.mode/hub.verify_token mismatch)")
+        raise HTTPException(status_code=403, detail="Verification failed.")
+
+    return Response(content=challenge, media_type="text/plain")
+
+
 @app.post("/webhook/whatsapp")
 async def whatsapp_webhook(request: Request):
     """
-    Twilio-compatible WhatsApp webhook. Twilio sends form-encoded POST data
-    (not JSON), with fields like 'Body' (message text) and 'From'
-    (sender's phone, prefixed 'whatsapp:').
+    WhatsApp webhook. With the default WHATSAPP_PROVIDER=twilio this is a
+    Twilio-compatible endpoint: Twilio sends form-encoded POST data (not JSON),
+    with fields like 'Body' (message text) and 'From' (sender's phone, prefixed
+    'whatsapp:'). With WHATSAPP_PROVIDER=meta it instead takes Meta's WhatsApp
+    Cloud API JSON payload, whose X-Hub-Signature-256 header (HMAC-SHA256 of the
+    raw body with the Meta app secret) is verified before the payload is trusted.
     """
-    from channels.whatsapp.router import handle_incoming_message, _verify_twilio_signature, unsigned_allowed
+    from channels.whatsapp.router import (handle_incoming_message, _verify_twilio_signature,
+                                          _verify_meta_signature, WHATSAPP_PROVIDER, unsigned_allowed)
+
+    if WHATSAPP_PROVIDER == "meta":
+        raw_body = await request.body()
+        signature = request.headers.get("x-hub-signature-256", "")
+
+        if signature:
+            if not _verify_meta_signature(signature, raw_body):
+                logger.warning("WhatsApp webhook: invalid Meta signature")
+                raise HTTPException(status_code=403, detail="Invalid signature.")
+        elif not unsigned_allowed():
+            logger.warning("WhatsApp webhook: request without a Meta signature rejected")
+            raise HTTPException(status_code=403, detail="Invalid signature.")
+        else:
+            logger.warning("WhatsApp webhook: unsigned request accepted because WHATSAPP_ALLOW_UNSIGNED=true (local testing only)")
+
+        payload = await request.json()
+        for entry in payload.get("entry", []):
+            for change in entry.get("changes", []):
+                for message in change.get("value", {}).get("messages", []):
+                    text = (message.get("text") or {}).get("body", "")
+                    meta_from = message.get("from", "")
+                    if not text or not meta_from:
+                        # Non-text message types (image, button reply, ...) — nothing to answer.
+                        continue
+                    logger.info(f"WhatsApp webhook: message from {meta_from}: {text[:50]}")
+                    handle_incoming_message(meta_from, text)
+
+        return {"ok": True}
 
     form = await request.form()
     params = dict(form)
