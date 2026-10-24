@@ -518,9 +518,30 @@ def test_calendar_semi_mode_pending_then_approval_executes_through_the_same_path
         result = autonomy.execute_or_request(
             action_type="schedule_event", channel="calendar", target="", content=CAL_CONTENT
         )
-    assert result["status"] == "pending_approval"
-    action_id = result["action_id"]
-    assert len(action_id) == 8
+        assert result["status"] == "pending_approval"
+        action_id = result["action_id"]
+        assert len(action_id) == 8
+
+        conn = get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT channel, target, content FROM autonomy_pending WHERE action_id = %s",
+                        (action_id,))
+            row = cur.fetchone()
+            cur.close()
+        finally:
+            conn.close()
+        assert row is not None
+        assert row[0] == "calendar" and row[1] == "" and row[2] == CAL_CONTENT
+
+        # The approval must execute with the sender in place too: approving
+        # runs the SAME _send_via_channel path, and without the patch the
+        # real sender would read its (unset) env config here and refuse.
+        reply = autonomy.process_approval_response(f"YES {action_id}")
+    assert reply is not None
+    assert "approved and executed" in reply
+    assert "scheduled" in reply
+    assert sender.call_args.args == ("", CAL_CONTENT)
 
     conn = get_connection()
     try:
@@ -531,14 +552,7 @@ def test_calendar_semi_mode_pending_then_approval_executes_through_the_same_path
         cur.close()
     finally:
         conn.close()
-    assert row is not None
-    assert row[0] == "calendar" and row[1] == "" and row[2] == CAL_CONTENT
-
-    reply = autonomy.process_approval_response(f"YES {action_id}")
-    assert reply is not None
-    assert "approved and executed" in reply
-    assert "scheduled" in reply
-    assert sender.call_args.args == ("", CAL_CONTENT)
+    assert row is None  # approved actions leave the pending table
 
     conn = get_connection()
     try:
