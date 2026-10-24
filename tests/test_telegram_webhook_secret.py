@@ -20,13 +20,20 @@ def _env(**kw):
     return patch.dict(os.environ, clean, clear=True)
 
 
-# (label, value) pairs; failure messages carry the label only, never a secret-shaped value
+# (label, value) pairs; failure messages carry the label only, never a secret-shaped value.
+# The classes past plain ASCII differ from an existing member only through a
+# normalisation a non-injective compare could hide (casefold, strip, NFKC composition,
+# surrogateescape byte-recovery), so the cross-product rejects each of them.
 _SECRET_CASES = (
     ("ascii", "example-secret"),
+    ("ascii-upper", "example-SECRET"),
+    ("wrapped", " example-secret "),
     ("latin1-y", "example-secreÿ"),
     ("latin1-e", "example-é"),
+    ("latin1-e-decomposed", "example-é"),
     ("non-bmp", "example-\U0001f600"),
     ("lone-surrogate", "example-secret\udcff"),
+    ("surrogate-escaped", "example-secre\udcc3\udcbf"),
 )
 
 
@@ -77,7 +84,7 @@ def _verify_or_fail(received, configured, rlabel, clabel):
 
 
 def test_verify_never_raises_and_returns_str_equality_across_all_encodings():
-    """For every received/configured pair across ASCII, Latin-1, non-BMP and lone-surrogate secrets the check returns received == configured and never raises."""
+    """For every received/configured pair across ASCII, upper-case, whitespace-wrapped, precomposed and decomposed Latin-1, non-BMP and lone-surrogate (surrogatepass and surrogateescape forms) secrets the check returns received == configured and never raises."""
     for rlabel, received in _SECRET_CASES:
         for clabel, configured in _SECRET_CASES:
             result = _verify_or_fail(received, configured, rlabel, clabel)
