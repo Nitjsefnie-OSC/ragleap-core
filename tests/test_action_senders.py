@@ -2,7 +2,7 @@
 import os
 import pytest
 import sys
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, PropertyMock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
@@ -523,6 +523,20 @@ def _raise_preparedrequest(url, json=None, timeout=None, allow_redirects=None,
     prepared.prepare_headers(headers)
 
 
+def _late_response_side_effect(url, json=None, timeout=None,
+                               allow_redirects=None, headers=None):
+    # A raise AFTER the HTTP call returns: the response's status_code access
+    # itself blows up. Pins the generic handler for non-HTTP raise sites
+    # inside the try, not only the request call failing. The PropertyMock
+    # goes on this per-call MagicMock subclass, never on MagicMock itself.
+    class _LateResponse(MagicMock):
+        pass
+    resp = _LateResponse()
+    type(resp).status_code = PropertyMock(
+        side_effect=RuntimeError(_leak_text("late")))
+    return resp
+
+
 _CRLF_TOKEN = ("your-hubspot-private-app-token\r\n"
                "X-Injected: example-leaked-exception-detail-preparedrequest")
 _CRLF_TOKEN_ENV = dict(CRM_ENV, HUBSPOT_ACCESS_TOKEN=_CRLF_TOKEN)
@@ -578,6 +592,12 @@ _CRM_CLIENT_ERROR_ROWS = [
         _CRLF_TOKEN_ENV,
         id="preparedrequest",
     ),
+    pytest.param(
+        "late",
+        lambda: _late_response_side_effect,
+        CRM_ENV,
+        id="late",
+    ),
 ]
 
 
@@ -622,6 +642,9 @@ def test_crm_client_exception_details_never_reach_the_log(caplog, sentinel,
         crm_records = [r for r in records if r.name == "core.action_senders"]
         assert len(crm_records) == 1
         assert crm_records[0].levelno == logging.ERROR
+        # Exact: nothing derived from the exception may be appended to it.
+        assert crm_records[0].getMessage() == (
+            "CRM update request error - CRM update refused")
 
 
 def test_crm_status_failure_logs_only_the_status_code(caplog):
@@ -640,7 +663,7 @@ def test_crm_status_failure_logs_only_the_status_code(caplog):
         crm_records = [r for r in caplog.records if r.name == "core.action_senders"]
         assert len(crm_records) == 1
         assert crm_records[0].levelno == logging.ERROR
-        assert str(status) in crm_records[0].getMessage()
+        assert crm_records[0].getMessage() == f"CRM update failed with status {status}"
         text = "\n".join(r.getMessage() for r in caplog.records)
         for secret in (CRM_ENV["HUBSPOT_ACCESS_TOKEN"], "example-hubspot-error-body",
                        "Jane", "Doe-Xq7"):
