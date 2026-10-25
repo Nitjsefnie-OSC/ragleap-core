@@ -13,8 +13,10 @@ from a production system where they were tuned against real call traffic.
 import asyncio
 import audioop
 import base64
+import io
 import json
 import logging
+import wave
 
 from core.chat import ask
 from core.employees.feedback import record_last_reply, get_last_reply, detect_feedback_command
@@ -74,6 +76,24 @@ async def speak_reply(ws, stream_sid: str, text: str, cfg: dict):
         logger.info(f"Voice: streamed reply ({len(audio_bytes)} bytes)")
     else:
         logger.error("Voice: TTS returned no audio, skipping playback")
+
+
+def _mulaw_to_wav(mulaw: bytes) -> bytes:
+    """
+    Wrap a raw G.711 mu-law utterance in a mono 16-bit 8 kHz WAV container.
+
+    Twilio Media Streams captures 8 kHz mu-law; the STT providers are handed
+    the resulting WAV bytes so each request carries what its audio/wav
+    declaration claims.
+    """
+    pcm = audioop.ulaw2lin(mulaw, 2)
+    out = io.BytesIO()
+    with wave.open(out, "wb") as wav:
+        wav.setnchannels(1)
+        wav.setsampwidth(2)
+        wav.setframerate(8000)
+        wav.writeframes(pcm)
+    return out.getvalue()
 
 
 async def handle_call(ws):
@@ -157,7 +177,7 @@ async def handle_call(ws):
                 )
 
                 if end_of_speech or hard_cap:
-                    speech_data = bytes(collecting_buffer)
+                    speech_data = _mulaw_to_wav(bytes(collecting_buffer))
                     collecting_buffer.clear()
                     total_speech_frames = 0
                     consecutive_silence = 0

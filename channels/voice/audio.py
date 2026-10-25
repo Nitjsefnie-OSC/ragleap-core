@@ -19,9 +19,12 @@ ELEVENLABS_TTS_URL = "https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
 
 def transcribe_audio(pcm_audio: bytes, api_key: str, sample_rate: int = 8000) -> str:
     """
-    Transcribe raw PCM audio using OpenAI Whisper.
-    Twilio Media Streams sends mu-law 8kHz audio — caller is responsible
-    for converting to a WAV/PCM format Whisper accepts before calling this.
+    Transcribe a WAV utterance using OpenAI Whisper.
+    `pcm_audio` is a complete mono 8 kHz 16-bit WAV file — the router
+    converts Twilio's raw mu-law into this shape before calling.
+    `sample_rate` is not sent: the WAV header already carries the rate;
+    it exists only so both STT functions share one signature. Returns the
+    transcript, or "" when no key is configured or the request/parse fails.
     """
     if not api_key:
         logger.error("No OpenAI API key configured for STT — set OPENAI_API_KEY in .env")
@@ -60,10 +63,12 @@ def text_to_speech(text: str, api_key: str, voice: str = "nova") -> bytes:
 
 def transcribe_with_deepgram(pcm_audio: bytes, api_key: str, sample_rate: int = 8000) -> str:
     """
-    Transcribe raw PCM audio using Deepgram (nova-2 with smart formatting).
-    Accepts the same WAV/PCM bytes as the Whisper path; `sample_rate` is kept
-    for signature parity with transcribe_audio. Returns the transcript, or ""
-    when no key is configured or the request/parse fails.
+    Transcribe a WAV utterance using Deepgram (nova-2 with smart formatting).
+    `pcm_audio` is the same mono 8 kHz 16-bit WAV file the Whisper path
+    receives; `sample_rate` is not sent: the WAV header already carries the
+    rate, it exists only so both STT functions share one signature. Returns
+    the transcript, or "" when no key is configured or the request/parse
+    fails.
     """
     if not api_key:
         logger.error("No Deepgram API key configured for STT — set DEEPGRAM_API_KEY in .env")
