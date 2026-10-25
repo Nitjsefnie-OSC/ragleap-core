@@ -425,7 +425,8 @@ def send_calendar_event(target: str, content: str) -> bool:
     """Create one Google Calendar event (events.insert) on the owner's
     configured calendar. `target` is ignored on purpose - the calendar id
     comes from GOOGLE_CALENDAR_ID, never from the model. Returns True only
-    on a 2xx response; never raises and never logs a token or response body."""
+    on a 2xx response; never raises and never logs a token, a response body
+    or exception detail."""
     try:
         cfg = _calendar_config()
         if not cfg:
@@ -459,6 +460,6 @@ def send_calendar_event(target: str, content: str) -> bool:
             logger.error(f"Calendar insert failed with status {resp.status_code}")
             return False
         return True
-    except Exception as e:
-        logger.error(f"Calendar event error: {e}")
+    except Exception:
+        logger.error("Calendar event failed")
         return False
