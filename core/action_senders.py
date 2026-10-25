@@ -213,8 +213,9 @@ def _crm_allowlist(key: str) -> list:
 
 
 def _parse_crm_update(content: str) -> Optional[Dict]:
-    """Parse the documented update shape out of an action's `content`: leading
-    'Key: value' lines, case-insensitive key - 'Object:', 'Id:', one or more
+    """Parse the documented update shape out of an action's `content`:
+    'Key: value' lines (order-independent), case-insensitive key -
+    'Object:', 'Id:', one or more
     'Set: <name> = <value>'. Object and Id must each appear exactly once, with
     exactly one space after the colon and a non-empty value taken VERBATIM
     (no trimming or normalization: ' contacts ' is not 'contacts'). Id is 1-19
