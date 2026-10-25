@@ -3,7 +3,8 @@ Voice channel adapter for RagLeap Core.
 
 Handles Twilio Media Streams via WebSocket: receives real-time mu-law
 8kHz audio, buffers it using voice-activity detection (VAD), transcribes
-completed utterances with Whisper, answers via core.chat.ask(), and
+completed utterances through the configured STT provider (Whisper by
+default, Deepgram when selected), answers via core.chat.ask(), and
 streams the reply back as TTS audio.
 
 Single-tenant: one bot, one document set, configured entirely via .env
@@ -13,15 +14,17 @@ from a production system where they were tuned against real call traffic.
 import asyncio
 import audioop
 import base64
+import io
 import json
 import logging
+import wave
 
 from core.chat import ask
 from core.employees.feedback import record_last_reply, get_last_reply, detect_feedback_command
 from core.employees.learning import record_role_memory_outcome
 from core.employees.channel_roles import resolve_role
 from core.employees.tools import TOOL_REGISTRY
-from channels.voice.audio import transcribe_audio, text_to_speech
+from channels.voice import audio as voice_audio
 from channels.voice.config import get_voice_config
 
 logger = logging.getLogger(__name__)
@@ -61,15 +64,37 @@ async def send_mark(ws, stream_sid: str, name: str = "reply-done"):
 
 
 async def speak_reply(ws, stream_sid: str, text: str, cfg: dict):
-    """Convert text to speech and stream it to the caller, then mark completion."""
+    """Convert text to speech (dispatching on the configured TTS provider) and stream it to the caller, then mark completion."""
     loop = asyncio.get_running_loop()
-    audio = await loop.run_in_executor(None, text_to_speech, text, cfg["tts_api_key"], cfg["tts_voice"])
-    if audio:
-        await send_audio(ws, stream_sid, audio)
+    if cfg["tts_provider"] == "elevenlabs":
+        tts_fn = voice_audio.text_to_speech_elevenlabs
+    else:
+        tts_fn = voice_audio.text_to_speech
+    audio_bytes = await loop.run_in_executor(None, tts_fn, text, cfg["tts_api_key"], cfg["tts_voice"])
+    if audio_bytes:
+        await send_audio(ws, stream_sid, audio_bytes)
         await send_mark(ws, stream_sid)
-        logger.info(f"Voice: streamed reply ({len(audio)} bytes)")
+        logger.info(f"Voice: streamed reply ({len(audio_bytes)} bytes)")
     else:
         logger.error("Voice: TTS returned no audio, skipping playback")
+
+
+def _mulaw_to_wav(mulaw: bytes) -> bytes:
+    """
+    Wrap a raw G.711 mu-law utterance in a mono 16-bit 8 kHz WAV container.
+
+    Twilio Media Streams captures 8 kHz mu-law; the STT providers are handed
+    the resulting WAV bytes so each request carries what its audio/wav
+    declaration claims.
+    """
+    pcm = audioop.ulaw2lin(mulaw, 2)
+    out = io.BytesIO()
+    with wave.open(out, "wb") as wav:
+        wav.setnchannels(1)
+        wav.setsampwidth(2)
+        wav.setframerate(8000)
+        wav.writeframes(pcm)
+    return out.getvalue()
 
 
 async def handle_call(ws):
@@ -81,6 +106,11 @@ async def handle_call(ws):
     stream_sid = None
     cfg = get_voice_config()
     loop = asyncio.get_running_loop()
+
+    if cfg["stt_provider"] == "deepgram":
+        stt_fn = voice_audio.transcribe_with_deepgram
+    else:
+        stt_fn = voice_audio.transcribe_audio
 
     collecting_buffer = bytearray()
     processing = False
@@ -148,7 +178,7 @@ async def handle_call(ws):
                 )
 
                 if end_of_speech or hard_cap:
-                    speech_data = bytes(collecting_buffer)
+                    speech_data = _mulaw_to_wav(bytes(collecting_buffer))
                     collecting_buffer.clear()
                     total_speech_frames = 0
                     consecutive_silence = 0
@@ -159,7 +189,7 @@ async def handle_call(ws):
                     logger.info(f"Voice: transcribing {len(speech_data)} bytes...")
                     try:
                         transcript = await asyncio.wait_for(
-                            loop.run_in_executor(None, transcribe_audio, speech_data, cfg["stt_api_key"]),
+                            loop.run_in_executor(None, stt_fn, speech_data, cfg["stt_api_key"]),
                             timeout=15.0,
                         )
                     except asyncio.TimeoutError:
