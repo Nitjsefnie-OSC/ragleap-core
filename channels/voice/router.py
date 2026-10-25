@@ -3,7 +3,8 @@ Voice channel adapter for RagLeap Core.
 
 Handles Twilio Media Streams via WebSocket: receives real-time mu-law
 8kHz audio, buffers it using voice-activity detection (VAD), transcribes
-completed utterances with Whisper, answers via core.chat.ask(), and
+completed utterances through the configured STT provider (Whisper by
+default, Deepgram when selected), answers via core.chat.ask(), and
 streams the reply back as TTS audio.
 
 Single-tenant: one bot, one document set, configured entirely via .env
