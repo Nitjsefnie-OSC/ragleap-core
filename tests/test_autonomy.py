@@ -435,3 +435,197 @@ def test_crm_rejection_still_logs_through_the_same_path():
     assert reply is not None
     assert "rejected" in reply.lower()
     assert sender.called is False  # a rejected CRM write never executes
+
+
+# ---- calendar scheduling action ----------------------------------------
+
+CAL_CONTENT = (
+    "Title: Quarterly review\n"
+    "Start: 2026-11-03T14:00:00+00:00\n"
+    "End: 2026-11-03T15:00:00+00:00\n"
+    "Attendees: boss@acme.com\n"
+    "Description: Bring the Q4 plan"
+)
+
+
+def _patched_calendar_sender(return_value=True):
+    """Replace the calendar sender so no test touches Google; the mock also
+    proves the action reaches the network only when the gate says so."""
+    return patch.object(action_senders, "send_calendar_event", return_value=True)
+
+
+def test_calendar_off_mode_skips_with_no_sender_call():
+    # Guard branch: off mode. actions/channels empty, so ONLY the mode
+    # refuses; no write of any kind happens.
+    autonomy.set_autonomy(mode="off")
+    with _patched_calendar_sender() as sender:
+        result = autonomy.execute_or_request(
+            action_type="schedule_event", channel="calendar", target="", content=CAL_CONTENT
+        )
+    assert result["status"] == "skipped"
+    assert result["result"] == "autonomy off"
+    assert sender.called is False
+
+
+def test_calendar_actions_allowlist_blocks_with_no_sender_call():
+    # Guard branch: actions allowlist (mode full, channels empty, so the
+    # actions gate is the only refuser).
+    autonomy.set_autonomy(mode="full", actions=["followup"], channels=[])
+    with _patched_calendar_sender() as sender:
+        result = autonomy.execute_or_request(
+            action_type="schedule_event", channel="calendar", target="", content=CAL_CONTENT
+        )
+    assert result["status"] == "skipped"
+    assert "not in allowed actions" in result["result"]
+    assert sender.called is False
+
+
+def test_calendar_channels_allowlist_blocks_with_no_sender_call():
+    # Guard branch: channels allowlist (mode full, actions empty).
+    autonomy.set_autonomy(mode="full", actions=[], channels=["email"])
+    with _patched_calendar_sender() as sender:
+        result = autonomy.execute_or_request(
+            action_type="schedule_event", channel="calendar", target="", content=CAL_CONTENT
+        )
+    assert result["status"] == "skipped"
+    result_text = str(result.get("result"))
+    assert "not in allowed channels" in result_text
+    assert sender.called is False
+
+
+def test_calendar_full_mode_executes_and_logs():
+    autonomy.set_autonomy(mode="full", actions=[], channels=[])
+    with _patched_calendar_sender() as sender:
+        result = autonomy.execute_or_request(
+            action_type="schedule_event", channel="calendar", target="", content=CAL_CONTENT
+        )
+    assert result["status"] == "executed"
+    assert "scheduled" in str(result["result"])
+    assert sender.called is True
+    report = autonomy.generate_autonomy_daily_report()
+    assert "schedule_event" in report
+
+
+def test_calendar_semi_mode_pending_then_approval_executes_through_the_same_path():
+    # Semi mode: pending row + approval request through the existing
+    # mechanism; approving runs it through _send_via_channel, the same path
+    # as every other channel - no parallel mechanism.
+    autonomy.set_autonomy(
+        mode="semi", actions=[], channels=[],
+        approval_channel="telegram", approval_target="",
+    )
+    with _patched_calendar_sender() as sender:
+        result = autonomy.execute_or_request(
+            action_type="schedule_event", channel="calendar", target="", content=CAL_CONTENT
+        )
+        assert result["status"] == "pending_approval"
+        action_id = result["action_id"]
+        assert len(action_id) == 8
+
+        conn = get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT channel, target, content FROM autonomy_pending WHERE action_id = %s",
+                        (action_id,))
+            row = cur.fetchone()
+            cur.close()
+        finally:
+            conn.close()
+        assert row is not None
+        assert row[0] == "calendar" and row[1] == "" and row[2] == CAL_CONTENT
+
+        # The approval must execute with the sender in place too: approving
+        # runs the SAME _send_via_channel path, and without the patch the
+        # real sender would read its (unset) env config here and refuse.
+        reply = autonomy.process_approval_response(f"YES {action_id}")
+    assert reply is not None
+    assert "approved and executed" in reply
+    assert "scheduled" in reply
+    assert sender.call_args.args == ("", CAL_CONTENT)
+
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT channel, target, content FROM autonomy_pending WHERE action_id = %s",
+                    (action_id,))
+        row = cur.fetchone()
+        cur.close()
+    finally:
+        conn.close()
+    assert row is None  # approved actions leave the pending table
+
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT approved FROM autonomy_log WHERE action_type = 'schedule_event' "
+                    "ORDER BY id DESC LIMIT 1")
+        log_row = cur.fetchone()
+        cur.close()
+    finally:
+        conn.close()
+    assert log_row is not None and log_row[0] is True
+
+
+def test_calendar_sensitive_role_forces_full_to_semi():
+    # Guard branch: a role in SENSITIVE_DOMAIN_ROLES must never execute a
+    # calendar action directly in full mode.
+    autonomy.set_autonomy(mode="full", actions=[], channels=[])
+    with _patched_calendar_sender() as sender:
+        result = autonomy.execute_or_request(
+            action_type="schedule_event", channel="calendar", target="",
+            content=CAL_CONTENT, role="legal_intake",
+        )
+    assert result["status"] == "pending_approval"
+    assert sender.called is False
+
+
+def test_calendar_non_sensitive_role_stays_full():
+    # The distinct other side: a non-sensitive role executes normally.
+    autonomy.set_autonomy(mode="full", actions=[], channels=[])
+    with _patched_calendar_sender() as sender:
+        result = autonomy.execute_or_request(
+            action_type="schedule_event", channel="calendar", target="",
+            content=CAL_CONTENT, role="sales",
+        )
+    assert result["status"] == "executed"
+    assert sender.called is True
+
+
+@pytest.mark.parametrize("mode,actions_allow,channels_allow,role,expect", [
+    # The PRODUCT of the axes: the action reaches the network only in the
+    # one combination where every gate opens.
+    ("off", [], [], None, "skipped"),
+    ("full", ["schedule_event"], ["calendar"], None, "executed"),
+    ("full", ["schedule_event"], ["calendar"], "legal_intake", "pending_approval"),
+    ("semi", ["schedule_event"], ["calendar"], None, "pending_approval"),
+    ("full", ["followup"], ["calendar"], None, "skipped"),
+    ("full", ["schedule_event"], ["email"], None, "skipped"),
+    ("semi", ["followup"], ["calendar"], None, "skipped"),
+    ("semi", ["schedule_event"], ["email"], None, "skipped"),
+])
+def test_calendar_gate_product_matrix(mode, actions_allow, channels_allow, role, expect):
+    autonomy.set_autonomy(mode=mode, actions=actions_allow, channels=channels_allow,
+                          approval_channel="telegram", approval_target="")
+    with _patched_calendar_sender() as sender:
+        result = autonomy.execute_or_request(
+            action_type="schedule_event", channel="calendar", target="",
+            content=CAL_CONTENT, role=role,
+        )
+    assert result["status"] == expect
+    assert sender.called is (expect == "executed")
+
+
+def test_calendar_rejection_still_logs_through_the_same_path():
+    autonomy.set_autonomy(
+        mode="semi", actions=[], channels=[],
+        approval_channel="telegram", approval_target="",
+    )
+    with _patched_calendar_sender() as sender:
+        result = autonomy.execute_or_request(
+            action_type="schedule_event", channel="calendar", target="", content=CAL_CONTENT
+        )
+    assert result["status"] == "pending_approval"
+    reply = autonomy.process_approval_response(f"NO {result['action_id']}")
+    assert reply is not None
+    assert "rejected" in reply.lower()
+    assert sender.called is False  # a rejected calendar action never executes

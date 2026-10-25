@@ -10,7 +10,7 @@ choosing the next. Safety properties:
 - observations are untrusted data: capped, fenced, labelled, and lookalike closing
   tags inside them are neutralised
 - taint rule: once a fetch_page or mcp_call result has entered a run, every later
-  OUTBOUND action in that run (webhook, slack, email, crm, mcp, fetch) is forced into
+  OUTBOUND action in that run (webhook, slack, email, crm, calendar, mcp, fetch) is forced into
   owner approval even in full mode (execute_or_request force_semi)
 - a step that needs approval saves the run (agent_runs) and returns; approving or
   rejecting the pending action resumes or ends the run (on_resolved)
@@ -37,7 +37,7 @@ SUMMARY_MAX_TOKENS = 400
 OBS_CAP = 1500
 OBS_PROMPT_CAP = 4000
 TEXT_CAP = 2000
-OUTBOUND_TOOLS = frozenset({"send_webhook", "send_slack", "send_email", "update_crm_record", "mcp_call", "fetch_page"})
+OUTBOUND_TOOLS = frozenset({"send_webhook", "send_slack", "send_email", "update_crm_record", "schedule_event", "mcp_call", "fetch_page"})
 TAINTING_TOOLS = frozenset({"fetch_page", "mcp_call", "list_files", "read_file"})
 RUN_STATUSES = ("running", "waiting_approval", "done", "failed", "rejected", "budget")
 

@@ -1,9 +1,10 @@
 """
 Outbound action senders for the autonomy gate (phase 1 of "broad actionable").
 
-send_webhook / send_slack / send_email / send_crm_update are dispatched from
-core.autonomy._send_via_channel(), so every mode, allowlist, sensitive-role
-rule, approval step and log in execute_or_request() applies to them unchanged.
+send_webhook / send_slack / send_email / send_crm_update / send_calendar_event
+are dispatched from core.autonomy._send_via_channel(), so every mode,
+allowlist, sensitive-role rule, approval step and log in execute_or_request()
+applies to them unchanged.
 
 Security model: a model (or a customer message hijacking it) must never
 choose the destination.
@@ -19,6 +20,12 @@ choose the destination.
     type and every property name must each be on an operator-configured
     allowlist (HUBSPOT_CRM_UPDATE_OBJECTS / HUBSPOT_CRM_UPDATE_PROPERTIES),
     and both default to EMPTY, so nothing is ever written until configured.
+  - calendar: creates the event on GOOGLE_CALENDAR_ID (Google Calendar
+    events.insert, bring-your-own OAuth client like
+    core/integrations/gmail_connector.py); `target` is ignored, and every
+    attendee must match EMAIL_ALLOWED_RECIPIENTS - one refusal cancels the
+    whole event, the default allowlist is empty, so nothing schedules until
+    configured.
 Senders never raise and never log secret URLs; they return True/False.
 """
 import ipaddress
@@ -27,6 +34,7 @@ import os
 import re
 import smtplib
 import socket
+from datetime import datetime
 from email.message import EmailMessage
 from typing import Dict, Optional
 from urllib.parse import quote, urlparse
@@ -304,4 +312,157 @@ def send_crm_update(target: str, content: str) -> bool:
         return True
     except Exception:
         logger.error("CRM update request error - CRM update refused")
+        return False
+
+
+GOOGLE_TOKEN_URI = "https://oauth2.googleapis.com/token"
+CALENDAR_ENV_KEYS = (
+    "GOOGLE_CALENDAR_ID",
+    "GOOGLE_CALENDAR_CLIENT_ID",
+    "GOOGLE_CALENDAR_CLIENT_SECRET",
+    "GOOGLE_CALENDAR_REFRESH_TOKEN",
+)
+
+
+def _calendar_config() -> Optional[Dict[str, str]]:
+    """The four GOOGLE_CALENDAR_* settings, or None when any is unset -
+    nothing is ever scheduled until the owner configured all of them."""
+    cfg = {k: os.environ.get(k, "").strip() for k in CALENDAR_ENV_KEYS}
+    return cfg if all(cfg.values()) else None
+
+
+def _parse_rfc3339(value: str) -> Optional[datetime]:
+    """A date-time with an explicit UTC offset ('Z' counts). Naive
+    strings are refused: there is no owner-chosen default zone to apply."""
+    v = (value or "").strip()
+    if v[-1:] in ("Z", "z"):
+        v = v[:-1] + "+00:00"
+    try:
+        dt = datetime.fromisoformat(v)
+    except ValueError:
+        return None
+    return dt if dt.tzinfo is not None else None
+
+
+def _parse_event(content: str) -> Optional[Dict]:
+    """Parse the documented event shape out of an action's `content`: leading
+    'Key: value' lines, case-insensitive - 'Title:', 'Start:', 'End:',
+    'Attendees:' (comma-separated), 'Description:' (the rest of the content).
+    Title/Start/End are required; Start/End must be a date-time with an
+    explicit UTC offset (the parser accepts datetime.fromisoformat's forms;
+    anything Google's API rejects fails closed at insert), End strictly
+    after Start; every field except Description may appear once.
+    Anything malformed is None. No I/O."""
+    title = start_s = end_s = None
+    have_attendees = False
+    attendees: list = []
+    desc_parts: list = []
+    in_desc = False
+    for line in (content or "").replace("\r\n", "\n").split("\n"):
+        if in_desc:
+            desc_parts.append(line)
+            continue
+        if not line.strip():
+            continue
+        key, _, value = line.partition(":")
+        field = key.strip().lower()
+        value = value.strip()
+        if field == "title" and title is None:
+            # empty value consumes the field, like Start/End below
+            title = value.replace("\r", " ")[:200]
+        elif field == "start" and start_s is None:
+            start_s = value
+        elif field == "end" and end_s is None:
+            end_s = value
+        elif field == "attendees" and not have_attendees:
+            have_attendees = True
+            attendees = [a.strip() for a in value.split(",") if a.strip()]
+        elif field == "description":
+            in_desc = True
+            desc_parts = [value]
+        else:
+            return None
+    if not title or not start_s or not end_s:
+        return None
+    start, end = _parse_rfc3339(start_s), _parse_rfc3339(end_s)
+    if start is None or end is None or end <= start:
+        return None
+    return {"title": title, "start": start_s, "end": end_s,
+            "attendees": attendees,
+            "description": "\n".join(desc_parts).strip()[:MAX_TEXT * 4]}
+
+
+def _attendees_allowed(attendees: list) -> bool:
+    """Every attendee must pass the email allowlist; ONE refusal cancels the
+    whole event - a bad member is never silently dropped."""
+    return all(_recipient_allowed(a) for a in attendees)
+
+
+def _google_access_token(cfg: Dict[str, str]) -> Optional[str]:
+    """Exchange the owner's refresh token for a short-lived access token
+    (bring-your-own OAuth client, core/integrations/gmail_connector.py's
+    model). None on any failure it can see; transport errors propagate to
+    the sender's catch-all. The token is never logged."""
+    resp = requests.post(
+        GOOGLE_TOKEN_URI,
+        data={"client_id": cfg["GOOGLE_CALENDAR_CLIENT_ID"],
+              "client_secret": cfg["GOOGLE_CALENDAR_CLIENT_SECRET"],
+              "refresh_token": cfg["GOOGLE_CALENDAR_REFRESH_TOKEN"],
+              "grant_type": "refresh_token"},
+        timeout=HTTP_TIMEOUT, allow_redirects=False,
+    )
+    if resp.status_code != 200:
+        logger.error(f"Google token exchange failed with status {resp.status_code}")
+        return None
+    try:
+        token = (resp.json() or {}).get("access_token")
+    except Exception:
+        token = None
+    if not token:
+        logger.error("Google token exchange returned no access_token")
+        return None
+    return token
+
+
+def send_calendar_event(target: str, content: str) -> bool:
+    """Create one Google Calendar event (events.insert) on the owner's
+    configured calendar. `target` is ignored on purpose - the calendar id
+    comes from GOOGLE_CALENDAR_ID, never from the model. Returns True only
+    on a 2xx response; never raises and never logs a token, a response body
+    or exception detail."""
+    try:
+        cfg = _calendar_config()
+        if not cfg:
+            logger.error("GOOGLE_CALENDAR_* settings incomplete - calendar event refused")
+            return False
+        event = _parse_event(content)
+        if not event:
+            logger.error("Calendar event content malformed - refused")
+            return False
+        if not _attendees_allowed(event["attendees"]):
+            logger.error("Calendar attendee is not in EMAIL_ALLOWED_RECIPIENTS - event refused")
+            return False
+        token = _google_access_token(cfg)
+        if not token:
+            return False
+        url = (f"https://www.googleapis.com/calendar/v3/calendars/"
+               f"{quote(cfg['GOOGLE_CALENDAR_ID'], safe='')}/events?sendUpdates=all")
+        body: Dict = {
+            "summary": event["title"],
+            "start": {"dateTime": event["start"]},
+            "end": {"dateTime": event["end"]},
+        }
+        if event["attendees"]:
+            body["attendees"] = [{"email": a} for a in event["attendees"]]
+        if event["description"]:
+            body["description"] = event["description"]
+        resp = requests.post(url, json=body, timeout=HTTP_TIMEOUT,
+                             allow_redirects=False,
+                             headers={"Authorization": f"Bearer {token}"})
+        if not 200 <= resp.status_code < 300:
+            logger.error(f"Calendar insert failed with status {resp.status_code}")
+            return False
+        return True
+    except Exception:
+        logger.error("Calendar event failed")
         return False
