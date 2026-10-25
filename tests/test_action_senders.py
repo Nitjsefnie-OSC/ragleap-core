@@ -302,6 +302,19 @@ def test_crm_unconfigured_refuses_without_request():
     http.assert_no_forbidden_writes()
 
 
+def test_crm_token_missing_with_allowlists_set_refuses_without_request():
+    # The discriminating entry for the token limb at the sender layer: both
+    # allowlists configured, the token blank. The config guard is the only
+    # layer that refuses here - with it dropped, the sender would PATCH with
+    # an empty bearer and only HubSpot's 401 would stop the write.
+    env = dict(CRM_ENV)
+    env["HUBSPOT_ACCESS_TOKEN"] = ""
+    ok, http = _send_crm("", CRM_CONTENT, env=env)
+    assert ok is False
+    http.assert_not_called()
+    http.assert_no_forbidden_writes()
+
+
 def test_crm_malformed_content_refused_before_any_request():
     # Mutation: network before validation. Each case is refused with zero
     # requests of any kind. Table carries the required-field refusals (missing
@@ -434,6 +447,15 @@ def test_crm_not_found_fails_closed_and_never_upserts():
     http.assert_no_forbidden_writes()
 
 
+def test_crm_redirect_status_is_not_success():
+    # The 2xx-only success contract pinned against the 3xx band: a 302 is a
+    # failure, and nothing further is requested.
+    ok, http = _send_crm("", CRM_CONTENT, status=302)
+    assert ok is False
+    assert len(http.calls) == 1
+    http.assert_no_forbidden_writes()
+
+
 def test_crm_http_errors_fail_closed_without_raising():
     # Mutation: the sender raising on a network error. The direct call must
     # return False, never raise.
@@ -481,7 +503,8 @@ def test_validate_plan_crm_update_never_lets_the_model_choose_target_or_bypass_t
     # HERE, by assertion, instead of walking into a KeyError below.
     assert actions_module.ACTION_TOOLS.get("update_crm_record", {}).get("channel") == "crm"
     tools = {"update_crm_record": "desc"}
-    with patch.dict(os.environ, CRM_ENV, clear=True):
+    http = _FakeHubSpotHTTP()
+    with patch.dict(os.environ, CRM_ENV, clear=True), patch.object(a.requests, "patch", http):
         plan = actions_module._validate_plan(
             {"tool": "update_crm_record", "target": MODEL_TARGET, "content": CRM_CONTENT}, tools)
         assert plan is not None
@@ -495,6 +518,10 @@ def test_validate_plan_crm_update_never_lets_the_model_choose_target_or_bypass_t
         ):
             assert actions_module._validate_plan(
                 {"tool": "update_crm_record", "target": "", "content": bad}, tools) is None, bad
+        # Plan validation must make no network call of any kind: acceptance is
+        # decided by parsing and the allowlists alone.
+        assert http.calls == []
+        http.assert_no_forbidden_writes()
 
 
 def test_autonomy_dispatch_updates_crm_record_end_to_end():
