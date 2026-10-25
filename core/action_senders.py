@@ -277,7 +277,8 @@ def send_crm_update(target: str, content: str) -> bool:
     names must each be on the operator's allowlists. Update only: a not-found
     record is a failure, never an upsert, and no create/merge/archive write
     exists here. Returns True only on a 2xx response; never raises and never
-    logs the token, the request body or any response body."""
+    logs the token, the request body, any response body, or any exception
+    detail."""
     try:
         cfg = _crm_config()
         if not cfg:
@@ -301,6 +302,6 @@ def send_crm_update(target: str, content: str) -> bool:
             logger.error(f"CRM update failed with status {resp.status_code}")
             return False
         return True
-    except Exception as e:
-        logger.error(f"CRM update error: {e}")
+    except Exception:
+        logger.error("CRM update request error - CRM update refused")
         return False
