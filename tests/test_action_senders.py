@@ -1027,6 +1027,9 @@ class _ShyException(Exception):
     looks innocent and only the byte-exact message pin plus the args hunt
     can see an args-formatting mutant."""
 
+    def __str__(self):
+        return "clean-calendar-failure"
+
 
 def _leak_marker(stage, kind):
     """A distinct request-detail-shaped marker per (stage, exception-kind):
