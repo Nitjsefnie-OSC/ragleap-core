@@ -4,9 +4,13 @@ Voice provider dispatch tests: no network, provider functions mocked.
 import asyncio
 import base64
 import importlib
+import io
 import json
 import os
+import random
+import struct
 import sys
+import wave
 import pytest
 from unittest.mock import MagicMock, patch
 
@@ -305,3 +309,204 @@ def test_elevenlabs_empty_text_still_posts_and_returns_content():
         result = voice_audio.text_to_speech_elevenlabs("", "your-elevenlabs-key", "your-voice-id")
     assert result == b"mp3-bytes"
     assert post.call_args.kwargs["json"]["text"] == ""
+
+
+# --------------------------------------------------------------------------
+# Regression (issue #950): every request the router hands to an STT provider
+# must declare a format its body actually has, and the body — decoded by that
+# declaration — must be exactly the mu-law utterance the scripted media
+# events carried, in order, nothing dropped or added. The reference expansion
+# below is derived in this file and checked against the published G.711
+# fixed points on every use; it shares nothing with the code under test.
+# --------------------------------------------------------------------------
+
+_CORPUS_SEED = 20261025
+_FRAME = 160              # one mu-law frame at Twilio's 8 kHz capture rate
+_SILENCE_TAIL = 20        # router SILENCE_END_FRAMES: 400 ms of silence ends an utterance
+_HARD_CAP_FRAMES = 240    # router MAX_SPEECH_FRAMES: 5 s cap hands off even without silence
+
+
+def _mu_law_reference():
+    """
+    The 256-entry G.711 mu-law expansion table, derived here and verified
+    against the published fixed points on every use; it shares nothing with
+    the implementation under test (no audioop, no implementation helper).
+    """
+    table = []
+    for code in range(256):
+        stored = code ^ 0xFF  # mu-law bytes are stored bit-complemented
+        magnitude = (((stored & 0x0F) << 3) + 0x84) << ((stored >> 4) & 0x07)
+        table.append((0x84 - magnitude) if stored & 0x80 else (magnitude - 0x84))
+    assert table[0xFF] == 0 and table[0x7F] == 0
+    assert table[0x80] == 32124 and table[0x00] == -32124
+    return table
+
+
+def _utterance_payloads():
+    """
+    The two utterance byte strings the stream carries, and the media chunks
+    they are cut into, in call order. A seeded shuffle of all 256 mu-law
+    codes leads utterance one — both zero codes (0x7F, 0xFF), both extremes
+    (0x80, 0x00) and every code on which the A-law and mu-law tables
+    disagree — and a seeded pseudo-random stream fills both utterances out.
+    Utterance one ends in 20 silent frames so the end-of-speech trigger
+    fires; utterance two runs to the 240-frame hard cap. One chunk is
+    deliberately 77 bytes, so a frame-alignment mistake cannot pass.
+    """
+    rng = random.Random(_CORPUS_SEED)
+    alphabet = bytes(rng.sample(range(256), 256))
+    body1 = alphabet + bytes(rng.randrange(256) for _ in range(_FRAME * 28 - 256 + 77))
+    body2 = bytes(rng.randrange(256) for _ in range(_FRAME * _HARD_CAP_FRAMES))
+    chunks1 = [body1[o:o + _FRAME] for o in range(0, _FRAME * 28, _FRAME)] + [body1[_FRAME * 28:]]
+    chunks2 = [body2[o:o + _FRAME] for o in range(0, len(body2), _FRAME)]
+    return (chunks1 + [QUIET_FRAME] * _SILENCE_TAIL,
+            body1 + QUIET_FRAME * _SILENCE_TAIL), (chunks2, body2)
+
+
+def _two_utterance_events():
+    """Connect, start, two utterances — each ends in a VAD handoff — then stop."""
+    (chunks1, _), (chunks2, _) = _utterance_payloads()
+    events = [{"event": "connected"}, {"event": "start", "streamSid": "sid-stt"}]
+    events += [_media_event(c) for c in chunks1]
+    events += [_media_event(c) for c in chunks2]
+    events.append({"event": "stop"})
+    return events
+
+
+def _samples_from_wav(body):
+    """Decode a declared-WAV body: RIFF/WAVE, mono, 8 kHz, 16-bit linear PCM."""
+    try:
+        with wave.open(io.BytesIO(body)) as wav:
+            channels, rate, width = wav.getnchannels(), wav.getframerate(), wav.getsampwidth()
+            frames = wav.readframes(wav.getnframes())
+    except (wave.Error, EOFError) as exc:
+        raise AssertionError(
+            f"request declares WAV but the body is not a decodable RIFF/WAVE file: {exc}")
+    assert channels == 1, f"a declared WAV body must be mono, got {channels} channels"
+    assert rate == 8000, f"a declared WAV body must be 8 kHz, got {rate} Hz"
+    assert width == 2, f"a declared WAV body must be 16-bit linear PCM, got {width}-byte samples"
+    return list(struct.unpack(f"<{len(frames) // 2}h", frames))
+
+
+def _stt_request_samples(url, kwargs):
+    """
+    Decode one captured STT request strictly by its own declared metadata
+    (headers, multipart file-part metadata, query params) and return its
+    linear-PCM samples. A declaration this suite does not cover is an
+    AssertionError — never a silent pass — so a request must declare either
+    a WAV container or raw mu-law (encoding=mulaw, sample_rate=8000).
+    """
+    table = _mu_law_reference()
+    try:
+        headers = {str(k).lower(): v for k, v in (kwargs.get("headers") or {}).items()}
+        params = kwargs.get("params") or {}
+        if "/audio/transcriptions" in url:
+            # OpenAI takes a multipart upload; the audio is the file part.
+            filename, payload, part_type = kwargs["files"]["file"]
+            assert part_type == "audio/wav" or str(filename).lower().endswith(".wav"), (
+                f"OpenAI accepts no raw form: the file part must declare WAV, "
+                f"got type {part_type!r} filename {filename!r}")
+            assert not params, (
+                f"no query parameters may ride on a WAV declaration, got {params}")
+            return _samples_from_wav(payload.read())
+        content_type = headers.get("content-type", "")
+        if content_type.split(";")[0].strip() == "audio/wav":
+            assert "encoding" not in params, (
+                f"an encoding parameter must not ride on a WAV body, got params {params}")
+            return _samples_from_wav(kwargs["data"])
+        if content_type in ("", "audio/mulaw", "audio/basic", "application/octet-stream"):
+            assert params.get("encoding") == "mulaw", (
+                f"a containerless body must declare encoding=mulaw, got params {params}")
+            assert str(params.get("sample_rate")) == "8000", (
+                f"a raw mu-law body must declare sample_rate=8000, got params {params}")
+            if "channels" in params:
+                assert str(params["channels"]) == "1", (
+                    f"the stream is mono, got channels={params['channels']!r}")
+            body = kwargs["data"]
+            assert isinstance(body, (bytes, bytearray)), (
+                f"a containerless body must be plain bytes, got {type(body).__name__}")
+            return [table[b] for b in body]
+        raise AssertionError(
+            f"uncovered Content-Type declaration {content_type!r}: a request must declare "
+            f"WAV (audio/wav) or raw mu-law, so the receiver can decode the body it carries")
+    except AssertionError:
+        raise
+    except Exception as exc:
+        raise AssertionError(f"request metadata unreadable against its body: {exc!r}")
+
+
+def _assert_utterance_arrives(request, utterance, label):
+    """The request, decoded by its own declared metadata, is exactly `utterance` mu-law-decoded."""
+    samples = _stt_request_samples(request[0], request[1])
+    expected = [_mu_law_reference()[b] for b in utterance]
+    assert samples == expected, (
+        f"{label}: the request decoded to {len(samples)} samples but the utterance is "
+        f"{len(expected)} samples — audio lost, added or mistranslated in transit")
+
+
+def _stt_requests_from_call(cfg):
+    """
+    Drive the real handle_call over the two-utterance stream and return the
+    two captured STT requests, in order. Only STT endpoints are kept; the
+    greeting's TTS request is not under test here.
+    """
+    stt_calls = []
+
+    def record_post(url, **kwargs):
+        stt_calls.append((url, kwargs))
+        resp = MagicMock(status_code=200)
+        if "audio/speech" in url:
+            resp.content = b"example-tts-bytes"
+        elif "/v1/listen" in url:
+            resp.json.return_value = {"results": {"channels": [{"alternatives": [{"transcript": ""}]}]}}
+        else:
+            resp.json.return_value = {"text": ""}
+        return resp
+
+    ws = FakeWS(_two_utterance_events())
+    with patch.object(voice_router, "get_voice_config", return_value=cfg), \
+         patch.object(voice_audio.requests, "post", side_effect=record_post):
+        asyncio.run(voice_router.handle_call(ws))
+    stt = [(u, k) for (u, k) in stt_calls if "/v1/listen" in u or "/audio/transcriptions" in u]
+    assert len(stt) == 2, (
+        f"expected one STT request per utterance (2), got {len(stt)} — "
+        f"the VAD triggers did not hand both utterances off")
+    return stt
+
+
+def test_stt_deepgram_request_declares_and_carries_the_utterance_both_triggers():
+    """Deepgram requests must declare their true format and carry the decoded utterance, across both VAD triggers."""
+    cfg = _config_from_env(VOICE_STT_PROVIDER="deepgram", DEEPGRAM_API_KEY="your-deepgram-key")
+    (_, payload1), (_, payload2) = _utterance_payloads()
+    stt = _stt_requests_from_call(cfg)
+    _assert_utterance_arrives(stt[0], payload1, "deepgram end-of-speech utterance")
+    _assert_utterance_arrives(stt[1], payload2, "deepgram hard-cap utterance")
+
+
+def test_stt_whisper_request_declares_and_carries_the_utterance_both_triggers():
+    """Whisper (multipart) requests must declare their true format and carry the decoded utterance, across both VAD triggers."""
+    cfg = _config_from_env(VOICE_STT_PROVIDER="whisper", OPENAI_API_KEY="your-openai-key")
+    (_, payload1), (_, payload2) = _utterance_payloads()
+    stt = _stt_requests_from_call(cfg)
+    _assert_utterance_arrives(stt[0], payload1, "whisper end-of-speech utterance")
+    _assert_utterance_arrives(stt[1], payload2, "whisper hard-cap utterance")
+
+
+def test_stt_unset_provider_request_declares_and_carries_the_utterance():
+    """No VOICE_STT_PROVIDER at all: the OpenAI request must still declare and carry the utterance."""
+    cfg = _config_from_env(OPENAI_API_KEY="your-openai-key")
+    assert cfg["stt_provider"] == "whisper"
+    (_, payload1), (_, payload2) = _utterance_payloads()
+    stt = _stt_requests_from_call(cfg)
+    _assert_utterance_arrives(stt[0], payload1, "unset-provider end-of-speech utterance")
+    _assert_utterance_arrives(stt[1], payload2, "unset-provider hard-cap utterance")
+
+
+def test_stt_unrecognized_provider_request_declares_and_carries_the_utterance():
+    """An unrecognized VOICE_STT_PROVIDER keeps OpenAI, whose request must still declare and carry the utterance."""
+    cfg = _config_from_env(VOICE_STT_PROVIDER="carrier-pigeon", OPENAI_API_KEY="your-openai-key")
+    assert cfg["stt_api_key"] == "your-openai-key"
+    (_, payload1), (_, payload2) = _utterance_payloads()
+    stt = _stt_requests_from_call(cfg)
+    _assert_utterance_arrives(stt[0], payload1, "unrecognized-provider end-of-speech utterance")
+    _assert_utterance_arrives(stt[1], payload2, "unrecognized-provider hard-cap utterance")
