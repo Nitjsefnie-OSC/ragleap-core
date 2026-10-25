@@ -246,7 +246,7 @@ WhatsApp, Telegram, and Discord bots are included in this repo too — single-te
 | 💰 **Token usage reporting** | Real per-call token counts from the provider, plus context-size budget trimming |
 | 🧑‍💼 **AI Employees** | Role-based agents (46 default roles) with persistent business-context memory, wired into `/chat` via `role=<role>` |
 | 🖥️ **AI Office dashboard** | Approvals inbox, employees by department, tasks, agent runs, activity, Settings (keys are encrypted and write-only) and a Setup checklist at `/office` |
-| 🛡️ **Approval-gated autonomy** | `off`, `semi` and `full` modes; sensitive roles always need approval; after the agent reads web or MCP content, outgoing actions need your approval even in `full` mode; every action is logged |
+| 🛡️ **Approval-gated autonomy** | `off`, `semi` and `full` modes; webhook, Slack, email and HubSpot CRM record updates are opt-in via `.env` (nothing sends or is written until you configure them) and all behind the same approval gate; sensitive roles always need approval; after the agent reads web or MCP content, outgoing actions need your approval even in `full` mode; every action is logged |
 | 🔁 **Act-observe agent loop** | Opt-in: propose an action, approve it, observe the result, continue (up to 4 steps by default) |
 | 🧰 **Sandboxed tools (opt-in)** | Python and shell in a network-less container, read-only page fetch with SSRF protection, MCP client with an allowlist, task tickets |
 | ⏰ **Scheduled check-ins** | Proactive triggers every N minutes or by cron with a time zone |
