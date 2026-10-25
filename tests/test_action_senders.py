@@ -903,6 +903,50 @@ def test_calendar_malformed_content_refused_before_any_request():
         http.assert_not_called()
 
 
+@pytest.mark.parametrize("value", [
+    pytest.param("2026-01-02T03:04:05", id="naive-no-offset"),
+    pytest.param("2026-01-02", id="date-only"),
+    pytest.param("", id="empty"),
+    pytest.param("not-a-date", id="garbage"),
+])
+def test_parse_rfc3339_rejects_malformed_and_naive_forms(value):
+    # The parse contract: None unless the string carries an explicit UTC
+    # offset. Whatever fromisoformat accepts beyond RFC 3339 still fails
+    # closed at insert - Google's API rejects it, so the sender never
+    # widens this.
+    assert a._parse_rfc3339(value) is None
+
+
+def test_calendar_naive_start_refused_before_any_request():
+    # Sender-level side of the same contract: a naive Start refuses with
+    # zero requests of any kind.
+    http = MagicMock()
+    content = ("Title: T\n"
+               "Start: 2026-01-02T03:04:05\n"
+               "End: 2026-01-02T04:04:05+00:00")
+    assert _send_calendar("", content, http=http) is False
+    http.assert_not_called()
+
+
+def test_parse_event_duplicate_and_empty_first_start_end_refused():
+    # The else-limb refuses the WHOLE parse on any second occurrence of a
+    # once-only field, and an empty first value consumes the field so the
+    # second occurrence refuses; a bare empty Start is caught by the
+    # required-field check.
+    start = "Start: 2026-11-03T14:00:00+00:00"
+    end = "End: 2026-11-03T15:00:00+00:00"
+    end2 = "End: 2026-11-03T16:00:00+00:00"
+    cases = (
+        f"Title: T\n{start}\nStart: 2026-11-03T13:00:00+00:00\n{end}",  # Start twice
+        f"Title: T\n{start}\n{end}\n{end2}",  # End twice
+        f"Title: T\nStart:\n{start}\n{end}",  # empty first Start, then a duplicate
+        f"Title: T\n{start}\nEnd:\n{end}",  # empty first End, then a duplicate
+        f"Title: T\nStart:\n{end}",  # bare empty Start: required-field check
+    )
+    for content in cases:
+        assert a._parse_event(content) is None, content
+
+
 def test_calendar_sends_exact_modeled_requests():
     http = _FakeGoogleHTTP()
     ok = _send_calendar("", CAL_CONTENT, http=http)
