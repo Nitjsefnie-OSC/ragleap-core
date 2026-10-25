@@ -1376,63 +1376,69 @@ def _send_webhook(content, http):
         return a.send_webhook("n8n", content)
 
 
-def _raise_webhook_chained():
-    cause = ValueError(_sender_leak_text("webhook", "chained", WEBHOOK_LEAK_URL))
-    raise a.requests.exceptions.ConnectionError("webhook transport failed") from cause
+def _post_error_rows(surface, url, transport_failed):
+    """Rows for the requests-based senders: (markers, http fake) per row.
+    Each row's leak text is built ONCE below and the row's exception and its
+    hunted marker both derive from that one value, so a copy cannot drift."""
+    def text(sentinel):
+        return _sender_leak_text(surface, sentinel, url)
 
+    plain = text("plain")
+    connection = text("connection")
+    timeout = text("timeout")
+    chained = text("chained")
+    late = text("late")
 
-_WEBHOOK_ERROR_ROWS = [
-    pytest.param(
-        (_sender_leak_text("webhook", "plain", WEBHOOK_LEAK_URL),),
-        lambda: _FakePostHTTP(WEBHOOK_LEAK_URL,
-                              raise_exc=Exception(_sender_leak_text("webhook", "plain",
-                                                             WEBHOOK_LEAK_URL))),
-        id="plain",
-    ),
-    pytest.param(
-        (_sender_leak_text("webhook", "connection", WEBHOOK_LEAK_URL),),
-        lambda: _FakePostHTTP(
-            WEBHOOK_LEAK_URL,
-            raise_exc=a.requests.exceptions.ConnectionError(
-                _sender_leak_text("webhook", "connection", WEBHOOK_LEAK_URL),
-                request=_destination_request(WEBHOOK_LEAK_URL))),
-        id="connection",
-    ),
-    pytest.param(
-        (_sender_leak_text("webhook", "timeout", WEBHOOK_LEAK_URL),),
-        lambda: _FakePostHTTP(
-            WEBHOOK_LEAK_URL,
-            raise_exc=a.requests.exceptions.Timeout(
-                _sender_leak_text("webhook", "timeout", WEBHOOK_LEAK_URL),
-                request=_destination_request(WEBHOOK_LEAK_URL))),
-        id="timeout",
-    ),
-    pytest.param(
+    def raise_chained():
         # the marker sits ONLY in __cause__: str() of the raised exception is
         # clean, so only a traceback/exc_info path can leak it
-        (_sender_leak_text("webhook", "chained", WEBHOOK_LEAK_URL),),
-        lambda: _FakePostHTTP(WEBHOOK_LEAK_URL, raise_exc=_raise_webhook_chained),
-        id="chained",
-    ),
-    pytest.param(
-        (_sender_leak_text("webhook", "late", WEBHOOK_LEAK_URL),),
-        lambda: _FakePostHTTP(WEBHOOK_LEAK_URL,
-                              late_raise=_sender_leak_text("webhook", "late",
-                                                    WEBHOOK_LEAK_URL)),
-        id="late",
-    ),
-]
+        raise a.requests.exceptions.ConnectionError(transport_failed) from ValueError(chained)
+
+    return [
+        pytest.param(
+            (plain,),
+            _FakePostHTTP(url, raise_exc=Exception(plain)),
+            id="plain",
+        ),
+        pytest.param(
+            (connection,),
+            _FakePostHTTP(url,
+                          raise_exc=a.requests.exceptions.ConnectionError(
+                              connection, request=_destination_request(url))),
+            id="connection",
+        ),
+        pytest.param(
+            (timeout,),
+            _FakePostHTTP(url,
+                          raise_exc=a.requests.exceptions.Timeout(
+                              timeout, request=_destination_request(url))),
+            id="timeout",
+        ),
+        pytest.param(
+            (chained,),
+            _FakePostHTTP(url, raise_exc=raise_chained),
+            id="chained",
+        ),
+        pytest.param(
+            (late,),
+            _FakePostHTTP(url, late_raise=late),
+            id="late",
+        ),
+    ]
 
 
-@pytest.mark.parametrize("markers,http_factory", _WEBHOOK_ERROR_ROWS)
-def test_webhook_exception_text_never_reaches_the_log(caplog, markers, http_factory):
+_WEBHOOK_ERROR_ROWS = _post_error_rows("webhook", WEBHOOK_LEAK_URL,
+                                       "webhook transport failed")
+
+
+@pytest.mark.parametrize("markers,http", _WEBHOOK_ERROR_ROWS)
+def test_webhook_exception_text_never_reaches_the_log(caplog, markers, http):
     # Mutation: the catch-all logging the exception (`Webhook send error:
     # {e}`). The marker rides in the exception's own text (chained: only in
     # __cause__; late: in a post-response RuntimeError) and must appear
     # nowhere on the whole log surface, while the sender stays fail-closed.
     errors = []
     ok = None
-    http = http_factory()
     with caplog.at_level(_logging.DEBUG):
         try:
             ok = _send_webhook("hello", http)
@@ -1467,13 +1473,18 @@ def test_webhook_exception_log_message_is_constant_across_exceptions(caplog):
 
 
 def test_webhook_status_code_logging_is_untouched(caplog):
-    # Preservation pins, green on the unfixed code by design: the 2xx/4xx
-    # status path keeps its exact return band and logs nothing - no record of
-    # any wording from the sender's logger.
-    with caplog.at_level(_logging.DEBUG):
-        assert _send_webhook("hello", _FakePostHTTP(WEBHOOK_LEAK_URL, status=200)) is True
-        assert _send_webhook("hello", _FakePostHTTP(WEBHOOK_LEAK_URL, status=404)) is False
-    assert [r for r in caplog.records if r.name == "core.action_senders"] == []
+    # Preservation pins, green on the unfixed code by design: the whole
+    # status band keeps its exact return values and logs nothing - no record
+    # of any wording from the sender's logger. 201/299 hold the success
+    # band's edge open (a narrowed `== 200` check dies), 301/500 the
+    # failure side.
+    for status, ok in ((200, True), (201, True), (299, True),
+                       (301, False), (404, False), (500, False)):
+        caplog.clear()
+        with caplog.at_level(_logging.DEBUG):
+            assert _send_webhook("hello",
+                                 _FakePostHTTP(WEBHOOK_LEAK_URL, status=status)) is ok
+        assert [r for r in caplog.records if r.name == "core.action_senders"] == []
 
 
 def _send_slack(content, http):
@@ -1485,63 +1496,18 @@ def _send_slack(content, http):
         return a.send_slack("label", content)
 
 
-def _raise_slack_chained():
-    cause = ValueError(_sender_leak_text("slack", "chained", SLACK_LEAK_URL))
-    raise a.requests.exceptions.ConnectionError("slack transport failed") from cause
+_SLACK_ERROR_ROWS = _post_error_rows("slack", SLACK_LEAK_URL,
+                                     "slack transport failed")
 
 
-_SLACK_ERROR_ROWS = [
-    pytest.param(
-        (_sender_leak_text("slack", "plain", SLACK_LEAK_URL),),
-        lambda: _FakePostHTTP(SLACK_LEAK_URL,
-                              raise_exc=Exception(_sender_leak_text("slack", "plain",
-                                                             SLACK_LEAK_URL))),
-        id="plain",
-    ),
-    pytest.param(
-        (_sender_leak_text("slack", "connection", SLACK_LEAK_URL),),
-        lambda: _FakePostHTTP(
-            SLACK_LEAK_URL,
-            raise_exc=a.requests.exceptions.ConnectionError(
-                _sender_leak_text("slack", "connection", SLACK_LEAK_URL),
-                request=_destination_request(SLACK_LEAK_URL))),
-        id="connection",
-    ),
-    pytest.param(
-        (_sender_leak_text("slack", "timeout", SLACK_LEAK_URL),),
-        lambda: _FakePostHTTP(
-            SLACK_LEAK_URL,
-            raise_exc=a.requests.exceptions.Timeout(
-                _sender_leak_text("slack", "timeout", SLACK_LEAK_URL),
-                request=_destination_request(SLACK_LEAK_URL))),
-        id="timeout",
-    ),
-    pytest.param(
-        # the marker sits ONLY in __cause__: str() of the raised exception is
-        # clean, so only a traceback/exc_info path can leak it
-        (_sender_leak_text("slack", "chained", SLACK_LEAK_URL),),
-        lambda: _FakePostHTTP(SLACK_LEAK_URL, raise_exc=_raise_slack_chained),
-        id="chained",
-    ),
-    pytest.param(
-        (_sender_leak_text("slack", "late", SLACK_LEAK_URL),),
-        lambda: _FakePostHTTP(SLACK_LEAK_URL,
-                              late_raise=_sender_leak_text("slack", "late",
-                                                    SLACK_LEAK_URL)),
-        id="late",
-    ),
-]
-
-
-@pytest.mark.parametrize("markers,http_factory", _SLACK_ERROR_ROWS)
-def test_slack_exception_text_never_reaches_the_log(caplog, markers, http_factory):
+@pytest.mark.parametrize("markers,http", _SLACK_ERROR_ROWS)
+def test_slack_exception_text_never_reaches_the_log(caplog, markers, http):
     # Mutation: the catch-all logging the exception (`Slack send error: {e}`).
     # The marker carries the SLACK_WEBHOOK_URL path - a credential - and must
     # appear nowhere on the whole log surface, while the sender stays
     # fail-closed.
     errors = []
     ok = None
-    http = http_factory()
     with caplog.at_level(_logging.DEBUG):
         try:
             ok = _send_slack("hello", http)
@@ -1576,13 +1542,18 @@ def test_slack_exception_log_message_is_constant_across_exceptions(caplog):
 
 
 def test_slack_status_code_logging_is_untouched(caplog):
-    # Preservation pin, green on the unfixed code by design: the 2xx/4xx
-    # status paths keep their exact return band and log nothing - no record
-    # of any wording from the sender's logger.
-    with caplog.at_level(_logging.DEBUG):
-        assert _send_slack("hello", _FakePostHTTP(SLACK_LEAK_URL, status=200)) is True
-        assert _send_slack("hello", _FakePostHTTP(SLACK_LEAK_URL, status=404)) is False
-    assert [r for r in caplog.records if r.name == "core.action_senders"] == []
+    # Preservation pin, green on the unfixed code by design: the whole
+    # status band keeps its exact return values and logs nothing - no record
+    # of any wording from the sender's logger. 201/299 hold the success
+    # band's edge open (a narrowed `== 200` check dies), 301/500 the
+    # failure side.
+    for status, ok in ((200, True), (201, True), (299, True),
+                       (301, False), (404, False), (500, False)):
+        caplog.clear()
+        with caplog.at_level(_logging.DEBUG):
+            assert _send_slack("hello",
+                               _FakePostHTTP(SLACK_LEAK_URL, status=status)) is ok
+        assert [r for r in caplog.records if r.name == "core.action_senders"] == []
 
 
 def _send_email(content, cls):
@@ -1594,60 +1565,75 @@ def _send_email(content, cls):
         return a.send_email("boss@acme.com", content)
 
 
-def _raise_email_chained():
-    cause = ValueError(_sender_leak_text("email", "chained", EMAIL_ENV["SMTP_HOST"]))
-    raise smtplib.SMTPException("email delivery failed") from cause
+def _email_error_rows():
+    """(markers, step, exc_factory) rows. Each row's leak text and each reply
+    marker is built ONCE below and the row's exception and its hunted markers
+    both derive from those values, so a copy cannot drift."""
+    def text(sentinel):
+        return _sender_leak_text("email", sentinel, EMAIL_ENV["SMTP_HOST"])
 
+    connect = text("connect")
+    plain = text("plain")
+    chained = text("chained")
+    starttls = text("starttls")
+    refused_reply = b"5.1.1 " + "example-smtp-refused-reply".encode()
+    auth_reply = b"5.7.8 " + "example-smtp-auth-reply".encode()
 
-_EMAIL_ERROR_ROWS = [
-    # (markers, step, exc_factory): the failure happens at the smtplib step
-    # named - "connect" at the SMTP construction itself, the rest inside the
-    # sender's try after the guards pass - and each row asserts the step was
-    # reached exactly once, so a guard answering first cannot fake a pass.
-    pytest.param(
-        (_sender_leak_text("email", "connect", EMAIL_ENV["SMTP_HOST"]),
-         EMAIL_ENV["SMTP_HOST"]),
-        "connect",
-        lambda: smtplib.SMTPConnectError(
-            421, f"421 example-smtp-connect-refused {_sender_leak_text('email', 'connect', EMAIL_ENV['SMTP_HOST'])}".encode()),
-        id="connect",
-    ),
-    pytest.param(
-        (_sender_leak_text("email", "plain", EMAIL_ENV["SMTP_HOST"]),),
-        "send_message",
-        lambda: Exception(_sender_leak_text("email", "plain", EMAIL_ENV["SMTP_HOST"])),
-        id="plain",
-    ),
-    pytest.param(
+    def raise_chained():
         # the marker sits ONLY in __cause__: str() of the raised exception is
         # clean, so only a traceback/exc_info path can leak it
-        (_sender_leak_text("email", "chained", EMAIL_ENV["SMTP_HOST"]),),
-        "send_message",
-        lambda: _raise_email_chained,
-        id="chained",
-    ),
-    pytest.param(
-        # a raise at a later smtplib step, not the message send
-        (_sender_leak_text("email", "starttls", EMAIL_ENV["SMTP_HOST"]),),
-        "starttls",
-        lambda: RuntimeError(_sender_leak_text("email", "starttls", EMAIL_ENV["SMTP_HOST"])),
-        id="starttls",
-    ),
-    pytest.param(
-        # SMTPRecipientsRefused carries the recipient address and the reply
-        (EMAIL_LEAK_RECIPIENT, "example-smtp-refused-reply"),
-        "send_message",
-        lambda: smtplib.SMTPRecipientsRefused(
-            {EMAIL_LEAK_RECIPIENT: (550, b"5.1.1 example-smtp-refused-reply")}),
-        id="recipients",
-    ),
-    pytest.param(
-        ("example-smtp-auth-reply",),
-        "login",
-        lambda: smtplib.SMTPAuthenticationError(535, b"5.7.8 example-smtp-auth-reply"),
-        id="auth",
-    ),
-]
+        raise smtplib.SMTPException("email delivery failed") from ValueError(chained)
+
+    return [
+        # (markers, step, exc_factory): the failure happens at the smtplib
+        # step named - "connect" at the SMTP construction itself, the rest
+        # inside the sender's try after the guards pass - and each row
+        # asserts the step was reached exactly once, so a guard answering
+        # first cannot fake a pass.
+        pytest.param(
+            (connect, EMAIL_ENV["SMTP_HOST"]),
+            "connect",
+            lambda: smtplib.SMTPConnectError(
+                421, f"421 example-smtp-connect-refused {connect}".encode()),
+            id="connect",
+        ),
+        pytest.param(
+            (plain,),
+            "send_message",
+            lambda: Exception(plain),
+            id="plain",
+        ),
+        pytest.param(
+            (chained,),
+            "send_message",
+            lambda: raise_chained,
+            id="chained",
+        ),
+        pytest.param(
+            # a raise at a later smtplib step, not the message send
+            (starttls,),
+            "starttls",
+            lambda: RuntimeError(starttls),
+            id="starttls",
+        ),
+        pytest.param(
+            # SMTPRecipientsRefused carries the recipient address and the reply
+            (EMAIL_LEAK_RECIPIENT, refused_reply.decode().split(" ", 1)[1]),
+            "send_message",
+            lambda: smtplib.SMTPRecipientsRefused(
+                {EMAIL_LEAK_RECIPIENT: (550, refused_reply)}),
+            id="recipients",
+        ),
+        pytest.param(
+            (auth_reply.decode().split(" ", 1)[1],),
+            "login",
+            lambda: smtplib.SMTPAuthenticationError(535, auth_reply),
+            id="auth",
+        ),
+    ]
+
+
+_EMAIL_ERROR_ROWS = _email_error_rows()
 
 
 @pytest.mark.parametrize("markers,step,exc_factory", _EMAIL_ERROR_ROWS)
