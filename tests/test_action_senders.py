@@ -1,5 +1,6 @@
 """Tests for core/action_senders.py: no network, DNS/HTTP/SMTP mocked."""
 import os
+import pytest
 import sys
 from unittest.mock import patch, MagicMock
 
@@ -481,6 +482,172 @@ def test_crm_secrets_never_hit_the_log(caplog):
     for secret in ("your-hubspot-private-app-token", "Doe-Xq7", "Jane",
                    "example-hubspot-error-body"):
         assert secret not in text, secret
+
+
+# The sender's failure log is a secret boundary: real requests client errors
+# carry the configured token (in their message, args and request attribute),
+# and requests itself raises InvalidHeader carrying the FULL header value when
+# a header value holds an internal CR/LF (requests/utils.py
+# _validate_header_part). Red-first: on a sender that logs the failed
+# request's exception (`CRM update error: {e}`) every row below fails by
+# ASSERTION, never by a raise out of the test.
+
+def _leak_text(sentinel):
+    """The payload a leaked CRM exception message carries: the row's sentinel,
+    the configured token and the PATCH URL."""
+    return (f"example-leaked-exception-detail-{sentinel} "
+            f"token={CRM_ENV['HUBSPOT_ACCESS_TOKEN']} "
+            f"url={_FakeHubSpotHTTP.PATCH_URL}")
+
+
+def _request_with_token():
+    """The PreparedRequest a real requests client error carries: the request
+    that was attempted, its headers holding the configured bearer token."""
+    request = a.requests.models.PreparedRequest()
+    request.url = _FakeHubSpotHTTP.PATCH_URL
+    request.headers = {"Authorization": f"Bearer {CRM_ENV['HUBSPOT_ACCESS_TOKEN']}"}
+    return request
+
+
+def _raise_chained(url, json=None, timeout=None, allow_redirects=None, headers=None):
+    cause = ValueError(_leak_text("chained"))
+    raise a.requests.exceptions.RequestException(_leak_text("chained")) from cause
+
+
+def _raise_preparedrequest(url, json=None, timeout=None, allow_redirects=None,
+                           headers=None):
+    # A genuine requests exception without network: requests raising
+    # InvalidHeader on the sender's OWN headers when the configured token
+    # holds an internal CR/LF (one .strip() cannot remove).
+    prepared = a.requests.models.PreparedRequest()
+    prepared.prepare_headers(headers)
+
+
+_CRLF_TOKEN = ("your-hubspot-private-app-token\r\n"
+               "X-Injected: example-leaked-exception-detail-preparedrequest")
+_CRLF_TOKEN_ENV = dict(CRM_ENV, HUBSPOT_ACCESS_TOKEN=_CRLF_TOKEN)
+
+_CRM_CLIENT_ERROR_ROWS = [
+    # (sentinel, side-effect factory, env): every failure happens at the HTTP
+    # call itself - config, parsing and the allowlists pass first, and each
+    # row asserts the PATCH happened exactly once. A row whose guard refuses
+    # before requests.patch would pass on broken code and prove nothing.
+    pytest.param(
+        "connection",
+        lambda: a.requests.exceptions.ConnectionError(
+            _leak_text("connection"), request=_request_with_token()),
+        CRM_ENV,
+        id="connection",
+    ),
+    pytest.param(
+        "timeout",
+        lambda: a.requests.exceptions.Timeout(
+            _leak_text("timeout"), request=_request_with_token()),
+        CRM_ENV,
+        id="timeout",
+    ),
+    pytest.param(
+        "invalidheader",
+        lambda: a.requests.exceptions.InvalidHeader(
+            _leak_text("invalidheader"), request=_request_with_token()),
+        CRM_ENV,
+        id="invalidheader",
+    ),
+    pytest.param(
+        "requestexception",
+        lambda: a.requests.exceptions.RequestException(
+            _leak_text("requestexception"), request=_request_with_token()),
+        CRM_ENV,
+        id="requestexception",
+    ),
+    pytest.param(
+        "plain",
+        lambda: Exception(_leak_text("plain")),
+        CRM_ENV,
+        id="plain",
+    ),
+    pytest.param(
+        "chained",
+        lambda: _raise_chained,
+        CRM_ENV,
+        id="chained",
+    ),
+    pytest.param(
+        "preparedrequest",
+        lambda: _raise_preparedrequest,
+        _CRLF_TOKEN_ENV,
+        id="preparedrequest",
+    ),
+]
+
+
+@pytest.mark.parametrize("sentinel,side_effect_factory,env", _CRM_CLIENT_ERROR_ROWS)
+def test_crm_client_exception_details_never_reach_the_log(caplog, sentinel,
+                                                          side_effect_factory, env):
+    # Mutation: the sender logging the failed request's exception - its
+    # message, args or request attribute, or the whole traceback. Each row
+    # fails at the HTTP call itself and must come back False without raising,
+    # with the PATCH made exactly once, exactly one generic ERROR record, and
+    # none of the token, the PATCH URL or the row's sentinel in any record's
+    # message, exc_text or the formatted caplog output; no record may carry
+    # exc_info or a stack.
+    import logging
+    sender = getattr(a, "send_crm_update", None)
+    assert callable(sender), "send_crm_update missing from core.action_senders"
+    with caplog.at_level(logging.DEBUG):
+        errors = []
+        ok = None
+        with patch.dict(os.environ, env, clear=True), \
+             patch.object(a.requests, "patch",
+                          side_effect=side_effect_factory()) as patch_mock:
+            try:
+                ok = sender("", CRM_CONTENT)
+            except Exception as caught:  # a raise is the failure; record it, don't raise
+                errors.append(caught)
+        # Fail closed, silently: False, no raise, the HTTP call happened.
+        assert ok is False
+        assert not errors, errors
+        patch_mock.assert_called_once()
+        records = caplog.records
+        text = "\n".join(r.getMessage() for r in records)
+        for leak in (CRM_ENV["HUBSPOT_ACCESS_TOKEN"], _FakeHubSpotHTTP.PATCH_URL,
+                     f"example-leaked-exception-detail-{sentinel}"):
+            assert leak not in text, leak
+            assert leak not in caplog.text, leak
+            for r in records:
+                assert leak not in (r.exc_text or ""), leak
+        for r in records:
+            assert r.exc_info is None
+            assert r.stack_info is None
+        crm_records = [r for r in records if r.name == "core.action_senders"]
+        assert len(crm_records) == 1
+        assert crm_records[0].levelno == logging.ERROR
+
+
+def test_crm_status_failure_logs_only_the_status_code(caplog):
+    # Preservation pin: the status path keeps logging only the status code.
+    # The mocked 500/404 responses carry the fake's default body
+    # (example-hubspot-error-body), so a log line extended with the response
+    # body dies here too; none of the token, the body or the request content
+    # may reach the log. Green on the current code by design.
+    import logging
+    for status in (500, 404):
+        caplog.clear()
+        with caplog.at_level(logging.DEBUG):
+            ok, http = _send_crm("", CRM_CONTENT, status=status)
+        assert ok is False
+        assert len(http.calls) == 1
+        crm_records = [r for r in caplog.records if r.name == "core.action_senders"]
+        assert len(crm_records) == 1
+        assert crm_records[0].levelno == logging.ERROR
+        assert str(status) in crm_records[0].getMessage()
+        text = "\n".join(r.getMessage() for r in caplog.records)
+        for secret in (CRM_ENV["HUBSPOT_ACCESS_TOKEN"], "example-hubspot-error-body",
+                       "Jane", "Doe-Xq7"):
+            assert secret not in text, secret
+            assert secret not in caplog.text, secret
+            for r in caplog.records:
+                assert secret not in (r.exc_text or ""), secret
 
 
 def test_crm_tool_offered_only_when_fully_configured():
