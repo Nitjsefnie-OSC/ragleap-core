@@ -756,6 +756,9 @@ def test_autonomy_crm_dispatch_without_config_fails_closed():
 
 import json as _json
 
+import pytest
+import requests
+
 from core.employees import actions as actions_module
 
 CAL_ENV = {
@@ -793,11 +796,14 @@ class _FakeGoogleHTTP:
     )
 
     def __init__(self, token_status=200, token_body='{"access_token": "%s"}' % ACCESS_TOKEN,
-                 insert_status=200, insert_body="example-insert-error-body"):
+                 insert_status=200, insert_body="example-insert-error-body",
+                 token_raise=None, insert_raise=None):
         self.token_status = token_status
         self.token_body = token_body
         self.insert_status = insert_status
         self.insert_body = insert_body
+        self.token_raise = token_raise
+        self.insert_raise = insert_raise
         self.calls = []
 
     def __call__(self, url, json=None, data=None, timeout=None,
@@ -815,6 +821,8 @@ class _FakeGoogleHTTP:
                     or data.get("refresh_token") != CAL_ENV["GOOGLE_CALENDAR_REFRESH_TOKEN"]):
                 # Mutation: credential values swapped or replaced.
                 raise AssertionError("token exchange did not use the configured credentials")
+            if self.token_raise is not None:
+                raise self.token_raise
             resp = MagicMock(status_code=self.token_status)
             resp.json.return_value = _json.loads(self.token_body)
             return resp
@@ -822,6 +830,8 @@ class _FakeGoogleHTTP:
             if headers.get("Authorization") != f"Bearer {ACCESS_TOKEN}":
                 # Mutation: a token not issued by the fake being replayed.
                 raise AssertionError("insert did not carry the fake-issued access token")
+            if self.insert_raise is not None:
+                raise self.insert_raise
             resp = MagicMock(status_code=self.insert_status)
             resp.text = self.insert_body  # a distinctive body the log test can hunt for
             return resp
@@ -1005,6 +1015,83 @@ def test_calendar_secrets_never_hit_the_log(caplog):
                    "example-token-endpoint-body", "example-no-token-body",
                    "example-insert-error-body"):
         assert secret not in text, secret
+
+
+def _leak_marker(stage, kind):
+    """A distinct request-detail-shaped marker per (stage, exception-kind):
+    a URL with a query string and a bearer-looking value."""
+    return (f"https://calendar.example.invalid/events?cal=demo-{stage}"
+            f"&bearer=example-{kind}-leak")
+
+
+def _calendar_raise_cases():
+    cases = []
+    for stage in ("token", "insert"):
+        for kind in ("Exception", "ConnectionError", "Timeout", "HTTPError"):
+            marker = _leak_marker(stage, kind)
+            if kind == "Exception":
+                exc = Exception(marker)
+            else:
+                exc = getattr(requests.exceptions, kind)(marker)
+            cases.append(pytest.param(stage, kind, exc, id=f"{stage}-{kind}"))
+    return cases
+
+
+@pytest.mark.parametrize("stage,kind,exc", _calendar_raise_cases())
+def test_calendar_http_exception_text_never_reaches_the_log(caplog, stage, kind, exc):
+    # Mutation: the catch-all logging exception text (`Calendar event error:
+    # {e}`). The marker the exception carries must appear nowhere on the whole
+    # log surface; the sender stays fail-closed with one generic ERROR record.
+    import logging
+    marker = str(exc)
+    http = _FakeGoogleHTTP(**{f"{stage}_raise": exc})
+    with caplog.at_level(logging.DEBUG):
+        assert _send_calendar("", CAL_CONTENT, http=http) is False
+    assert marker not in caplog.text  # formatted handler output incl. tracebacks
+    for record in caplog.records:
+        assert marker not in record.getMessage(), marker
+        for arg in (record.args or ()):
+            assert marker not in str(arg)
+        assert record.exc_info is None
+    assert kind not in caplog.text
+    assert len([r for r in caplog.records if r.levelno == logging.ERROR]) == 1
+    assert len(http.calls) == (1 if stage == "token" else 2)
+
+
+def test_calendar_http_exception_log_message_is_constant_across_exceptions(caplog):
+    # Mutation: the catch-all interpolating anything exception-derived. Two
+    # different exceptions on the same stage must produce byte-identical
+    # ERROR messages, or the log is a channel for request detail.
+    import logging
+    with caplog.at_level(logging.DEBUG):
+        for stage in ("token", "insert"):
+            messages = []
+            for marker in ("https://calendar.example.invalid/?q=example-first-leak",
+                           "https://calendar.example.invalid/?q=demo-second-leak"):
+                exc = requests.exceptions.ConnectionError(marker)
+                http = _FakeGoogleHTTP(**{f"{stage}_raise": exc})
+                before = len(caplog.records)
+                assert _send_calendar("", CAL_CONTENT, http=http) is False
+                errors = [r for r in caplog.records[before:]
+                          if r.levelno == logging.ERROR]
+                assert len(errors) == 1
+                messages.append(errors[0].getMessage())
+            assert messages[0] == messages[1]
+
+
+def test_calendar_status_code_logging_is_untouched(caplog):
+    # Mutation: a later log-hygiene change also touching the status-code-only
+    # lines. Those carry no exception detail and must stay byte-identical.
+    import logging
+    with caplog.at_level(logging.DEBUG):
+        assert _send_calendar("", CAL_CONTENT, http=_FakeGoogleHTTP(
+            token_status=401,
+            token_body='{"error": "example-token-status-body"}')) is False
+        assert _send_calendar("", CAL_CONTENT,
+                              http=_FakeGoogleHTTP(insert_status=500)) is False
+    messages = [r.getMessage() for r in caplog.records]
+    assert "Google token exchange failed with status 401" in messages
+    assert "Calendar insert failed with status 500" in messages
 
 
 def test_calendar_tool_offered_only_when_fully_configured():
