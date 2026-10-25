@@ -348,8 +348,10 @@ def _parse_event(content: str) -> Optional[Dict]:
     """Parse the documented event shape out of an action's `content`: leading
     'Key: value' lines, case-insensitive - 'Title:', 'Start:', 'End:',
     'Attendees:' (comma-separated), 'Description:' (the rest of the content).
-    Title/Start/End are required; Start/End must be RFC 3339 with an offset,
-    End strictly after Start; every field except Description may appear once.
+    Title/Start/End are required; Start/End must be a date-time with an
+    explicit UTC offset (the parser accepts datetime.fromisoformat's forms;
+    anything Google's API rejects fails closed at insert), End strictly
+    after Start; every field except Description may appear once.
     Anything malformed is None. No I/O."""
     title = start_s = end_s = None
     have_attendees = False
