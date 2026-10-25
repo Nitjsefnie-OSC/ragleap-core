@@ -332,7 +332,7 @@ def _calendar_config() -> Optional[Dict[str, str]]:
 
 
 def _parse_rfc3339(value: str) -> Optional[datetime]:
-    """An RFC 3339 date-time with an explicit UTC offset ('Z' counts). Naive
+    """A date-time with an explicit UTC offset ('Z' counts). Naive
     strings are refused: there is no owner-chosen default zone to apply."""
     v = (value or "").strip()
     if v[-1:] in ("Z", "z"):
@@ -399,7 +399,8 @@ def _attendees_allowed(attendees: list) -> bool:
 def _google_access_token(cfg: Dict[str, str]) -> Optional[str]:
     """Exchange the owner's refresh token for a short-lived access token
     (bring-your-own OAuth client, core/integrations/gmail_connector.py's
-    model). None on any failure; the token is never logged."""
+    model). None on any failure it can see; transport errors propagate to
+    the sender's catch-all. The token is never logged."""
     resp = requests.post(
         GOOGLE_TOKEN_URI,
         data={"client_id": cfg["GOOGLE_CALENDAR_CLIENT_ID"],
