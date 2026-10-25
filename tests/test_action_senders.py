@@ -797,13 +797,14 @@ class _FakeGoogleHTTP:
 
     def __init__(self, token_status=200, token_body='{"access_token": "%s"}' % ACCESS_TOKEN,
                  insert_status=200, insert_body="example-insert-error-body",
-                 token_raise=None, insert_raise=None):
+                 token_raise=None, insert_raise=None, json_raise=None):
         self.token_status = token_status
         self.token_body = token_body
         self.insert_status = insert_status
         self.insert_body = insert_body
         self.token_raise = token_raise
         self.insert_raise = insert_raise
+        self.json_raise = json_raise
         self.calls = []
 
     def __call__(self, url, json=None, data=None, timeout=None,
@@ -824,7 +825,10 @@ class _FakeGoogleHTTP:
             if self.token_raise is not None:
                 raise self.token_raise
             resp = MagicMock(status_code=self.token_status)
-            resp.json.return_value = _json.loads(self.token_body)
+            if self.json_raise is not None:
+                resp.json.side_effect = self.json_raise
+            else:
+                resp.json.return_value = _json.loads(self.token_body)
             return resp
         if url == self.INSERT_URL and data is None and isinstance(json, dict):
             if headers.get("Authorization") != f"Bearer {ACCESS_TOKEN}":
@@ -1017,6 +1021,13 @@ def test_calendar_secrets_never_hit_the_log(caplog):
         assert secret not in text, secret
 
 
+class _ShyException(Exception):
+    """A leak-shaped exception with a clean face: __str__ is a fixed clean
+    string while the marker rides only in args, so str(exc) interpolation
+    looks innocent and only the byte-exact message pin plus the args hunt
+    can see an args-formatting mutant."""
+
+
 def _leak_marker(stage, kind):
     """A distinct request-detail-shaped marker per (stage, exception-kind):
     a URL with a query string and a bearer-looking value."""
@@ -1054,7 +1065,9 @@ def test_calendar_http_exception_text_never_reaches_the_log(caplog, stage, kind,
             assert marker not in str(arg)
         assert record.exc_info is None
     assert kind not in caplog.text
-    assert len([r for r in caplog.records if r.levelno == logging.ERROR]) == 1
+    errors = [r for r in caplog.records if r.levelno == logging.ERROR]
+    assert len(errors) == 1
+    assert errors[0].getMessage() == "Calendar event failed"  # the constant, byte-exact
     assert len(http.calls) == (1 if stage == "token" else 2)
 
 
@@ -1077,6 +1090,43 @@ def test_calendar_http_exception_log_message_is_constant_across_exceptions(caplo
                 assert len(errors) == 1
                 messages.append(errors[0].getMessage())
             assert messages[0] == messages[1]
+
+
+def test_calendar_token_json_parse_failure_logs_only_the_fixed_line(caplog):
+    # Mutation: the token response's .json() raising request detail and the
+    # parse handler logging it (core/action_senders.py: `except Exception`
+    # -> token None -> the fixed no-token line). The marker must appear
+    # nowhere; the one ERROR record is that fixed line, byte-exact.
+    import logging
+    marker = _leak_marker("token", "JsonParse")
+    http = _FakeGoogleHTTP(json_raise=requests.exceptions.ConnectionError(marker))
+    with caplog.at_level(logging.DEBUG):
+        assert _send_calendar("", CAL_CONTENT, http=http) is False
+    errors = [r for r in caplog.records if r.levelno == logging.ERROR]
+    assert len(errors) == 1
+    assert errors[0].getMessage() == "Google token exchange returned no access_token"
+    assert marker not in caplog.text
+    assert len(http.calls) == 1  # refused before any insert attempt
+
+
+def test_calendar_shy_exception_args_never_reach_the_log(caplog):
+    # Mutation: the catch-all formatting the exception's args or a traceback.
+    # _ShyException's __str__ is clean by construction, so a marker-only
+    # assertion cannot see a message-mutant here: the byte-exact constant
+    # pin is the tooth, the args hunt the second.
+    import logging
+    marker = _leak_marker("insert", "Shy")
+    http = _FakeGoogleHTTP(insert_raise=_ShyException(marker))
+    with caplog.at_level(logging.DEBUG):
+        assert _send_calendar("", CAL_CONTENT, http=http) is False
+    errors = [r for r in caplog.records if r.levelno == logging.ERROR]
+    assert len(errors) == 1
+    assert errors[0].getMessage() == "Calendar event failed"
+    assert marker not in caplog.text
+    for record in caplog.records:
+        for arg in (record.args or ()):
+            assert marker not in str(arg)
+    assert len(http.calls) == 2  # token exchange succeeded, insert raised
 
 
 def test_calendar_status_code_logging_is_untouched(caplog):
