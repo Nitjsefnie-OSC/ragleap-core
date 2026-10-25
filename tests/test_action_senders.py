@@ -1252,3 +1252,444 @@ def test_autonomy_calendar_dispatch_without_config_fails_closed():
         out = autonomy._send_via_channel("calendar", "", CAL_CONTENT)
     assert out == "Calendar event: failed"
     http.assert_not_called()
+
+
+# ---- webhook / slack / email exception-log hygiene ---------------------------
+# The legacy senders' catch-alls must log a constant, exception-free line, like
+# the CRM and calendar senders above: their failures carry the destination URL
+# (the SLACK_WEBHOOK_URL path is a credential), SMTP replies and recipient
+# addresses. Every literal below is placeholder-prefixed and built from parts;
+# the fake HTTP layer fails on any request it does not model.
+
+import logging as _logging
+import smtplib
+
+WEBHOOK_LEAK_URL = "https://hooks.example.com/services/" + "example-webhook-token"
+WEBHOOK_LEAK_ENV = {"WEBHOOK_TARGETS": "n8n=" + WEBHOOK_LEAK_URL}
+SLACK_LEAK_URL = "https://hooks.slack.com/" + "services/" + "example-slack-hook-path"
+SLACK_LEAK_ENV = {"SLACK_WEBHOOK_URL": SLACK_LEAK_URL}
+EMAIL_LEAK_RECIPIENT = "example-recipient@example.com"
+
+
+def _sender_leak_text(surface, sentinel, destination):
+    """The payload a leaked sender exception carries: the row's sentinel, the
+    configured destination URL/host - the secret-shaped surface."""
+    return (f"example-leaked-exception-detail-{surface}-{sentinel} "
+            f"destination={destination}")
+
+
+class _ShySendException(Exception):
+    """A leak-shaped exception with a clean face: __str__ returns a fixed
+    clean string while the marker rides only in args, so str(exc)
+    interpolation looks innocent and only the byte-exact message pin plus the
+    args hunt can see an args-formatting mutant."""
+
+    def __init__(self, marker, face):
+        super().__init__(marker)
+        self.face = face
+
+    def __str__(self):
+        return self.face
+
+
+def _late_status_response(marker):
+    """A response whose status_code access itself raises: a raise site after
+    the transport call returned. The PropertyMock goes on this per-call
+    MagicMock subclass, never on MagicMock itself."""
+    class _LateResponse(MagicMock):
+        pass
+    resp = _LateResponse()
+    type(resp).status_code = PropertyMock(side_effect=RuntimeError(marker))
+    return resp
+
+
+def _log_hygiene_assertions(caplog, markers, fixed_message):
+    """The whole log surface is clean: no marker at any level from any logger,
+    on any of the four layers (formatted getMessage, msg, args, exc_info /
+    exc_text), no traceback carried, and exactly one ERROR record from the
+    sender's logger whose message is byte-equal to the fixed literal."""
+    for marker in markers:
+        assert marker not in caplog.text, marker  # formatted output incl. tracebacks
+        for record in caplog.records:
+            assert marker not in record.getMessage(), marker
+            assert marker not in str(record.msg), marker
+            for arg in (record.args or ()):
+                assert marker not in str(arg), marker
+            assert record.exc_info is None
+            assert record.stack_info is None
+            assert marker not in (record.exc_text or ""), marker
+    sent_records = [r for r in caplog.records if r.name == "core.action_senders"]
+    assert len(sent_records) == 1
+    assert sent_records[0].levelno == _logging.ERROR
+    message = sent_records[0].getMessage()
+    assert message == fixed_message, (
+        f"the failure log is not the fixed literal (row markers: {markers!r}): "
+        f"{message!r}")
+
+
+class _FakePostHTTP:
+    """Fake HTTP layer for the webhook and slack senders. Each instance models
+    EXACTLY one request - the POST to the one URL it is built with - and
+    FAILS the run on any other request: a stub that accepts an unmodeled
+    command agrees with anything, so it would prove nothing. raise_exc raises
+    at the POST itself (an instance, or a zero-arg callable); late_raise
+    returns a response whose status_code access raises, a raise site after
+    the transport call."""
+
+    def __init__(self, url, status=200, raise_exc=None, late_raise=None):
+        self.url = url
+        self.status = status
+        self.raise_exc = raise_exc
+        self.late_raise = late_raise
+        self.calls = []
+
+    def __call__(self, url, json=None, timeout=None, allow_redirects=None):
+        self.calls.append({"url": url})
+        if allow_redirects is not False or timeout != 15:
+            # Mutation: dropping the no-redirect / timeout contract.
+            raise AssertionError(f"request without the sender contract: {url}")
+        if url != self.url:
+            raise AssertionError(f"unmodeled request: {url}")
+        if self.raise_exc is not None:
+            if callable(self.raise_exc):
+                self.raise_exc()
+            raise self.raise_exc
+        if self.late_raise is not None:
+            return _late_status_response(self.late_raise)
+        return MagicMock(status_code=self.status)
+
+
+def _destination_request(url):
+    """The PreparedRequest a real requests client error carries: the request
+    that was attempted, its URL the configured destination."""
+    request = a.requests.models.PreparedRequest()
+    request.url = url
+    return request
+
+
+def _send_webhook(content, http):
+    """One webhook send with the guard's inputs truthy (the configured public
+    target) and the whole HTTP layer replaced by the strict fake."""
+    with patch.dict(os.environ, WEBHOOK_LEAK_ENV, clear=True), \
+         patch.object(a.socket, "getaddrinfo", return_value=PUBLIC), \
+         patch.object(a.requests, "post", http):
+        return a.send_webhook("n8n", content)
+
+
+def _raise_webhook_chained():
+    cause = ValueError(_sender_leak_text("webhook", "chained", WEBHOOK_LEAK_URL))
+    raise a.requests.exceptions.ConnectionError("webhook transport failed") from cause
+
+
+_WEBHOOK_ERROR_ROWS = [
+    pytest.param(
+        (_sender_leak_text("webhook", "plain", WEBHOOK_LEAK_URL),),
+        lambda: _FakePostHTTP(WEBHOOK_LEAK_URL,
+                              raise_exc=Exception(_sender_leak_text("webhook", "plain",
+                                                             WEBHOOK_LEAK_URL))),
+        id="plain",
+    ),
+    pytest.param(
+        (_sender_leak_text("webhook", "connection", WEBHOOK_LEAK_URL),),
+        lambda: _FakePostHTTP(
+            WEBHOOK_LEAK_URL,
+            raise_exc=a.requests.exceptions.ConnectionError(
+                _sender_leak_text("webhook", "connection", WEBHOOK_LEAK_URL),
+                request=_destination_request(WEBHOOK_LEAK_URL))),
+        id="connection",
+    ),
+    pytest.param(
+        (_sender_leak_text("webhook", "timeout", WEBHOOK_LEAK_URL),),
+        lambda: _FakePostHTTP(
+            WEBHOOK_LEAK_URL,
+            raise_exc=a.requests.exceptions.Timeout(
+                _sender_leak_text("webhook", "timeout", WEBHOOK_LEAK_URL),
+                request=_destination_request(WEBHOOK_LEAK_URL))),
+        id="timeout",
+    ),
+    pytest.param(
+        # the marker sits ONLY in __cause__: str() of the raised exception is
+        # clean, so only a traceback/exc_info path can leak it
+        (_sender_leak_text("webhook", "chained", WEBHOOK_LEAK_URL),),
+        lambda: _FakePostHTTP(WEBHOOK_LEAK_URL, raise_exc=_raise_webhook_chained),
+        id="chained",
+    ),
+    pytest.param(
+        (_sender_leak_text("webhook", "late", WEBHOOK_LEAK_URL),),
+        lambda: _FakePostHTTP(WEBHOOK_LEAK_URL,
+                              late_raise=_sender_leak_text("webhook", "late",
+                                                    WEBHOOK_LEAK_URL)),
+        id="late",
+    ),
+]
+
+
+@pytest.mark.parametrize("markers,http_factory", _WEBHOOK_ERROR_ROWS)
+def test_webhook_exception_text_never_reaches_the_log(caplog, markers, http_factory):
+    # Mutation: the catch-all logging the exception (`Webhook send error:
+    # {e}`). The marker rides in the exception's own text (chained: only in
+    # __cause__; late: in a post-response RuntimeError) and must appear
+    # nowhere on the whole log surface, while the sender stays fail-closed.
+    errors = []
+    ok = None
+    http = http_factory()
+    with caplog.at_level(_logging.DEBUG):
+        try:
+            ok = _send_webhook("hello", http)
+        except Exception as caught:  # a raise is the failure; record it, don't raise
+            errors.append(caught)
+    assert ok is False
+    assert not errors, errors
+    assert len(http.calls) == 1  # the raise site was reached, no guard refused
+    assert http.calls == [{"url": WEBHOOK_LEAK_URL}]
+    _log_hygiene_assertions(caplog, markers, "Webhook send failed")
+
+
+def test_webhook_exception_log_message_is_constant_across_exceptions(caplog):
+    # Mutation: the catch-all interpolating anything exception-derived. Two
+    # different exceptions - one whose str() is clean by construction while
+    # the marker rides only in args - must each produce exactly one ERROR
+    # record whose message is byte-equal to the same fixed literal.
+    markers = (_sender_leak_text("webhook", "shy", WEBHOOK_LEAK_URL),
+               _sender_leak_text("webhook", "constant", WEBHOOK_LEAK_URL))
+    exceptions = (_ShySendException(markers[0], "clean-webhook-failure"),
+                  a.requests.exceptions.ConnectionError(markers[1]))
+    messages = []
+    with caplog.at_level(_logging.DEBUG):
+        for marker, exc in zip(markers, exceptions):
+            caplog.clear()
+            assert _send_webhook("hello", _FakePostHTTP(WEBHOOK_LEAK_URL,
+                                                        raise_exc=exc)) is False
+            _log_hygiene_assertions(caplog, (marker,), "Webhook send failed")
+            messages.append([r.getMessage() for r in caplog.records
+                             if r.name == "core.action_senders"][0])
+    assert messages[0] == messages[1]
+
+
+def test_webhook_status_code_logging_is_untouched(caplog):
+    # Preservation pins, green on the unfixed code by design: the 2xx/4xx
+    # status path keeps its exact return band and logs nothing - no record of
+    # any wording from the sender's logger.
+    with caplog.at_level(_logging.DEBUG):
+        assert _send_webhook("hello", _FakePostHTTP(WEBHOOK_LEAK_URL, status=200)) is True
+        assert _send_webhook("hello", _FakePostHTTP(WEBHOOK_LEAK_URL, status=404)) is False
+    assert [r for r in caplog.records if r.name == "core.action_senders"] == []
+
+
+def _send_slack(content, http):
+    """One slack send with the guard's input truthy (the configured
+    hooks.slack.com URL) and the whole HTTP layer replaced by the strict
+    fake; the slack tests touch no webhook/email env or code path."""
+    with patch.dict(os.environ, SLACK_LEAK_ENV, clear=True), \
+         patch.object(a.requests, "post", http):
+        return a.send_slack("label", content)
+
+
+def _raise_slack_chained():
+    cause = ValueError(_sender_leak_text("slack", "chained", SLACK_LEAK_URL))
+    raise a.requests.exceptions.ConnectionError("slack transport failed") from cause
+
+
+_SLACK_ERROR_ROWS = [
+    pytest.param(
+        (_sender_leak_text("slack", "plain", SLACK_LEAK_URL),),
+        lambda: _FakePostHTTP(SLACK_LEAK_URL,
+                              raise_exc=Exception(_sender_leak_text("slack", "plain",
+                                                             SLACK_LEAK_URL))),
+        id="plain",
+    ),
+    pytest.param(
+        (_sender_leak_text("slack", "connection", SLACK_LEAK_URL),),
+        lambda: _FakePostHTTP(
+            SLACK_LEAK_URL,
+            raise_exc=a.requests.exceptions.ConnectionError(
+                _sender_leak_text("slack", "connection", SLACK_LEAK_URL),
+                request=_destination_request(SLACK_LEAK_URL))),
+        id="connection",
+    ),
+    pytest.param(
+        (_sender_leak_text("slack", "timeout", SLACK_LEAK_URL),),
+        lambda: _FakePostHTTP(
+            SLACK_LEAK_URL,
+            raise_exc=a.requests.exceptions.Timeout(
+                _sender_leak_text("slack", "timeout", SLACK_LEAK_URL),
+                request=_destination_request(SLACK_LEAK_URL))),
+        id="timeout",
+    ),
+    pytest.param(
+        # the marker sits ONLY in __cause__: str() of the raised exception is
+        # clean, so only a traceback/exc_info path can leak it
+        (_sender_leak_text("slack", "chained", SLACK_LEAK_URL),),
+        lambda: _FakePostHTTP(SLACK_LEAK_URL, raise_exc=_raise_slack_chained),
+        id="chained",
+    ),
+    pytest.param(
+        (_sender_leak_text("slack", "late", SLACK_LEAK_URL),),
+        lambda: _FakePostHTTP(SLACK_LEAK_URL,
+                              late_raise=_sender_leak_text("slack", "late",
+                                                    SLACK_LEAK_URL)),
+        id="late",
+    ),
+]
+
+
+@pytest.mark.parametrize("markers,http_factory", _SLACK_ERROR_ROWS)
+def test_slack_exception_text_never_reaches_the_log(caplog, markers, http_factory):
+    # Mutation: the catch-all logging the exception (`Slack send error: {e}`).
+    # The marker carries the SLACK_WEBHOOK_URL path - a credential - and must
+    # appear nowhere on the whole log surface, while the sender stays
+    # fail-closed.
+    errors = []
+    ok = None
+    http = http_factory()
+    with caplog.at_level(_logging.DEBUG):
+        try:
+            ok = _send_slack("hello", http)
+        except Exception as caught:  # a raise is the failure; record it, don't raise
+            errors.append(caught)
+    assert ok is False
+    assert not errors, errors
+    assert len(http.calls) == 1  # the raise site was reached, no guard refused
+    assert http.calls == [{"url": SLACK_LEAK_URL}]
+    _log_hygiene_assertions(caplog, markers, "Slack send failed")
+
+
+def test_slack_exception_log_message_is_constant_across_exceptions(caplog):
+    # Mutation: the catch-all interpolating anything exception-derived. Two
+    # different exceptions - one whose str() is clean by construction while
+    # the marker rides only in args - must each produce exactly one ERROR
+    # record whose message is byte-equal to the same fixed literal.
+    markers = (_sender_leak_text("slack", "shy", SLACK_LEAK_URL),
+               _sender_leak_text("slack", "constant", SLACK_LEAK_URL))
+    exceptions = (_ShySendException(markers[0], "clean-slack-failure"),
+                  a.requests.exceptions.ConnectionError(markers[1]))
+    messages = []
+    with caplog.at_level(_logging.DEBUG):
+        for marker, exc in zip(markers, exceptions):
+            caplog.clear()
+            assert _send_slack("hello", _FakePostHTTP(SLACK_LEAK_URL,
+                                                      raise_exc=exc)) is False
+            _log_hygiene_assertions(caplog, (marker,), "Slack send failed")
+            messages.append([r.getMessage() for r in caplog.records
+                             if r.name == "core.action_senders"][0])
+    assert messages[0] == messages[1]
+
+
+def test_slack_status_code_logging_is_untouched(caplog):
+    # Preservation pin, green on the unfixed code by design: the 2xx/4xx
+    # status paths keep their exact return band and log nothing - no record
+    # of any wording from the sender's logger.
+    with caplog.at_level(_logging.DEBUG):
+        assert _send_slack("hello", _FakePostHTTP(SLACK_LEAK_URL, status=200)) is True
+        assert _send_slack("hello", _FakePostHTTP(SLACK_LEAK_URL, status=404)) is False
+    assert [r for r in caplog.records if r.name == "core.action_senders"] == []
+
+
+def _send_email(content, cls):
+    """One email send through the sender with the smtplib transport replaced
+    by the sibling _smtp() helper's class mock; the email tests touch no
+    webhook/slack env or code path."""
+    with patch.dict(os.environ, EMAIL_ENV, clear=True), \
+         patch.object(a.smtplib, "SMTP", cls):
+        return a.send_email("boss@acme.com", content)
+
+
+def _raise_email_chained():
+    cause = ValueError(_sender_leak_text("email", "chained", EMAIL_ENV["SMTP_HOST"]))
+    raise smtplib.SMTPException("email delivery failed") from cause
+
+
+_EMAIL_ERROR_ROWS = [
+    # (markers, step, exc_factory): the failure happens at the smtplib step
+    # named - "connect" at the SMTP construction itself, the rest inside the
+    # sender's try after the guards pass - and each row asserts the step was
+    # reached exactly once, so a guard answering first cannot fake a pass.
+    pytest.param(
+        (_sender_leak_text("email", "connect", EMAIL_ENV["SMTP_HOST"]),
+         EMAIL_ENV["SMTP_HOST"]),
+        "connect",
+        lambda: smtplib.SMTPConnectError(
+            421, f"421 example-smtp-connect-refused {_sender_leak_text('email', 'connect', EMAIL_ENV['SMTP_HOST'])}".encode()),
+        id="connect",
+    ),
+    pytest.param(
+        (_sender_leak_text("email", "plain", EMAIL_ENV["SMTP_HOST"]),),
+        "send_message",
+        lambda: Exception(_sender_leak_text("email", "plain", EMAIL_ENV["SMTP_HOST"])),
+        id="plain",
+    ),
+    pytest.param(
+        # the marker sits ONLY in __cause__: str() of the raised exception is
+        # clean, so only a traceback/exc_info path can leak it
+        (_sender_leak_text("email", "chained", EMAIL_ENV["SMTP_HOST"]),),
+        "send_message",
+        lambda: _raise_email_chained,
+        id="chained",
+    ),
+    pytest.param(
+        # a raise at a later smtplib step, not the message send
+        (_sender_leak_text("email", "starttls", EMAIL_ENV["SMTP_HOST"]),),
+        "starttls",
+        lambda: RuntimeError(_sender_leak_text("email", "starttls", EMAIL_ENV["SMTP_HOST"])),
+        id="starttls",
+    ),
+    pytest.param(
+        # SMTPRecipientsRefused carries the recipient address and the reply
+        (EMAIL_LEAK_RECIPIENT, "example-smtp-refused-reply"),
+        "send_message",
+        lambda: smtplib.SMTPRecipientsRefused(
+            {EMAIL_LEAK_RECIPIENT: (550, b"5.1.1 example-smtp-refused-reply")}),
+        id="recipients",
+    ),
+    pytest.param(
+        ("example-smtp-auth-reply",),
+        "login",
+        lambda: smtplib.SMTPAuthenticationError(535, b"5.7.8 example-smtp-auth-reply"),
+        id="auth",
+    ),
+]
+
+
+@pytest.mark.parametrize("markers,step,exc_factory", _EMAIL_ERROR_ROWS)
+def test_email_exception_text_never_reaches_the_log(caplog, markers, step,
+                                                    exc_factory):
+    # Mutation: the catch-all logging the exception (`Email send error: {e}`).
+    # The markers ride in the smtplib exception's own text - the recipient
+    # address and the SMTP reply - and must appear nowhere on the whole log
+    # surface, while the sender stays fail-closed.
+    errors = []
+    ok = None
+    cls, smtp = _smtp()
+    raise_site = cls if step == "connect" else getattr(smtp, step)
+    raise_site.side_effect = exc_factory()
+    with caplog.at_level(_logging.DEBUG):
+        try:
+            ok = _send_email("hello", cls)
+        except Exception as caught:  # a raise is the failure; record it, don't raise
+            errors.append(caught)
+    assert ok is False
+    assert not errors, errors
+    raise_site.assert_called_once()  # the raise site was reached, no guard refused
+    _log_hygiene_assertions(caplog, markers, "Email send failed")
+
+
+def test_email_exception_log_message_is_constant_across_exceptions(caplog):
+    # Mutation: the catch-all interpolating anything exception-derived. Two
+    # different exceptions - one whose str() is clean by construction while
+    # the marker rides only in args - must each produce exactly one ERROR
+    # record whose message is byte-equal to the same fixed literal.
+    markers = (_sender_leak_text("email", "shy", EMAIL_ENV["SMTP_HOST"]),
+               _sender_leak_text("email", "constant", EMAIL_ENV["SMTP_HOST"]))
+    exceptions = (_ShySendException(markers[0], "clean-email-failure"),
+                  smtplib.SMTPException(markers[1]))
+    messages = []
+    with caplog.at_level(_logging.DEBUG):
+        for marker, exc in zip(markers, exceptions):
+            cls, smtp = _smtp()
+            smtp.send_message.side_effect = exc
+            caplog.clear()
+            assert _send_email("hello", cls) is False
+            _log_hygiene_assertions(caplog, (marker,), "Email send failed")
+            messages.append([r.getMessage() for r in caplog.records
+                             if r.name == "core.action_senders"][0])
+    assert messages[0] == messages[1]
