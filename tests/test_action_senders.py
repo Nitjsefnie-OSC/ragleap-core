@@ -866,8 +866,11 @@ def test_calendar_is_an_outbound_tool_for_the_taint_rule():
 
 def test_calendar_unconfigured_refuses_without_request():
     # Defaults byte-identical: with nothing configured nothing happens.
+    # clear=True so an ambient GOOGLE_CALENDAR_* cannot leak into the case
+    # (patch.dict(os.environ, {}) alone clears nothing).
     http = MagicMock()
-    ok = _send_calendar(CAL_MODEL_TARGET, CAL_CONTENT, env={}, http=http)
+    with patch.dict(os.environ, {}, clear=True), patch.object(a.requests, "post", http):
+        ok = a.send_calendar_event(CAL_MODEL_TARGET, CAL_CONTENT)
     assert ok is False
     http.assert_not_called()  # no write of any kind, not a checked subset
 
